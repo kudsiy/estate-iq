@@ -54,8 +54,12 @@ export function serveStatic(app: Express) {
       : path.resolve(import.meta.dirname, "public");
   if (!fs.existsSync(distPath)) {
     console.error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
+      `\x1b[31m[ERROR] Missing client build directory: ${distPath}\x1b[0m`
     );
+    console.error(
+      `\x1b[33mPlease run 'pnpm run build' before starting the production server.\x1b[0m`
+    );
+    process.exit(1);
   }
 
   app.use(express.static(distPath));

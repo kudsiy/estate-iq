@@ -2,11 +2,23 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import crypto from "crypto";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { handleExternalLead } from "./leads";
+import { startSocialWorker } from "./social";
+
+// Extend Express Request to include rawBody for HMAC verification
+declare global {
+  namespace Express {
+    interface Request {
+      rawBody?: Buffer;
+    }
+  }
+}
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,16 +42,48 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
+  // Configure body parser with larger size limit for file uploads.
+  // We use the 'verify' property to capture the raw body for HMAC checks.
+  app.use(express.json({
+    limit: "50mb",
+    verify: (req, _res, buf) => {
+      (req as express.Request).rawBody = buf;
+    }
+  }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
+  // ── External Lead Ingestion API ──
+  app.post("/api/leads/external", async (req, res) => {
+    await handleExternalLead(req, res);
+  });
+
   // ── Chapa Webhook Handler (outside tRPC) ──
   app.post("/api/webhooks/chapa", async (req, res) => {
-    // TODO: Verify Chapa HMAC signature using CHAPA_SECRET_KEY before going live
     try {
+      // 1. Verify Chapa HMAC signature
+      const secret = process.env.CHAPA_SECRET_KEY;
+      const signature = req.headers["x-chapa-signature"];
+
+      if (!secret) {
+        console.warn("[Chapa Webhook] CHAPA_SECRET_KEY not set. Signature check skipped for development.");
+      } else if (!signature || !req.rawBody) {
+        console.error("[Chapa Webhook] Missing signature or raw body");
+        return res.status(401).json({ error: "Missing signature" });
+      } else {
+        const hash = crypto
+          .createHmac("sha256", secret)
+          .update(req.rawBody)
+          .digest("hex");
+
+        if (hash !== signature) {
+          console.error("[Chapa Webhook] Invalid signature");
+          return res.status(401).json({ error: "Invalid signature" });
+        }
+      }
+
+      // 2. Process payload
       const { tx_ref, status, plan } = req.body as {
         tx_ref?: string;
         status?: string;
@@ -191,6 +235,9 @@ async function startServer() {
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
+
+  // Start background workers
+  startSocialWorker(60000); // Check once per minute
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);

@@ -42,7 +42,9 @@ import {
   Search,
   CreditCard,
   Shield,
+  AlertTriangle,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
@@ -138,6 +140,7 @@ type DashboardLayoutContentProps = {
 function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
+  const { data: current } = trpc.subscription.current.useQuery();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
@@ -305,6 +308,36 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             </div>
           </div>
         )}
+
+        {/* Expired Subscription Banner */}
+        {current && !current.isActive && (
+          <div className="bg-destructive/10 border-b border-destructive/20 px-6 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/20">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-destructive">
+                  {current.workspace?.subscriptionStatus === "trial" 
+                    ? "Your trial has expired" 
+                    : "Your subscription is inactive"}
+                </p>
+                <p className="text-xs text-destructive/80">
+                  Enable your subscription to continue using all features.
+                </p>
+              </div>
+            </div>
+            <Button 
+              size="sm" 
+              variant="destructive" 
+              className="h-8 rounded-lg shadow-sm"
+              onClick={() => setLocation("/billing")}
+            >
+              Update Billing
+            </Button>
+          </div>
+        )}
+
         <main className="flex-1 p-6 bg-background min-h-screen">{children}</main>
       </SidebarInset>
     </>

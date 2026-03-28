@@ -28,7 +28,7 @@ export interface ChapaWebhookPayload {
  * Mocks generating a Chapa payment link.
  * In production, you would use axios/fetch to hit https://api.chapa.co/v1/transaction/initialize
  */
-export async function createChapaCheckoutSession(data: ChapaCheckoutData): Promise<string> {
+export async function createChapaCheckoutSession(data: ChapaCheckoutData & { plan?: string }): Promise<string> {
   // If we had a real CHAPA_SECRET_KEY, we'd hit the API here.
   // For the mock, we simulate a checkout page URL.
   
@@ -39,7 +39,8 @@ export async function createChapaCheckoutSession(data: ChapaCheckoutData): Promi
   // Generate a mock checkout URL.
   // We include the tx_ref in a local route so we can simulate the callback.
   const appBaseUrl = process.env.BASE_URL || "http://localhost:5000";
-  return `${appBaseUrl}/api/webhooks/chapa/mock-checkout?tx_ref=${encodeURIComponent(data.tx_ref)}&amount=${data.amount}&return_url=${encodeURIComponent(data.return_url)}`;
+  const planParam = data.plan ? `&plan=${encodeURIComponent(data.plan)}` : "";
+  return `${appBaseUrl}/api/webhooks/chapa/mock-checkout?tx_ref=${encodeURIComponent(data.tx_ref)}&amount=${data.amount}&return_url=${encodeURIComponent(data.return_url)}${planParam}`;
 }
 
 /**

@@ -12,28 +12,31 @@ import { toast } from "sonner";
 import {
   Plus, Trash2, Edit2, Calendar, Clock, Share2,
   Facebook, Instagram, CheckSquare, Square, ChevronLeft,
-  ChevronRight, Send, FileText, XCircle, Zap,
+  ChevronRight, Send, FileText, XCircle, Zap, RefreshCw,
 } from "lucide-react";
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
-type PostStatus = "draft" | "scheduled" | "published" | "failed";
+type PostStatus = "draft" | "scheduled" | "queued" | "publishing" | "published" | "failed";
 
 const PLATFORMS = [
+  { id: "telegram",  label: "Telegram",  Icon: Send,       color: "#229ED9", bg: "bg-blue-50",   text: "text-blue-600"  },
   { id: "facebook",  label: "Facebook",  Icon: Facebook,   color: "#1877F2", bg: "bg-blue-50",   text: "text-blue-700"  },
   { id: "instagram", label: "Instagram", Icon: Instagram,  color: "#E1306C", bg: "bg-pink-50",   text: "text-pink-700"  },
   { id: "tiktok",    label: "TikTok",    Icon: Share2,     color: "#010101", bg: "bg-gray-100",  text: "text-gray-800"  },
 ] as const;
 
 const STATUS_META: Record<PostStatus, { label: string; Icon: any; bg: string; text: string }> = {
-  draft:     { label: "Draft",     Icon: FileText,  bg: "bg-gray-100",   text: "text-gray-600"   },
-  scheduled: { label: "Scheduled", Icon: Clock,     bg: "bg-blue-50",    text: "text-blue-700"   },
-  published: { label: "Published", Icon: CheckSquare,bg:"bg-green-50",   text: "text-green-700"  },
-  failed:    { label: "Failed",    Icon: XCircle,   bg: "bg-red-50",     text: "text-red-600"    },
+  draft:      { label: "Draft",      Icon: FileText,   bg: "bg-gray-100",   text: "text-gray-600"   },
+  scheduled:  { label: "Scheduled",  Icon: Clock,      bg: "bg-blue-50",    text: "text-blue-700"   },
+  queued:     { label: "Queued",     Icon: Zap,        bg: "bg-amber-50",   text: "text-amber-700"  },
+  publishing: { label: "Publishing", Icon: RefreshCw,  bg: "bg-indigo-50",  text: "text-indigo-700" },
+  published:  { label: "Published",  Icon: CheckSquare,bg: "bg-green-50",   text: "text-green-700"  },
+  failed:     { label: "Failed",     Icon: XCircle,    bg: "bg-red-50",     text: "text-red-600"    },
 };
 
 const BLANK = {
-  content: "", platforms: [] as string[], date: "", time: "09:00", status: "scheduled" as PostStatus,
+  content: "", platforms: [] as string[], date: "", time: "09:00", status: "queued" as PostStatus,
 };
 
 // ─── PLATFORM PILL ───────────────────────────────────────────────────────────
@@ -70,7 +73,7 @@ function ComposerModal({
       platforms: (initial.platforms as string[]) ?? [],
       date: dt ? dt.toISOString().slice(0, 10) : "",
       time: dt ? dt.toTimeString().slice(0, 5) : "09:00",
-      status: (initial.status ?? "scheduled") as PostStatus,
+      status: (initial.status ?? "queued") as PostStatus,
     };
   };
 

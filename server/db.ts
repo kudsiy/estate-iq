@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertBuyerProfile,
@@ -185,6 +185,19 @@ export async function getWorkspaceById(id: number) {
   return result[0];
 }
 
+export async function getWorkspaceByApiKey(apiKey: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(workspaces).where(eq(workspaces.apiKey, apiKey)).limit(1);
+  return result[0];
+}
+
+export async function getLeadsByWorkspaceId(workspaceId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(leads).where(eq(leads.workspaceId, workspaceId));
+}
+
 export async function createWorkspace(workspace: InsertWorkspace) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -197,6 +210,17 @@ export async function updateWorkspace(id: number, updates: Partial<InsertWorkspa
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(workspaces).set(updates).where(eq(workspaces.id, id));
+}
+
+export async function incrementWorkspaceAiCaptionsCount(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(workspaces)
+    .set({
+      aiCaptionsCount: sql`${workspaces.aiCaptionsCount} + 1`,
+    })
+    .where(eq(workspaces.id, id));
 }
 
 export async function getAllUsers() {
@@ -604,6 +628,56 @@ export async function getSocialMediaPostById(scope: Scope, id: number) {
     .where(and(eq(socialMediaPosts.id, id), eq(socialMediaPosts.workspaceId, scope.workspaceId)))
     .limit(1);
   return result[0];
+}
+
+export async function claimNextQueuedPost() {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  // 1. Find the first queued post
+  const firstQueued = await db
+    .select()
+    .from(socialMediaPosts)
+    .where(eq(socialMediaPosts.status, "queued"))
+    .limit(1);
+    
+  if (firstQueued.length === 0) return undefined;
+  
+  const post = firstQueued[0];
+  
+  // 2. Atomically attempt to claim it
+  const result = await db
+    .update(socialMediaPosts)
+    .set({ status: "publishing" })
+    .where(and(eq(socialMediaPosts.id, post.id), eq(socialMediaPosts.status, "queued")));
+    
+  // If no rows were affected, someone else claimed it first
+  // @ts-ignore - drizzle-orm's result type can be complex depending on driver
+  if (result.rowsAffected === 0 && result[0]?.affectedRows === 0) {
+    return claimNextQueuedPost(); // Recursive retry
+  }
+  
+  return post;
+}
+
+export async function updateSocialMediaPostStatus(
+  id: number, 
+  status: any, 
+  publishedAt: Date | null = null,
+  platformStatuses: any = null
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const updates: any = { status, publishedAt };
+  if (platformStatuses) {
+    updates.platformStatuses = platformStatuses;
+  }
+
+  await db
+    .update(socialMediaPosts)
+    .set(updates)
+    .where(eq(socialMediaPosts.id, id));
 }
 
 export async function createSocialMediaPost(post: InsertSocialMediaPost) {

@@ -21,6 +21,11 @@ import {
   ExternalLink,
   Phone,
   Share2,
+  Code2,
+  Key,
+  RefreshCw,
+  Copy,
+  Check,
 } from "lucide-react";
 
 type IntegrationStatus = "live" | "needs_setup" | "demo";
@@ -137,11 +142,51 @@ export default function SettingsPage() {
       ["Brand Kit", "live", "Brand kits persist, but auto-apply is still pending."],
       ["Supplier Inbox", "live", "Manual supplier intake, duplicate review, and property import are active."],
       ["Matching Engine", "live", "Buyer requirement profiles and scored listing matches are active."],
-      ["Social Publishing", "needs_setup", "Scheduler is ready; direct platform publishing is not yet connected."],
+      ["Social Publishing", "live", "Background sharing worker and Telegram bot integration is active."],
       ["Notifications", "live", "Preference storage and in-app alerts are now active for core workflow events."],
     ],
     []
   );
+
+  const { data: workspace, isLoading: workspaceLoading } = trpc.subscription.get.useQuery();
+
+  const [apiKey, setApiKey] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  // Social Config state
+  const [socialConfig, setSocialConfig] = useState({
+    telegram: {
+      botToken: "",
+      chatId: "",
+    },
+  });
+
+  // Sync state when workspace data loads
+  useMemo(() => {
+    if (workspace) {
+      setApiKey(workspace.apiKey ?? "");
+      const config = (workspace.socialConfig as any) || {};
+      setSocialConfig({
+        telegram: {
+          botToken: config.telegram?.botToken ?? "",
+          chatId: config.telegram?.chatId ?? "",
+        },
+      });
+    }
+  }, [workspace]);
+
+  const rotateApiKeyMutation = trpc.workspace.rotateApiKey.useMutation({
+    onSuccess: (data: { apiKey: string }) => {
+      setApiKey(data.apiKey);
+      toast.success("New API Key generated.");
+    },
+  });
+
+  const updateSocialConfigMutation = trpc.workspace.updateSocialConfig.useMutation({
+    onSuccess: () => {
+      toast.success("Integrations updated.");
+    },
+  });
 
   const handleSaveProfile = () => {
     updateProfileMutation.mutate(profile);
@@ -175,6 +220,10 @@ export default function SettingsPage() {
           <TabsTrigger value="notifications" className="text-xs">
             <Bell className="mr-1.5 h-3.5 w-3.5" />
             Notifications
+          </TabsTrigger>
+          <TabsTrigger value="developer" className="text-xs">
+            <Code2 className="mr-1.5 h-3.5 w-3.5" />
+            Developer
           </TabsTrigger>
           <TabsTrigger value="account" className="text-xs">
             <Shield className="mr-1.5 h-3.5 w-3.5" />
@@ -265,12 +314,55 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <Card className="border border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Social media</CardTitle>
+                <CardTitle className="text-sm font-medium">Social media connections</CardTitle>
                 <CardDescription className="text-xs">
-                  These are documented setup targets. Direct publishing is not yet connected inside this build.
+                  Connect your accounts to enable automated publishing.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-4">
+                <div className="rounded-xl border border-border p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                      <Share2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Telegram Bot</p>
+                      <p className="text-xs text-muted-foreground">Used for direct channel/group posting</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Bot Token</Label>
+                      <Input 
+                        placeholder="123456:ABC-DEF..." 
+                        className="h-8 text-xs" 
+                        value={socialConfig.telegram.botToken} 
+                        onChange={(e) => setSocialConfig(prev => ({ ...prev, telegram: { ...prev.telegram, botToken: e.target.value } }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Chat ID</Label>
+                      <Input 
+                        placeholder="-100..." 
+                        className="h-8 text-xs" 
+                        value={socialConfig.telegram.chatId} 
+                        onChange={(e) => setSocialConfig(prev => ({ ...prev, telegram: { ...prev.telegram, chatId: e.target.value } }))}
+                      />
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-4 h-7 text-xs"
+                    onClick={() => updateSocialConfigMutation.mutate(socialConfig)}
+                    disabled={updateSocialConfigMutation.isPending}
+                  >
+                    {updateSocialConfigMutation.isPending ? "Saving..." : "Save Telegram Config"}
+                  </Button>
+                </div>
+
                 <IntegrationCard
                   icon={Facebook}
                   iconBg="bg-blue-50"
@@ -288,15 +380,6 @@ export default function SettingsPage() {
                   description="Planned for feed and reel publishing. This screen documents requirements only."
                   status="needs_setup"
                   docsUrl="https://developers.facebook.com/docs/instagram-api"
-                />
-                <IntegrationCard
-                  icon={Share2}
-                  iconBg="bg-gray-100"
-                  iconColor="text-gray-800"
-                  name="TikTok for Business"
-                  description="Future integration target for video publishing. No direct Estate IQ connection yet."
-                  status="needs_setup"
-                  docsUrl="https://developers.tiktok.com/doc/login-kit-web"
                 />
               </CardContent>
             </Card>
@@ -339,6 +422,73 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="developer" className="mt-0">
+          <Card className="max-w-2xl border border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">API Access</CardTitle>
+              <CardDescription className="text-xs">
+                Use your API key to ingest leads from external sources like Zapier or Facebook Lead Ads.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-xs">Write-only API Key</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input 
+                      readOnly 
+                      type={apiKey ? "text" : "password"} 
+                      placeholder="No key generated yet" 
+                      value={apiKey} 
+                      className="h-9 pr-24 font-mono text-xs"
+                    />
+                    <div className="absolute right-1 top-1 flex gap-1">
+                      {apiKey && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(apiKey);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                            toast.success("API Key copied to clipboard.");
+                          }}
+                        >
+                          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    className="h-9 text-xs gap-2" 
+                    onClick={() => rotateApiKeyMutation.mutate()} 
+                    disabled={rotateApiKeyMutation.isPending}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${rotateApiKeyMutation.isPending ? 'animate-spin' : ''}`} />
+                    {apiKey ? "Rotate Key" : "Generate Key"}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Warning: Rotating your key will immediately invalidate the current one.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-muted/30 border border-border p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold">
+                  <Key className="h-3.5 w-3.5 text-accent" />
+                  Integration Guide
+                </div>
+                <div className="space-y-2 text-[11px] leading-relaxed text-muted-foreground">
+                  <p>1. Send a <strong>POST</strong> request to <code>/api/leads/external</code></p>
+                  <p>2. Include header: <code>Authorization: Bearer YOUR_API_KEY</code></p>
+                  <p>3. JSON Body: <code>{`{ "firstName": "John", "lastName": "Doe", "phone": "0911..." }`}</code></p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="notifications" className="mt-0">

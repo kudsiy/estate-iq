@@ -44,6 +44,8 @@ export const workspaces = mysqlTable("workspaces", {
   aiCaptionsCount: int("aiCaptionsCount").default(0).notNull(),
   aiImagesCount: int("aiImagesCount").default(0).notNull(),
   billingInterval: mysqlEnum("billingInterval", ["monthly", "yearly"]).default("monthly").notNull(),
+  apiKey: varchar("apiKey", { length: 64 }).unique(),
+  socialConfig: json("socialConfig"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

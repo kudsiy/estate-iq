@@ -6,6 +6,7 @@ import { adminProcedure, publicProcedure, router, protectedProcedure, mutatingPr
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createChapaCheckoutSession } from "./_core/chapa";
+import { PLAN_LIMITS, isLimitReached, isSubscriptionActive } from "./_core/monetization";
 import {
   createBuyerProfile,
   createBrandKit,
@@ -44,6 +45,7 @@ import {
   getPropertiesByScope,
   getPropertyById,
   getWorkspaceById,
+  incrementWorkspaceAiCaptionsCount,
   getSocialMediaPostById,
   getSocialMediaPostsByScope,
   getSupplierListingById,
@@ -506,33 +508,6 @@ function scoreBuyerMatch(
   };
 }
 
-const PLAN_LIMITS = {
-  starter: {
-    contacts: 100,
-    leads: 50,
-    properties: 10,
-    socialPosts: 20,
-    buyerProfiles: 10,
-    agentSeats: 1,
-  },
-  pro: {
-    contacts: 1000,
-    leads: Infinity,
-    properties: Infinity,
-    socialPosts: Infinity,
-    buyerProfiles: 100,
-    agentSeats: 1,
-  },
-  agency: {
-    contacts: Infinity,
-    leads: Infinity,
-    properties: Infinity,
-    socialPosts: Infinity,
-    buyerProfiles: Infinity,
-    agentSeats: 5,
-  },
-} as const;
-
 async function getWorkspacePlan(scope: { workspaceId: number }) {
   const workspace = await getWorkspaceById(scope.workspaceId);
   return {
@@ -541,21 +516,43 @@ async function getWorkspacePlan(scope: { workspaceId: number }) {
   };
 }
 
-function isLimitReached(limit: number, currentCount: number) {
-  // Explicit handle for Infinity
-  if (limit === Infinity) return false;
-  return currentCount >= limit;
-}
-
 async function assertPlanCapacity(
   scope: { workspaceId: number },
   resource: keyof (typeof PLAN_LIMITS)["starter"],
   getCurrentCount: () => Promise<number>
 ) {
-  const { workspace, plan } = await getWorkspacePlan(scope);
+  let { workspace, plan } = await getWorkspacePlan(scope);
+  if (!workspace) throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+
+  // 0. Monthly usage reset logic
+  if (workspace.usageCyclePeriodStart) {
+    const cycleStart = new Date(workspace.usageCyclePeriodStart);
+    const now = new Date();
+    // Use 30 days as a standard month for reset
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    if (now.getTime() - cycleStart.getTime() > thirtyDays) {
+      await updateWorkspace(scope.workspaceId, {
+        usageCyclePeriodStart: now,
+        aiCaptionsCount: 0,
+        aiImagesCount: 0,
+      });
+      // Refresh workspace data after reset
+      workspace = await getWorkspaceById(scope.workspaceId) as any;
+    }
+  }
+
   const limit = PLAN_LIMITS[plan][resource];
   const currentCount = await getCurrentCount();
 
+  // 1. Check if trial or subscription is active
+  if (!isSubscriptionActive(workspace as any)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `The ${workspace?.name ?? "current"} workspace does not have an active trial or subscription. Please upgrade to continue.`,
+    });
+  }
+
+  // 2. Check resource limits
   if (isLimitReached(limit, currentCount)) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -635,6 +632,12 @@ export const appRouter = router({
         },
       ] as const;
     }),
+    get: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.workspaceId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+      }
+      return assertFound(await getWorkspaceById(ctx.user.workspaceId), "Workspace");
+    }),
     current: protectedProcedure.query(async ({ ctx }) => {
       const scope = getScope(ctx.user);
       const [contacts, properties, socialPosts, buyerProfiles, leads] = await Promise.all([
@@ -677,24 +680,22 @@ export const appRouter = router({
         daysRemaining,
       };
     }),
-    update: protectedProcedure.input(subscriptionUpdateSchema).mutation(async ({ ctx, input }) => {
-      if (!ctx.user.workspaceId) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Workspace not initialized" });
-      }
+  }),
 
-      const now = new Date();
-      const nextPeriodEnd = new Date(now);
-      nextPeriodEnd.setDate(nextPeriodEnd.getDate() + 30);
-
-      await updateWorkspace(ctx.user.workspaceId, {
-        plan: input.plan,
-        subscriptionStatus: input.subscriptionStatus,
-        trialEndsAt: input.subscriptionStatus === "trial" ? nextPeriodEnd : null,
-        currentPeriodEndsAt: input.subscriptionStatus === "active" ? nextPeriodEnd : null,
-      });
-
-      return { success: true } as const;
+  workspace: router({
+    rotateApiKey: protectedProcedure.mutation(async ({ ctx }) => {
+      const scope = getScope(ctx.user);
+      const newKey = `eiq_live_${nanoid(32)}`;
+      await updateWorkspace(scope.workspaceId, { apiKey: newKey });
+      return { apiKey: newKey } as const;
     }),
+    updateSocialConfig: protectedProcedure
+      .input(z.record(z.string(), z.unknown()))
+      .mutation(async ({ ctx, input }) => {
+        const scope = getScope(ctx.user);
+        await updateWorkspace(scope.workspaceId, { socialConfig: input });
+        return { success: true } as const;
+      }),
   }),
 
   billing: router({
@@ -719,6 +720,7 @@ export const appRouter = router({
 
         const checkoutUrl = await createChapaCheckoutSession({
           amount,
+          plan: input.plan,
           currency: "ETB",
           email: ctx.user.email ?? undefined,
           first_name: ctx.user.name?.split(" ")[0] ?? undefined,
@@ -853,12 +855,12 @@ export const appRouter = router({
     importToProperties: mutatingProcedure.input(supplierImportSchema).mutation(async ({ ctx, input }) => {
       const scope = getScope(ctx.user);
 
-      // Only Agency plan can import from supplier feed
+      // Only Pro and Agency plans can import from supplier feed
       const { plan } = await getWorkspacePlan(scope);
-      if (plan !== "agency") {
+      if (plan !== "agency" && plan !== "pro") {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Supplier import is only available on the Agency plan. Please upgrade.",
+          message: "Supplier import is only available on the Pro or Agency plan. Please upgrade.",
         });
       }
 
@@ -1223,6 +1225,34 @@ export const appRouter = router({
           }
 
           const scope = { userId, workspaceId };
+          const workspace = await db.getWorkspaceById(workspaceId);
+          if (!workspace) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+          }
+
+          // 1. Enforce active trial or subscription
+          const now = new Date();
+          const isTrialActive = workspace.subscriptionStatus === "trial" &&
+            workspace.trialEndsAt && new Date(workspace.trialEndsAt) > now;
+          const isSubscriptionActive = workspace.subscriptionStatus === "active" &&
+            workspace.currentPeriodEndsAt && new Date(workspace.currentPeriodEndsAt) > now;
+
+          if (!isTrialActive && !isSubscriptionActive) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "This agent's trial or subscription has expired. Lead capture is disabled.",
+            });
+          }
+
+          // 2. Enforce lead limit
+          const leadLimit = PLAN_LIMITS[workspace.plan as keyof typeof PLAN_LIMITS].leads;
+          const currentLeads = await db.getLeadsByScope(scope);
+          if (isLimitReached(leadLimit, currentLeads.length)) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "This agent has reached their lead limit. Please contact them directly.",
+            });
+          }
 
           const leadId = await db.createLead({
             userId,
@@ -1340,7 +1370,7 @@ export const appRouter = router({
             const posts = await getSocialMediaPostsByScope(scope);
             return posts.length;
           });
-          const status = input.status ?? "scheduled";
+          const status = input.status ?? "queued";
           const platforms = input.platforms ?? [];
           const id = await createSocialMediaPost({
             userId: ctx.user.id,
@@ -1349,7 +1379,7 @@ export const appRouter = router({
             status,
             platformStatuses: input.platformStatuses ?? buildPlatformStatuses(platforms, status),
           });
-          return { success: true, id };
+          return { success: true, id } as const;
         }),
       update: mutatingProcedure
         .input(z.object({ id: z.number().int().positive(), data: socialMediaPostUpdateSchema }))
@@ -1386,6 +1416,52 @@ export const appRouter = router({
         return getEngagementMetricsByScope(getScope(ctx.user));
       }),
     }),
+  }),
+
+  ai: router({
+    generateCaption: protectedProcedure
+      .input(z.object({ propertyId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const scope = getScope(ctx.user);
+        const db = await import("./db.js");
+        const llm = await import("./_core/llm.js");
+        const property = assertFound(await db.getPropertyById(scope, input.propertyId), "Property");
+
+        // 1. Enforce active status and AI limit
+        await assertPlanCapacity(scope, "aiCaptions", async () => {
+          const ws = await db.getWorkspaceById(scope.workspaceId);
+          return ws?.aiCaptionsCount ?? 0;
+        });
+
+        // 2. Build prompt
+        const prompt = `Generate a compelling real estate social media caption for the following property:
+Title: ${property.title}
+Address: ${property.address}, ${property.city}
+Price: ETB ${property.price}
+Bedrooms: ${property.bedrooms}
+Bathrooms: ${property.bathrooms}
+Description: ${property.description || "N/A"}
+
+The caption should be engaging, professional, and include relevant hashtags for the Ethiopian market.`;
+
+        // 3. Invoke LLM
+        const result = await llm.invokeLLM({
+          messages: [
+            { role: "system", content: "You are a professional real estate marketing assistant in Ethiopia." },
+            { role: "user", content: prompt }
+          ],
+        });
+
+        const caption = result.choices[0].message.content;
+        if (typeof caption !== "string") {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to generate caption" });
+        }
+
+        // 4. Increment usage counter atomically
+        await db.incrementWorkspaceAiCaptionsCount(scope.workspaceId);
+
+        return { caption };
+      }),
   }),
 });
 
