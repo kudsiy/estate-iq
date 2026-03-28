@@ -10,37 +10,10 @@ function getQueryParam(req: Request, key: string): string | undefined {
 }
 
 export function registerOAuthRoutes(app: Express) {
-  // OAuth login endpoint - generates the authorization URL and redirects to OAuth portal
-  app.get("/api/oauth/login", (req: Request, res: Response) => {
-    try {
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/oauth/callback`;
-      const state = Buffer.from(redirectUri).toString("base64");
-      
-      const oauthPortalUrl = process.env.VITE_OAUTH_PORTAL_URL || process.env.OAUTH_PORTAL_URL;
-      const appId = process.env.VITE_APP_ID || process.env.APP_ID;
-      
-      if (!oauthPortalUrl || !appId) {
-        console.error("[OAuth] Missing OAUTH_PORTAL_URL or APP_ID environment variables");
-        res.status(500).json({ error: "OAuth configuration missing" });
-        return;
-      }
-      
-      const authUrl = new URL(`${oauthPortalUrl}/app-auth`);
-      authUrl.searchParams.set("appId", appId);
-      authUrl.searchParams.set("redirectUri", redirectUri);
-      authUrl.searchParams.set("state", state);
-      authUrl.searchParams.set("type", "signIn");
-      
-      res.redirect(authUrl.toString());
-    } catch (error) {
-      console.error("[OAuth] Login failed", error);
-      res.status(500).json({ error: "OAuth login failed" });
-    }
-  });
-
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
+    const returnTo = getQueryParam(req, "returnTo");
 
     if (!code || !state) {
       res.status(400).json({ error: "code and state are required" });
@@ -72,7 +45,7 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      res.redirect(302, "/");
+      res.redirect(302, returnTo || "/");
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });

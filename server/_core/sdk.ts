@@ -292,6 +292,13 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
+    await db.ensureWorkspaceForUser(user);
+    const refreshedUser = await db.getUserByOpenId(user.openId);
+    if (!refreshedUser) {
+      throw ForbiddenError("User not found after sync");
+    }
+    user = refreshedUser;
+
     await db.upsertUser({
       openId: user.openId,
       lastSignedIn: signedInAt,

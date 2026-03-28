@@ -1,9 +1,44 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, userProfiles, activityLogs, InsertActivityLog } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertBuyerProfile,
+  InsertBrandKit,
+  InsertContact,
+  InsertDeal,
+  InsertDesign,
+  InsertFeatureFlag,
+  InsertLead,
+  InsertNotification,
+  InsertProperty,
+  InsertSocialMediaPost,
+  InsertSupplierListing,
+  InsertUser,
+  InsertWorkspace,
+  buyerProfiles,
+  brandKits,
+  contacts,
+  deals,
+  designs,
+  engagementMetrics,
+  featureFlags,
+  leads,
+  notifications,
+  properties,
+  socialMediaPosts,
+  supplierListings,
+  users,
+  workspaces,
+  type User,
+  type Workspace,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+
+type Scope = {
+  userId: number;
+  workspaceId: number;
+};
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
@@ -16,6 +51,29 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+async function insertAndGetId<T extends { id: number }>(
+  operation: Promise<T[] | { insertId?: number }>
+): Promise<number> {
+  const result = await operation;
+  if (Array.isArray(result)) {
+    const inserted = result[0];
+    if (inserted?.id) return Number(inserted.id);
+  }
+
+  const insertId = (result as { insertId?: number }).insertId;
+  if (typeof insertId === "number" && insertId > 0) return insertId;
+
+  throw new Error("Failed to determine inserted id");
+}
+
+function createDefaultWorkspaceName(user: Pick<User, "name" | "companyName">) {
+  const companyName = user.companyName?.trim();
+  if (companyName) return companyName;
+  const name = user.name?.trim();
+  if (name) return `${name}'s Workspace`;
+  return "My Workspace";
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -35,29 +93,38 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
+    const directFields = [
+      "name",
+      "email",
+      "phone",
+      "loginMethod",
+      "companyName",
+      "workspaceId",
+      "targetMarket",
+      "selectedPlatforms",
+      "notificationPreferences",
+      "onboardingCompleted",
+    ] as const;
 
-    const assignNullable = (field: TextField) => {
+    for (const field of directFields) {
       const value = user[field];
-      if (value === undefined) return;
+      if (value === undefined) continue;
       const normalized = value ?? null;
-      values[field] = normalized;
+      values[field] = normalized as never;
       updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
+    }
 
     if (user.lastSignedIn !== undefined) {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
     }
+
     if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,140 +151,627 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function updateUserProfile(userId: number, updates: { name?: string; email?: string }) {
+export async function getUserById(id: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot update user: database not available");
-    return undefined;
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0];
+}
+
+export async function getWorkspaceByOwnerUserId(ownerUserId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.ownerUserId, ownerUserId))
+    .limit(1);
+  return result[0];
+}
+
+export async function getWorkspaceById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(workspaces).where(eq(workspaces.id, id)).limit(1);
+  return result[0];
+}
+
+export async function createWorkspace(workspace: InsertWorkspace) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(workspaces).values(workspace).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateWorkspace(id: number, updates: Partial<InsertWorkspace>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(workspaces).set(updates).where(eq(workspaces.id, id));
+}
+
+export async function getAllUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(users);
+}
+
+export async function getAllWorkspaces() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(workspaces);
+}
+
+export async function getFeatureFlags() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(featureFlags);
+}
+
+export async function upsertFeatureFlag(flag: InsertFeatureFlag) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(featureFlags).values(flag).onDuplicateKeyUpdate({
+    set: {
+      description: flag.description ?? null,
+      enabled: flag.enabled ?? false,
+    },
+  });
+}
+
+export async function ensureWorkspaceForUser(user: User): Promise<Workspace | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  if (user.workspaceId) {
+    const existingById = await getWorkspaceById(user.workspaceId);
+    if (existingById) return existingById;
   }
 
-  try {
-    const updateSet: Record<string, unknown> = {};
-    
-    if (updates.name !== undefined) {
-      updateSet.name = updates.name || null;
+  const existing = await getWorkspaceByOwnerUserId(user.id);
+  if (existing) {
+    if (user.workspaceId !== existing.id) {
+      await upsertUser({ openId: user.openId, workspaceId: existing.id });
     }
-    if (updates.email !== undefined) {
-      updateSet.email = updates.email || null;
-    }
-    
-    if (Object.keys(updateSet).length === 0) {
-      return undefined;
-    }
-
-    const result = await db.update(users)
-      .set(updateSet)
-      .where(eq(users.id, userId));
-
-    return result;
-  } catch (error) {
-    console.error("[Database] Failed to update user profile:", error);
-    throw error;
+    return existing;
   }
+
+  const now = new Date();
+  const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  const workspaceId = await createWorkspace({
+    ownerUserId: user.id,
+    name: createDefaultWorkspaceName(user),
+    trialEndsAt,
+    usageCyclePeriodStart: now,
+  });
+
+  await upsertUser({
+    openId: user.openId,
+    workspaceId,
+    companyName: user.companyName ?? createDefaultWorkspaceName(user),
+  });
+
+  return (await getWorkspaceById(workspaceId)) ?? null;
 }
 
-export async function logActivity(userId: number, action: string, description?: string, ipAddress?: string, userAgent?: string) {
+export async function updateUserProfile(
+  openId: string,
+  updates: Partial<Pick<InsertUser, "name" | "email" | "phone" | "companyName" | "role" | "targetMarket" | "selectedPlatforms" | "notificationPreferences" | "onboardingCompleted">>
+) {
+  await upsertUser({
+    openId,
+    ...updates,
+  });
+}
+
+export async function getScopedUser(openId: string) {
+  const user = await getUserByOpenId(openId);
+  if (!user) return undefined;
+  const workspace = await ensureWorkspaceForUser(user);
+  if (!workspace) return user;
+  return {
+    ...(await getUserByOpenId(openId)),
+    workspace,
+  };
+}
+
+// Contact queries
+export async function getContactsByScope(scope: Scope) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot log activity: database not available");
-    return;
-  }
-
-  try {
-    await db.insert(activityLogs).values({
-      userId,
-      action,
-      description: description || null,
-      ipAddress: ipAddress || null,
-      userAgent: userAgent || null,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to log activity:", error);
-  }
+  if (!db) return [];
+  return db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.userId, scope.userId), eq(contacts.workspaceId, scope.workspaceId)));
 }
 
-export async function getActivityLogs(userId: number, limit: number = 50) {
+export async function getContactById(scope: Scope, id: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get activity logs: database not available");
-    return [];
-  }
-
-  try {
-    const logs = await db.select()
-      .from(activityLogs)
-      .where(eq(activityLogs.userId, userId))
-      .limit(limit);
-    
-    return logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  } catch (error) {
-    console.error("[Database] Failed to get activity logs:", error);
-    return [];
-  }
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.id, id), eq(contacts.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
 }
 
-export async function updateUserProfilePicture(userId: number, pictureUrl: string, pictureKey: string) {
+export async function createContact(contact: InsertContact) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot update profile picture: database not available");
-    return;
-  }
-
-  try {
-    await db.insert(userProfiles).values({
-      userId,
-      profilePictureUrl: pictureUrl,
-      profilePictureKey: pictureKey,
-    }).onDuplicateKeyUpdate({
-      set: {
-        profilePictureUrl: pictureUrl,
-        profilePictureKey: pictureKey,
-      },
-    });
-  } catch (error) {
-    console.error("[Database] Failed to update profile picture:", error);
-    throw error;
-  }
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(contacts).values(contact).$returningId() as Promise<{ id: number }[]>
+  );
 }
 
-export async function getUserProfile(userId: number) {
+export async function updateContact(scope: Scope, id: number, updates: Partial<InsertContact>) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user profile: database not available");
-    return undefined;
-  }
-
-  try {
-    const result = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
-    return result.length > 0 ? result[0] : undefined;
-  } catch (error) {
-    console.error("[Database] Failed to get user profile:", error);
-    return undefined;
-  }
+  if (!db) throw new Error("Database not available");
+  const existing = await getContactById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(contacts)
+    .set(updates)
+    .where(and(eq(contacts.id, id), eq(contacts.workspaceId, scope.workspaceId)));
+  return true;
 }
 
-export async function changePassword(userId: number, newPasswordHash: string) {
+export async function deleteContact(scope: Scope, id: number) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot change password: database not available");
-    return false;
-  }
-
-  try {
-    await db.update(users)
-      .set({ passwordHash: newPasswordHash })
-      .where(eq(users.id, userId));
-
-    return true;
-  } catch (error) {
-    console.error("[Database] Failed to change password:", error);
-    throw error;
-  }
+  if (!db) throw new Error("Database not available");
+  const existing = await getContactById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(contacts)
+    .where(and(eq(contacts.id, id), eq(contacts.workspaceId, scope.workspaceId)));
+  return true;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Deal queries
+export async function getDealsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(deals)
+    .where(and(eq(deals.userId, scope.userId), eq(deals.workspaceId, scope.workspaceId)));
+}
+
+export async function getDealById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(deals)
+    .where(and(eq(deals.id, id), eq(deals.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createDeal(deal: InsertDeal) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(deals).values(deal).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateDeal(scope: Scope, id: number, updates: Partial<InsertDeal>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getDealById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(deals)
+    .set(updates)
+    .where(and(eq(deals.id, id), eq(deals.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function deleteDeal(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getDealById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(deals)
+    .where(and(eq(deals.id, id), eq(deals.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+// Property queries
+export async function getPropertiesByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(properties)
+    .where(and(eq(properties.userId, scope.userId), eq(properties.workspaceId, scope.workspaceId)));
+}
+
+export async function getPropertyById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(properties)
+    .where(and(eq(properties.id, id), eq(properties.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createProperty(property: InsertProperty) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(properties).values(property).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateProperty(scope: Scope, id: number, updates: Partial<InsertProperty>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getPropertyById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(properties)
+    .set(updates)
+    .where(and(eq(properties.id, id), eq(properties.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function deleteProperty(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getPropertyById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(properties)
+    .where(and(eq(properties.id, id), eq(properties.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function getPropertyByUniqueId(uniqueId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(properties)
+    .where(eq(properties.uniqueListingId, uniqueId))
+    .limit(1);
+  return result[0];
+}
+
+// Lead queries
+export async function getLeadsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.userId, scope.userId), eq(leads.workspaceId, scope.workspaceId)));
+}
+
+export async function getLeadById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, id), eq(leads.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createLead(lead: InsertLead) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(leads).values(lead).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateLead(scope: Scope, id: number, updates: Partial<InsertLead>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getLeadById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(leads)
+    .set(updates)
+    .where(and(eq(leads.id, id), eq(leads.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function deleteLead(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getLeadById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(leads)
+    .where(and(eq(leads.id, id), eq(leads.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+// Brand Kit queries
+export async function getBrandKitsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(brandKits)
+    .where(and(eq(brandKits.userId, scope.userId), eq(brandKits.workspaceId, scope.workspaceId)));
+}
+
+export async function getBrandKitById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(brandKits)
+    .where(and(eq(brandKits.id, id), eq(brandKits.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createBrandKit(brandKit: InsertBrandKit) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(brandKits).values(brandKit).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateBrandKit(scope: Scope, id: number, updates: Partial<InsertBrandKit>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getBrandKitById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(brandKits)
+    .set(updates)
+    .where(and(eq(brandKits.id, id), eq(brandKits.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function deleteBrandKit(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getBrandKitById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(brandKits)
+    .where(and(eq(brandKits.id, id), eq(brandKits.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+// Design queries
+export async function getDesignsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(designs)
+    .where(and(eq(designs.userId, scope.userId), eq(designs.workspaceId, scope.workspaceId)));
+}
+
+export async function getDesignById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(designs)
+    .where(and(eq(designs.id, id), eq(designs.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createDesign(design: InsertDesign) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(designs).values(design).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+// Social Media Post queries
+export async function getSocialMediaPostsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(socialMediaPosts)
+    .where(and(eq(socialMediaPosts.userId, scope.userId), eq(socialMediaPosts.workspaceId, scope.workspaceId)));
+}
+
+export async function getSocialMediaPostById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(socialMediaPosts)
+    .where(and(eq(socialMediaPosts.id, id), eq(socialMediaPosts.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createSocialMediaPost(post: InsertSocialMediaPost) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(socialMediaPosts).values(post).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateSocialMediaPost(scope: Scope, id: number, updates: Partial<InsertSocialMediaPost>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getSocialMediaPostById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(socialMediaPosts)
+    .set(updates)
+    .where(and(eq(socialMediaPosts.id, id), eq(socialMediaPosts.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function deleteSocialMediaPost(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getSocialMediaPostById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(socialMediaPosts)
+    .where(and(eq(socialMediaPosts.id, id), eq(socialMediaPosts.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function getEngagementMetricsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  const posts = await db
+    .select()
+    .from(socialMediaPosts)
+    .where(and(eq(socialMediaPosts.userId, scope.userId), eq(socialMediaPosts.workspaceId, scope.workspaceId)));
+  const postIds = posts.map((p) => p.id);
+  if (postIds.length === 0) return [];
+  return db.select().from(engagementMetrics).where(inArray(engagementMetrics.postId, postIds));
+}
+
+// Notification queries
+export async function getNotificationsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(notifications)
+    .where(and(eq(notifications.userId, scope.userId), eq(notifications.workspaceId, scope.workspaceId)));
+}
+
+export async function createNotification(notification: InsertNotification) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(notifications).values(notification).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function markNotificationRead(scope: Scope, id: number, isRead: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db
+    .select()
+    .from(notifications)
+    .where(and(eq(notifications.id, id), eq(notifications.workspaceId, scope.workspaceId)))
+    .limit(1);
+  if (!existing[0]) return false;
+  await db
+    .update(notifications)
+    .set({ isRead })
+    .where(and(eq(notifications.id, id), eq(notifications.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+// Supplier listing queries
+export async function getSupplierListingsByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(supplierListings)
+    .where(and(eq(supplierListings.userId, scope.userId), eq(supplierListings.workspaceId, scope.workspaceId)));
+}
+
+export async function getSupplierListingById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(supplierListings)
+    .where(and(eq(supplierListings.id, id), eq(supplierListings.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createSupplierListing(listing: InsertSupplierListing) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(supplierListings).values(listing).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateSupplierListing(scope: Scope, id: number, updates: Partial<InsertSupplierListing>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getSupplierListingById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(supplierListings)
+    .set(updates)
+    .where(and(eq(supplierListings.id, id), eq(supplierListings.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+// Buyer profile queries
+export async function getBuyerProfilesByScope(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(buyerProfiles)
+    .where(and(eq(buyerProfiles.userId, scope.userId), eq(buyerProfiles.workspaceId, scope.workspaceId)));
+}
+
+export async function getBuyerProfileById(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(buyerProfiles)
+    .where(and(eq(buyerProfiles.id, id), eq(buyerProfiles.workspaceId, scope.workspaceId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function createBuyerProfile(profile: InsertBuyerProfile) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(buyerProfiles).values(profile).$returningId() as Promise<{ id: number }[]>
+  );
+}
+
+export async function updateBuyerProfile(scope: Scope, id: number, updates: Partial<InsertBuyerProfile>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getBuyerProfileById(scope, id);
+  if (!existing) return false;
+  await db
+    .update(buyerProfiles)
+    .set(updates)
+    .where(and(eq(buyerProfiles.id, id), eq(buyerProfiles.workspaceId, scope.workspaceId)));
+  return true;
+}
+
+export async function deleteBuyerProfile(scope: Scope, id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getBuyerProfileById(scope, id);
+  if (!existing) return false;
+  await db
+    .delete(buyerProfiles)
+    .where(and(eq(buyerProfiles.id, id), eq(buyerProfiles.workspaceId, scope.workspaceId)));
+  return true;
+}

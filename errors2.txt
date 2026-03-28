@@ -1,0 +1,27 @@
+
+> estate-iq@1.0.0 check C:\Users\Hp\OneDrive\Documents\estate-iq-handoff
+> tsc --noEmit
+
+client/src/pages/BrandKitPage.tsx(46,32): error TS2448: Block-scoped variable 'DEFAULT_COLORS' used before its declaration.
+client/src/pages/BrandKitPage.tsx(46,32): error TS2454: Variable 'DEFAULT_COLORS' is used before being assigned.
+client/src/pages/ContactDetail.tsx(67,17): error TS7006: Parameter 'data' implicitly has an 'any' type.
+client/src/pages/DealPipeline.tsx(186,17): error TS2322: Type 'string' is not assignable to type '"lead" | "contacted" | "viewing" | "offer" | "closed" | undefined'.
+client/src/pages/DealPipeline.tsx(549,90): error TS2322: Type 'string' is not assignable to type '"lead" | "contacted" | "viewing" | "offer" | "closed" | undefined'.
+client/src/pages/LeadCapture.tsx(626,90): error TS2322: Type 'string' is not assignable to type '"converted" | "lost" | "new" | "contacted" | "qualified" | undefined'.
+client/src/pages/SocialMedia.tsx(111,57): error TS2322: Type '{ content: any; platforms: string[]; status: PostStatus; scheduledTime: Date | undefined; }' is not assignable to type '{ designId?: number | null | undefined; platforms?: ("instagram" | "telegram" | "facebook" | "tiktok")[] | undefined; scheduledTime?: Date | null | undefined; content?: string | undefined; status?: "draft" | ... 5 more ... | undefined; platformStatuses?: Record<...> | undefined; providerMetadata?: Record<...> | unde...'.
+  Types of property 'platforms' are incompatible.
+    Type 'string[]' is not assignable to type '("instagram" | "telegram" | "facebook" | "tiktok")[]'.
+      Type 'string' is not assignable to type '"instagram" | "telegram" | "facebook" | "tiktok"'.
+client/src/pages/SocialMedia.tsx(112,32): error TS2345: Argument of type '{ content: any; platforms: string[]; status: PostStatus; scheduledTime: Date | undefined; }' is not assignable to parameter of type '{ designId?: number | undefined; platforms?: ("instagram" | "telegram" | "facebook" | "tiktok")[] | undefined; scheduledTime?: Date | undefined; content?: string | undefined; status?: "draft" | ... 5 more ... | undefined; platformStatuses?: Record<...> | undefined; providerMetadata?: Record<...> | undefined; }'.
+  Types of property 'platforms' are incompatible.
+    Type 'string[]' is not assignable to type '("instagram" | "telegram" | "facebook" | "tiktok")[]'.
+      Type 'string' is not assignable to type '"instagram" | "telegram" | "facebook" | "tiktok"'.
+server/routers.ts(766,83): error TS2345: Argument of type '{ sourceName?: string | undefined; supplierContact?: string | null | undefined; title?: string | undefined; address?: string | undefined; city?: string | undefined; subcity?: string | null | undefined; ... 5 more ...; importedPropertyId?: number | ... 1 more ... | undefined; }' is not assignable to parameter of type 'Partial<{ address: string; title: string; workspaceId: number; userId: number; city: string; sourceName: string; fingerprint: string; id?: number | undefined; createdAt?: Date | undefined; updatedAt?: Date | undefined; ... 7 more ...; importedPropertyId?: number | ... 1 more ... | undefined; }>'.
+  Types of property 'price' are incompatible.
+    Type 'number | null | undefined' is not assignable to type 'string | null | undefined'.
+      Type 'number' is not assignable to type 'string'.
+server/routers.ts(831,31): error TS2339: Property 'value' does not exist on type '{ contactId?: number | null | undefined; name?: string | undefined; city?: string | null | undefined; subcity?: string | null | undefined; budgetMin?: number | null | undefined; budgetMax?: number | ... 1 more ... | undefined; bedrooms?: number | ... 1 more ... | undefined; bathrooms?: number | ... 1 more ... | unde...'.
+server/routers.ts(832,36): error TS2339: Property 'commission' does not exist on type '{ contactId?: number | null | undefined; name?: string | undefined; city?: string | null | undefined; subcity?: string | null | undefined; budgetMin?: number | null | undefined; budgetMax?: number | ... 1 more ... | undefined; bedrooms?: number | ... 1 more ... | undefined; bathrooms?: number | ... 1 more ... | unde...'.
+server/routers.ts(1167,31): error TS2339: Property 'value' does not exist on type '{ designId?: number | null | undefined; platforms?: ("instagram" | "telegram" | "facebook" | "tiktok")[] | undefined; scheduledTime?: Date | null | undefined; content?: string | undefined; status?: "draft" | ... 5 more ... | undefined; platformStatuses?: Record<...> | undefined; providerMetadata?: Record<...> | unde...'.
+server/routers.ts(1168,36): error TS2339: Property 'commission' does not exist on type '{ designId?: number | null | undefined; platforms?: ("instagram" | "telegram" | "facebook" | "tiktok")[] | undefined; scheduledTime?: Date | null | undefined; content?: string | undefined; status?: "draft" | ... 5 more ... | undefined; platformStatuses?: Record<...> | undefined; providerMetadata?: Record<...> | unde...'.
+ ELIFECYCLE  Command failed with exit code 1.
