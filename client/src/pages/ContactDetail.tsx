@@ -12,7 +12,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   ArrowLeft, Mail, Phone, MessageCircle, Edit2, Trash2,
-  TrendingUp, Calendar, DollarSign, Tag, User, Save, X,
+  TrendingUp, Calendar, DollarSign, Tag, User, Save, X, MapPin, Home, Activity
 } from "lucide-react";
 
 const STATUS_META: Record<string, { bg: string; text: string }> = {
@@ -72,12 +72,13 @@ export default function ContactDetail() {
   const { data: allDeals = [] }   = trpc.crm.deals.list.useQuery();
   const { data: properties = [] } = trpc.crm.properties.list.useQuery();
   const { data: allLeads = [] }   = trpc.crm.leads.list.useQuery();
+  const { data: contactEvents = [], refetch: refetchEvents } = trpc.crm.contacts.listEvents.useQuery(id);
 
   const contactDeals = allDeals.filter((d) => d.contactId === id);
   const contactLeads = allLeads.filter((lead) => lead.contactId === id);
 
   const updateMutation = trpc.crm.contacts.update.useMutation({
-    onSuccess: () => { toast.success("Contact updated"); setEditing(false); refetch(); },
+    onSuccess: () => { toast.success("Contact updated"); setEditing(false); refetch(); refetchEvents(); },
     onError:   () => toast.error("Update failed"),
   });
   const deleteMutation = trpc.crm.contacts.delete.useMutation({
@@ -85,7 +86,7 @@ export default function ContactDetail() {
     onError:   () => toast.error("Delete failed"),
   });
   const saveNotes = trpc.crm.contacts.update.useMutation({
-    onSuccess: () => { toast.success("Notes saved"); refetch(); },
+    onSuccess: () => { toast.success("Notes saved"); refetch(); refetchEvents(); },
     onError:   () => toast.error("Save failed"),
   });
 
@@ -113,6 +114,9 @@ export default function ContactDetail() {
       type:          editForm.type,
       status:        editForm.status,
       source:        editForm.source || undefined,
+      subcity:       editForm.subcity === "other" ? editForm.otherSubcity : editForm.subcity || undefined,
+      woreda:        editForm.woreda || undefined,
+      propertyInterest: editForm.propertyInterest || undefined,
     }});
   };
 
@@ -120,9 +124,24 @@ export default function ContactDetail() {
     saveNotes.mutate({ id, data: { notes: noteText } });
   };
 
-  // Build timeline from deal events + contact creation
+  // Build timeline from deal events + contact creation + contactEvents
   const timeline = [
-    { date: contact.createdAt, label: "Contact created", icon: User, color: "text-accent" },
+    ...contactEvents.map((event) => {
+      let icon = Activity;
+      let color = "text-accent";
+      if (event.type === "note") { icon = MessageCircle; color = "text-muted-foreground"; }
+      else if (event.type === "deal_update") { icon = TrendingUp; color = "text-blue-500"; }
+      else if (event.type === "status_change") { icon = Tag; color = "text-orange-500"; }
+      else if (event.type === "system") { icon = User; }
+
+      return {
+        date: event.createdAt,
+        label: event.label,
+        description: event.description,
+        icon,
+        color,
+      };
+    }),
     ...contactLeads.map((lead) => {
       const property = properties.find((item) => item.id === lead.propertyId);
       return {
@@ -213,6 +232,18 @@ export default function ContactDetail() {
                   <span className="capitalize">{contact.type}</span>
                   {contact.source && <span className="text-muted-foreground/60">· {contact.source}</span>}
                 </div>
+                {(contact.subcity || contact.woreda) && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    <span className="capitalize">{[contact.subcity, contact.woreda].filter(Boolean).join(", Woreda ")}</span>
+                  </div>
+                )}
+                {contact.propertyInterest && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Home className="w-3.5 h-3.5 shrink-0" />
+                    <span className="capitalize">Interest: {contact.propertyInterest}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5 shrink-0" />
                   <span>Added {timeAgo(contact.createdAt)}</span>
@@ -367,7 +398,12 @@ export default function ContactDetail() {
                           </div>
                           <div className="flex-1 pt-0.5 min-w-0">
                             <p className="text-sm text-foreground">{event.label}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(event.date)}</p>
+                            {(event as any).description && (
+                              <p className="text-sm text-muted-foreground mt-1.5 bg-muted/50 p-2.5 rounded-md border border-border/50">
+                                {(event as any).description}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">{timeAgo(event.date)}</p>
                           </div>
                         </div>
                       );
@@ -445,6 +481,59 @@ export default function ContactDetail() {
                 <Input className="mt-1 h-8 text-sm" placeholder="e.g. Referral, Website…"
                   value={editForm.source ?? ""}
                   onChange={(e) => setEditForm({ ...editForm, source: e.target.value })} />
+              </div>
+              
+              <div className="pt-2 border-t border-border mt-3">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location & Context</Label>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <Label className="text-xs">Subcity</Label>
+                    <Select value={editForm.subcity} onValueChange={(v) => setEditForm({ ...editForm, subcity: v })}>
+                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bole">Bole</SelectItem>
+                        <SelectItem value="kirkos">Kirkos</SelectItem>
+                        <SelectItem value="arada">Arada</SelectItem>
+                        <SelectItem value="yeka">Yeka</SelectItem>
+                        <SelectItem value="kolfe">Kolfe Keranio</SelectItem>
+                        <SelectItem value="akaki">Akaki Kality</SelectItem>
+                        <SelectItem value="nifas">Nifas Silk-Lafto</SelectItem>
+                        <SelectItem value="lemi">Lemi Kura</SelectItem>
+                        <SelectItem value="gullele">Gullele</SelectItem>
+                        <SelectItem value="lideta">Lideta</SelectItem>
+                        <SelectItem value="other">Other...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {editForm.subcity === "other" && (
+                    <div>
+                      <Label className="text-xs">Specify Subcity</Label>
+                      <Input className="mt-1 h-8 text-sm" value={editForm.otherSubcity || ""} onChange={(e) => setEditForm({ ...editForm, otherSubcity: e.target.value })} />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Woreda</Label>
+                  <Input className="mt-1 h-8 text-sm" value={editForm.woreda ?? ""} onChange={(e) => setEditForm({ ...editForm, woreda: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Property Interest</Label>
+                  <Select value={editForm.propertyInterest} onValueChange={(v) => setEditForm({ ...editForm, propertyInterest: v })}>
+                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="apartment">Apartment</SelectItem>
+                      <SelectItem value="villa">Villa</SelectItem>
+                      <SelectItem value="g1">G+1 House</SelectItem>
+                      <SelectItem value="g2">G+2+ House</SelectItem>
+                      <SelectItem value="office">Office</SelectItem>
+                      <SelectItem value="warehouse">Warehouse</SelectItem>
+                      <SelectItem value="land">Land</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>Cancel</Button>

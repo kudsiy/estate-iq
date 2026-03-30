@@ -4,6 +4,12 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 export const getLoginUrl = (returnTo?: string) => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
+
+  if (!oauthPortalUrl) {
+    console.warn("VITE_OAUTH_PORTAL_URL is not set. Login routing is disabled.");
+    return "#";
+  }
+
   const redirect = new URL("/api/oauth/callback", window.location.origin);
 
   if (returnTo) {

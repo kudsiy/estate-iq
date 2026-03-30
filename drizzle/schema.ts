@@ -69,6 +69,9 @@ export const contacts = mysqlTable("contacts", {
   tags: json("tags"),
   customFields: json("customFields"),
   notes: text("notes"),
+  subcity: varchar("subcity", { length: 100 }),
+  woreda: varchar("woreda", { length: 100 }),
+  propertyInterest: varchar("propertyInterest", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -287,3 +290,18 @@ export const featureFlags = mysqlTable("featureFlags", {
 
 export type FeatureFlag = typeof featureFlags.$inferSelect;
 export type InsertFeatureFlag = typeof featureFlags.$inferInsert;
+
+export const contactEvents = mysqlTable("contactEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  workspaceId: int("workspaceId").notNull(),
+  contactId: int("contactId").notNull(),
+  type: mysqlEnum("type", ["note", "status_change", "deal_update", "lead_conversion", "system"]).notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  description: text("description"),
+  metadata: json("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ContactEvent = typeof contactEvents.$inferSelect;
+export type InsertContactEvent = typeof contactEvents.$inferInsert;

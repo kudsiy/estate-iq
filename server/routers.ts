@@ -33,6 +33,8 @@ import {
   getBrandKitsByScope,
   getContactById,
   getContactsByScope,
+  getContactEventsByScope,
+  createContactEvent,
   getDealById,
   getDealsByScope,
   getDesignById,
@@ -67,6 +69,21 @@ import {
 const platformEnum = z.enum(["telegram", "facebook", "instagram", "tiktok"]);
 const postStatusEnum = z.enum(["draft", "scheduled", "queued", "publishing", "published", "failed"]);
 
+const STAGE_LABELS: Record<string, string> = {
+  lead: "Lead",
+  contacted: "Contacted",
+  viewing: "Viewing",
+  offer: "Offer",
+  closed: "Closed",
+};
+
+const formatBirr = (amount: string | number) => {
+  return new Intl.NumberFormat("en-ET", {
+    style: "currency",
+    currency: "ETB",
+  }).format(Number(amount));
+};
+
 const contactInputSchema = z.object({
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().min(1),
@@ -79,6 +96,9 @@ const contactInputSchema = z.object({
   tags: z.array(z.string()).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
   notes: z.string().optional(),
+  subcity: z.string().trim().min(1).optional(),
+  woreda: z.string().trim().min(1).optional(),
+  propertyInterest: z.string().trim().min(1).optional(),
 });
 
 const atLeastOne = <T extends z.ZodRawShape>(shape: T) =>
@@ -98,6 +118,9 @@ const contactUpdateSchema = atLeastOne({
   tags: z.array(z.string()),
   customFields: z.record(z.string(), z.unknown()),
   notes: z.string().nullable(),
+  subcity: z.string().trim().min(1).nullable(),
+  woreda: z.string().trim().min(1).nullable(),
+  propertyInterest: z.string().trim().min(1).nullable(),
 });
 
 const dealInputSchema = z.object({
@@ -985,13 +1008,48 @@ export const appRouter = router({
           return contacts.length;
         });
         const id = await createContact({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input });
+        
+        await createContactEvent({
+          userId: ctx.user.id,
+          workspaceId: scope.workspaceId,
+          contactId: id,
+          type: "system",
+          label: "Contact created",
+          description: input.source ? `Source: ${input.source}` : "Manual entry",
+        });
+
         return { success: true, id };
       }),
       update: mutatingProcedure
         .input(z.object({ id: z.number().int().positive(), data: contactUpdateSchema }))
         .mutation(async ({ ctx, input }) => {
-          const updated = await updateContact(getScope(ctx.user), input.id, input.data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+          const scope = getScope(ctx.user);
+          const existing = await getContactById(scope, input.id);
+          const updated = await updateContact(scope, input.id, input.data);
+          if (!updated || !existing) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+          
+          if (input.data.status && existing?.status !== input.data.status) {
+            await createContactEvent({
+              userId: ctx.user.id,
+              workspaceId: scope.workspaceId,
+              contactId: input.id,
+              type: "status_change",
+              label: `Status changed to ${input.data.status}`,
+              metadata: { old: existing.status, new: input.data.status },
+            });
+          }
+          
+          if (input.data.notes && existing?.notes !== input.data.notes) {
+            await createContactEvent({
+              userId: ctx.user.id,
+              workspaceId: scope.workspaceId,
+              contactId: input.id,
+              type: "note",
+              label: "Note added",
+              description: input.data.notes,
+            });
+          }
+
           return { success: true } as const;
         }),
       delete: mutatingProcedure
@@ -1000,6 +1058,34 @@ export const appRouter = router({
           const deleted = await deleteContact(getScope(ctx.user), input);
           if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
           return { success: true } as const;
+        }),
+      listEvents: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          const contact = await getContactById(scope, input);
+          if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+          return getContactEventsByScope(scope, input);
+        }),
+      addEvent: mutatingProcedure
+        .input(z.object({
+          contactId: z.number().int().positive(),
+          type: z.enum(["note", "status_change", "deal_update", "lead_conversion", "system"]),
+          label: z.string().min(1),
+          description: z.string().optional(),
+          metadata: z.record(z.string(), z.unknown()).optional(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          const contact = await getContactById(scope, input.contactId);
+          if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+          
+          const id = await createContactEvent({
+            ...input,
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+          });
+          return { success: true, id };
         }),
     }),
 
@@ -1030,6 +1116,16 @@ export const appRouter = router({
           const updated = await updateDeal(scope, input.id, data);
           if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found" });
           if (data.stage && existing?.stage !== data.stage) {
+            await createContactEvent({
+              userId: ctx.user.id,
+              workspaceId: scope.workspaceId,
+              contactId: existing!.contactId,
+              type: "deal_update",
+              label: `Deal stage updated to ${STAGE_LABELS[data.stage] || data.stage}`,
+              description: `Value: ${data.value ? formatBirr(data.value) : "—"}`,
+              metadata: { dealId: input.id, old: existing?.stage, new: data.stage },
+            });
+
             await createScopedNotification(
               { user: ctx.user },
               {
@@ -1196,6 +1292,16 @@ export const appRouter = router({
             propertyId: input.propertyId ?? lead.propertyId ?? null,
             convertedDealId: dealId ?? null,
             status: "converted",
+          });
+
+          await createContactEvent({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            contactId,
+            type: "lead_conversion",
+            label: "Lead converted from " + lead.source,
+            description: input.createDeal ? "Initial deal created" : "Contact ingestion",
+            metadata: { leadId: lead.id, dealId: dealId ?? null },
           });
 
           return {

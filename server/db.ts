@@ -4,6 +4,7 @@ import {
   InsertBuyerProfile,
   InsertBrandKit,
   InsertContact,
+  InsertContactEvent,
   InsertDeal,
   InsertDesign,
   InsertFeatureFlag,
@@ -17,6 +18,7 @@ import {
   buyerProfiles,
   brandKits,
   contacts,
+  contactEvents,
   deals,
   designs,
   engagementMetrics,
@@ -30,8 +32,10 @@ import {
   workspaces,
   type User,
   type Workspace,
+  type ContactEvent,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -359,6 +363,30 @@ export async function deleteContact(scope: Scope, id: number) {
     .delete(contacts)
     .where(and(eq(contacts.id, id), eq(contacts.workspaceId, scope.workspaceId)));
   return true;
+}
+
+// Contact Event queries
+export async function getContactEventsByScope(scope: Scope, contactId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(contactEvents)
+    .where(
+      and(
+        eq(contactEvents.workspaceId, scope.workspaceId),
+        eq(contactEvents.contactId, contactId)
+      )
+    )
+    .orderBy(sql`${contactEvents.createdAt} DESC`);
+}
+
+export async function createContactEvent(event: InsertContactEvent) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return insertAndGetId(
+    db.insert(contactEvents).values(event).$returningId() as Promise<{ id: number }[]>
+  );
 }
 
 // Deal queries

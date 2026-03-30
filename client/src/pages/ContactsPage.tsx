@@ -27,6 +27,11 @@ export default function ContactsPage() {
     type: "buyer" as const,
     status: "active" as const,
     notes: "",
+    subcity: "",
+    otherSubcity: "",
+    woreda: "",
+    houseNumber: "",
+    propertyInterest: "",
   });
 
   const { data: contacts, refetch } = trpc.crm.contacts.list.useQuery();
@@ -34,7 +39,11 @@ export default function ContactsPage() {
     onSuccess: () => {
       toast.success("Contact created successfully");
       setIsOpen(false);
-      setFormData({ firstName: "", lastName: "", email: "", phone: "", whatsappNumber: "", type: "buyer", status: "active", notes: "" });
+      setFormData({
+        firstName: "", lastName: "", email: "", phone: "", whatsappNumber: "",
+        type: "buyer", status: "active", notes: "",
+        subcity: "", otherSubcity: "", woreda: "", houseNumber: "", propertyInterest: "",
+      });
       refetch();
     },
     onError: (error) => { toast.error(error.message || "Failed to create contact"); },
@@ -46,7 +55,19 @@ export default function ContactsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    const { subcity, otherSubcity, woreda, houseNumber, propertyInterest, ...baseData } = formData;
+    
+    const finalSubcity = subcity === "other" ? otherSubcity : subcity;
+    
+    createMutation.mutate({
+      ...baseData,
+      subcity: finalSubcity,
+      woreda,
+      propertyInterest,
+      customFields: {
+        houseNumber,
+      }
+    });
   };
 
   const filteredContacts = contacts?.filter((contact) => {
@@ -146,17 +167,70 @@ export default function ContactsPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-border">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location & Context</Label>
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div>
+                        <Label htmlFor="subcity">Subcity</Label>
+                        <Select value={formData.subcity} onValueChange={(value) => setFormData({ ...formData, subcity: value })}>
+                          <SelectTrigger id="subcity">
+                            <SelectValue placeholder="Select subcity" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bole">Bole</SelectItem>
+                            <SelectItem value="kirkos">Kirkos</SelectItem>
+                            <SelectItem value="arada">Arada</SelectItem>
+                            <SelectItem value="yeka">Yeka</SelectItem>
+                            <SelectItem value="kolfe">Kolfe Keranio</SelectItem>
+                            <SelectItem value="akaki">Akaki Kality</SelectItem>
+                            <SelectItem value="nifas">Nifas Silk-Lafto</SelectItem>
+                            <SelectItem value="lemi">Lemi Kura</SelectItem>
+                            <SelectItem value="gullele">Gullele</SelectItem>
+                            <SelectItem value="lideta">Lideta</SelectItem>
+                            <SelectItem value="other">Other...</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {formData.subcity === "other" && (
+                        <div>
+                          <Label htmlFor="otherSubcity">Specify City/Subcity</Label>
+                          <Input
+                            id="otherSubcity"
+                            placeholder="e.g. Adama"
+                            value={formData.otherSubcity}
+                            onChange={(e) => setFormData({ ...formData, otherSubcity: e.target.value })}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="status">Status</Label>
-                      <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
-                        <SelectTrigger id="status">
-                          <SelectValue />
+                      <Label htmlFor="woreda">Woreda</Label>
+                      <Input
+                        id="woreda"
+                        placeholder="e.g. 03"
+                        value={formData.woreda}
+                        onChange={(e) => setFormData({ ...formData, woreda: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="propertyInterest">Property Interest</Label>
+                      <Select value={formData.propertyInterest} onValueChange={(value) => setFormData({ ...formData, propertyInterest: value })}>
+                        <SelectTrigger id="propertyInterest">
+                          <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                          <SelectItem value="converted">Converted</SelectItem>
-                          <SelectItem value="lost">Lost</SelectItem>
+                          <SelectItem value="apartment">Apartment</SelectItem>
+                          <SelectItem value="villa">Villa</SelectItem>
+                          <SelectItem value="g1">G+1 House</SelectItem>
+                          <SelectItem value="g2">G+2+ House</SelectItem>
+                          <SelectItem value="office">Office Space</SelectItem>
+                          <SelectItem value="warehouse">Warehouse</SelectItem>
+                          <SelectItem value="land">Land</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -253,7 +327,7 @@ export default function ContactsPage() {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex gap-2 mt-3 flex-wrap">
                         <span className="text-xs bg-accent/10 text-accent px-2 py-1 rounded">
                           {contact.type.charAt(0).toUpperCase() + contact.type.slice(1)}
                         </span>
@@ -265,6 +339,16 @@ export default function ContactsPage() {
                         }`}>
                           {contact.status ? contact.status.charAt(0).toUpperCase() + contact.status.slice(1) : "Active"}
                         </span>
+                        {contact.subcity && (
+                          <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded capitalize">
+                            {contact.subcity}
+                          </span>
+                        )}
+                        {contact.propertyInterest && (
+                          <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded capitalize">
+                            {contact.propertyInterest}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
