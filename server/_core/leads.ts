@@ -141,3 +141,85 @@ export async function handleExternalLead(req: Request, res: Response) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+export async function handleSocialLeadInbound(params: {
+  workspaceId: number,
+  userId: number,
+  propertyId?: number | null,
+  source: string,
+  name: string,
+  phone: string,
+  notes: string,
+}) {
+  try {
+    const { workspaceId, userId, propertyId, source, name, phone, notes } = params;
+
+    // 1. Resolve Name
+    const parts = name.trim().split(/\s+/);
+    const firstName = parts[0] || "Social";
+    const lastName = parts.slice(1).join(" ") || "Lead";
+
+    // 2. Cascade Creation (Lead -> Contact -> Deal)
+    const leadId = await createLead({
+      userId,
+      workspaceId,
+      propertyId: propertyId ?? null,
+      source: source as any,
+      leadData: {
+        firstName,
+        lastName,
+        phone,
+        notes,
+      },
+      status: "new",
+    });
+
+    const contactId = await createContact({
+      userId,
+      workspaceId,
+      firstName,
+      lastName,
+      phone,
+      whatsappNumber: phone,
+      type: "buyer",
+      status: "active",
+      source: source as any,
+      notes,
+    });
+
+    const dealId = await createDeal({
+      userId,
+      workspaceId,
+      contactId,
+      propertyId: propertyId ?? null,
+      leadId,
+      stage: "lead",
+      notes,
+    });
+
+    await updateLead({ userId, workspaceId }, leadId, {
+      contactId,
+      convertedDealId: dealId,
+      status: "converted",
+    });
+
+    // 3. Create Agent Notification for "Hot Lead"
+    const { createNotification } = await import("../db.js");
+    await createNotification({
+      userId,
+      workspaceId,
+      type: "lead",
+      title: `🔥 Hot Lead from ${source}`,
+      message: `New inquiry from ${name}: "${notes.length > 60 ? notes.substring(0, 60) + "..." : notes}"`,
+      entityType: "lead",
+      entityId: leadId,
+      isRead: false,
+    });
+
+    console.log(`[Social Lead Inbound] Processed ${source} lead ${leadId} for workspace ${workspaceId}`);
+    return leadId;
+
+  } catch (error) {
+    console.error("[Social Lead Inbound API] Error:", error);
+    throw error;
+  }
+}

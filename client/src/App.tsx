@@ -122,7 +122,7 @@ function Router() {
       {/* Placeholder pages — swapped out as each module is built */}
       <Route path="/properties">    {guard(<PropertiesPage />)}           </Route>
       <Route path="/leads">         {guard(<LeadCapture />)}               </Route>
-      <Route path="/design-studio"> {guard(<DesignStudio />)}             </Route>
+      <Route path="/design-studio/:contextId?"> {guard(<DesignStudio />)}             </Route>
       <Route path="/social-media">  {guard(<SocialMediaPage />)}           </Route>
       <Route path="/analytics">     {guard(<AnalyticsPage />)}             </Route>
       <Route path="/brand-kit">     {guard(<BrandKitPage />)}              </Route>

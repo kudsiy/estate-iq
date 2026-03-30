@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CheckCircle2, Inbox, Plus, UploadCloud } from "lucide-react";
+import { useLocation } from "wouter";
+import { CheckCircle2, Inbox, Palette, Plus, UploadCloud } from "lucide-react";
 
 const EMPTY_FORM = {
   sourceName: "",
@@ -24,6 +25,7 @@ const EMPTY_FORM = {
 };
 
 export default function SupplierFeedPage() {
+  const [location, setLocation] = useLocation();
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -211,9 +213,9 @@ export default function SupplierFeedPage() {
                         </Button>
                       ) : null}
                       {listing.status !== "imported" ? (
-                        <Button size="sm" className="h-7 gap-1 bg-accent text-xs text-white hover:bg-accent/90" onClick={() => importMutation.mutate({ supplierListingId: listing.id })}>
-                          <UploadCloud className="h-3 w-3" />
-                          Import
+                        <Button size="sm" className="h-7 gap-1 bg-accent text-xs text-white hover:bg-accent/90" onClick={() => setLocation(`/design-studio/${listing.id}`)}>
+                          <Palette className="h-3 w-3" />
+                          Beautify in Studio
                         </Button>
                       ) : (
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1" disabled>

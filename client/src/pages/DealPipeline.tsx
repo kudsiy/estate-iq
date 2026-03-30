@@ -1,5 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { DealCard } from "@/components/DealCard";
 import { trpc } from "@/lib/trpc";
-import { Plus, Search, X, DollarSign, FileText, Save, Trash2, ExternalLink, TrendingUp } from "lucide-react";
+import { Plus, Search, X, DollarSign, FileText, Save, Trash2, ExternalLink, TrendingUp, Activity, MessageCircle, Calendar, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -42,14 +42,48 @@ const STAGE_COLORS = {
   closed: "bg-green-50 border-green-200",
 };
 
+function timeAgo(date: string | Date) {
+  const d = new Date(date);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString("en-ET", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function DealPipeline() {
+  const [location, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedDealId, setSelectedDealId] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [propertyFilter, setPropertyFilter] = useState("all");
-  const [minValue, setMinValue] = useState("");
-  const [maxValue, setMaxValue] = useState("");
-  const [stageFilter, setStageFilter] = useState<string[]>([]);
+  const [selectedDealId, setSelectedDealId] = useState<number | null>(
+    searchParams.get("id") ? Number(searchParams.get("id")) : null
+  );
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [propertyFilter, setPropertyFilter] = useState(searchParams.get("property") || "all");
+  const [minValue, setMinValue] = useState(searchParams.get("min") || "");
+  const [maxValue, setMaxValue] = useState(searchParams.get("max") || "");
+  const [stageFilter, setStageFilter] = useState<string[]>(
+    searchParams.get("stage") ? searchParams.get("stage")!.split(",") : []
+  );
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    if (propertyFilter !== "all") params.set("property", propertyFilter);
+    if (minValue) params.set("min", minValue);
+    if (maxValue) params.set("max", maxValue);
+    if (stageFilter.length > 0) params.set("stage", stageFilter.join(","));
+    if (selectedDealId) params.set("id", selectedDealId.toString());
+
+    const queryString = params.toString();
+    const newUrl = `${window.location.pathname}${queryString ? `?${queryString}` : ""}`;
+    window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, "", newUrl);
+  }, [searchTerm, propertyFilter, minValue, maxValue, stageFilter, selectedDealId]);
   const [formData, setFormData] = useState({
     leadId: "",
     contactId: "",
@@ -59,7 +93,7 @@ export default function DealPipeline() {
     notes: "",
   });
 
-  const [, setLocation] = useLocation();
+
 
   const { data: deals, refetch } = trpc.crm.deals.list.useQuery();
   const { data: contacts } = trpc.crm.contacts.list.useQuery();
@@ -77,13 +111,21 @@ export default function DealPipeline() {
   });
 
   const updateMutation = trpc.crm.deals.update.useMutation({
-    onSuccess: () => { toast.success("Deal updated successfully"); refetch(); },
+    onSuccess: () => { 
+      toast.success("Deal updated successfully"); 
+      refetch(); 
+      if (selectedDealId) refetchEvents();
+    },
     onError: (error) => { toast.error(error.message || "Failed to update deal"); },
   });
 
   const deleteMutation = trpc.crm.deals.delete.useMutation({
     onSuccess: () => { toast.success("Deal deleted"); setSelectedDealId(null); refetch(); },
     onError: () => toast.error("Delete failed"),
+  });
+
+  const { data: dealEvents = [], refetch: refetchEvents } = trpc.crm.deals.listEvents.useQuery(selectedDealId!, {
+    enabled: !!selectedDealId,
   });
 
   const sensors = useSensors(
@@ -644,6 +686,82 @@ export default function DealPipeline() {
                     <div>
                       <span className="block font-medium text-foreground mb-0.5">Closed</span>
                       {new Date(deal.closedAt).toLocaleDateString("en-ET", { day:"2-digit", month:"short", year:"numeric" })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Suggested Next Action */}
+                {deal.stage !== "closed" && (
+                  <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 mt-1 mb-2">
+                    <h4 className="text-[10px] font-bold text-accent uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-3 h-3" />
+                      Suggested Next Step
+                    </h4>
+                    {deal.stage === "lead" && (
+                      <Button className="w-full justify-start gap-2 h-9 text-sm font-medium" variant="outline"
+                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "contacted" } })}>
+                        <MessageCircle className="w-4 h-4 text-blue-500" /> Mark as Contacted
+                      </Button>
+                    )}
+                    {deal.stage === "contacted" && (
+                      <Button className="w-full justify-start gap-2 h-9 text-sm font-medium" variant="outline"
+                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "viewing" } })}>
+                        <Calendar className="w-4 h-4 text-purple-500" /> Schedule Property Viewing
+                      </Button>
+                    )}
+                    {deal.stage === "viewing" && (
+                      <Button className="w-full justify-start gap-2 h-9 text-sm font-medium" variant="outline"
+                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "offer" } })}>
+                        <DollarSign className="w-4 h-4 text-orange-500" /> Log Offer Received
+                      </Button>
+                    )}
+                    {deal.stage === "offer" && (
+                      <Button className="w-full justify-start gap-2 h-9 text-sm font-medium bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                        variant="outline"
+                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "closed" } })}>
+                        <CheckCircle className="w-4 h-4 text-green-600" /> Finalize Handover & Close
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* Deal Activity Timeline */}
+                <div className="pt-4 border-t border-border mt-4">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Activity className="w-3 h-3" />
+                    Deal Activity
+                  </h4>
+                  {dealEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No activity recorded for this deal</p>
+                  ) : (
+                    <div className="relative pb-4">
+                      <div className="absolute left-3.5 top-2 bottom-0 w-px bg-border" />
+                      <div className="space-y-4">
+                        {dealEvents.map((event, i) => {
+                          let Icon = Activity;
+                          let color = "text-accent";
+                          if (event.type === "note") { Icon = MessageCircle; color = "text-muted-foreground"; }
+                          else if (event.type === "deal_update") { Icon = TrendingUp; color = "text-blue-500"; }
+                          else if (event.type === "system") { Icon = Plus; }
+
+                          return (
+                            <div key={i} className="flex items-start gap-3 pl-0">
+                              <div className="w-7 h-7 rounded-full border-2 border-background bg-card flex items-center justify-center shrink-0 z-10">
+                                <Icon className={`w-3.5 h-3.5 ${color}`} />
+                              </div>
+                              <div className="flex-1 pt-0.5 min-w-0">
+                                <p className="text-sm text-foreground">{event.label}</p>
+                                {event.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 bg-muted/30 p-2 rounded-md border border-border/30">
+                                    {event.description}
+                                  </p>
+                                )}
+                                <p className="text-[10px] text-muted-foreground mt-1">{timeAgo(event.createdAt)}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

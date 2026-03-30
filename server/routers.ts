@@ -6,7 +6,7 @@ import { adminProcedure, publicProcedure, router, protectedProcedure, mutatingPr
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { createChapaCheckoutSession } from "./_core/chapa";
-import { PLAN_LIMITS, isLimitReached, isSubscriptionActive } from "./_core/monetization";
+import { PLAN_LIMITS, PLAN_PRICES, YEARLY_SAVINGS, isLimitReached, isSubscriptionActive, isInGracePeriod, GRACE_PERIOD_DAYS } from "./_core/monetization";
 import {
   createBuyerProfile,
   createBrandKit,
@@ -34,6 +34,7 @@ import {
   getContactById,
   getContactsByScope,
   getContactEventsByScope,
+  getDealEventsByScope,
   createContactEvent,
   getDealById,
   getDealsByScope,
@@ -65,6 +66,7 @@ import {
   updateUserProfile,
   updateWorkspace,
 } from "./db";
+import { isRegistered, getMock } from "./_core/studio_registry";
 
 const platformEnum = z.enum(["telegram", "facebook", "instagram", "tiktok"]);
 const postStatusEnum = z.enum(["draft", "scheduled", "queued", "publishing", "published", "failed"]);
@@ -231,6 +233,8 @@ const designInputSchema = z.object({
   template: z.string().optional(),
   content: z.record(z.string(), z.unknown()).optional(),
   previewUrl: z.string().optional(),
+  propertyId: z.number().int().positive().optional(),
+  isNewInventory: z.boolean().optional(),
 });
 
 const socialPlatformStatusSchema = z.record(
@@ -248,6 +252,8 @@ const socialMediaPostInputSchema = z.object({
   platforms: z.array(platformEnum).min(1).optional(),
   scheduledTime: z.date().optional(),
   content: z.string().min(1).optional(),
+  mediaUrl: z.string().url().optional(),
+  mediaType: z.enum(["image", "video"]).optional(),
   status: postStatusEnum.optional(),
   platformStatuses: socialPlatformStatusSchema.optional(),
   providerMetadata: z.record(z.string(), z.unknown()).optional(),
@@ -257,8 +263,10 @@ const socialMediaPostUpdateSchema = atLeastOne({
   designId: z.number().int().positive().nullable(),
   platforms: z.array(platformEnum).min(1),
   scheduledTime: z.date().nullable(),
-  content: z.string().min(1),
-  status: postStatusEnum,
+  content: z.string().min(1).optional(),
+  mediaUrl: z.string().url().optional(),
+  mediaType: z.enum(["image", "video"]).optional(),
+  status: postStatusEnum.optional(),
   platformStatuses: socialPlatformStatusSchema,
   providerMetadata: z.record(z.string(), z.unknown()),
   publishedAt: z.date().nullable(),
@@ -638,19 +646,32 @@ export const appRouter = router({
         {
           key: "starter",
           name: "Starter",
-          priceMonthly: 499,
+          tagline: "Solo agents testing the waters",
+          priceMonthly: PLAN_PRICES.starter.monthly,
+          priceYearly: PLAN_PRICES.starter.yearly,
+          yearlySavings: YEARLY_SAVINGS.starter,
+          monthlyEquivalent: Math.round(PLAN_PRICES.starter.yearly / 12),
           limits: PLAN_LIMITS.starter,
         },
         {
           key: "pro",
           name: "Pro",
-          priceMonthly: 999,
+          tagline: "Active agents who mean business",
+          priceMonthly: PLAN_PRICES.pro.monthly,
+          priceYearly: PLAN_PRICES.pro.yearly,
+          yearlySavings: YEARLY_SAVINGS.pro,
+          monthlyEquivalent: Math.round(PLAN_PRICES.pro.yearly / 12),
           limits: PLAN_LIMITS.pro,
+          featured: true,
         },
         {
           key: "agency",
           name: "Agency",
-          priceMonthly: 2499,
+          tagline: "Brokerages & multi-agent teams",
+          priceMonthly: PLAN_PRICES.agency.monthly,
+          priceYearly: PLAN_PRICES.agency.yearly,
+          yearlySavings: YEARLY_SAVINGS.agency,
+          monthlyEquivalent: Math.round(PLAN_PRICES.agency.yearly / 12),
           limits: PLAN_LIMITS.agency,
         },
       ] as const;
@@ -700,7 +721,9 @@ export const appRouter = router({
           aiImages: workspace?.aiImagesCount ?? 0,
         },
         isActive: isTrialActive || isSubscriptionActive,
+        isGracePeriod: isInGracePeriod(workspace as any),
         daysRemaining,
+        gracePeriodDays: GRACE_PERIOD_DAYS,
       };
     }),
   }),
@@ -731,13 +754,9 @@ export const appRouter = router({
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Workspace not initialized" });
         }
 
-        const PLAN_PRICES: Record<string, number> = {
-          starter: 499,
-          pro: 999,
-          agency: 2499,
-        };
-
-        const amount = PLAN_PRICES[input.plan] ?? 499;
+        const billingInterval = (input as any).billingInterval === "yearly" ? "yearly" : "monthly";
+        const prices = PLAN_PRICES[input.plan as keyof typeof PLAN_PRICES];
+        const amount = billingInterval === "yearly" ? prices.yearly : prices.monthly;
         const txRef = `eiq-${ctx.user.workspaceId}-${nanoid(12)}`;
         const appBaseUrl = process.env.BASE_URL || "http://localhost:3000";
 
@@ -753,7 +772,7 @@ export const appRouter = router({
           return_url: `${appBaseUrl}/billing?session=complete`,
           customization: {
             title: "Estate IQ Subscription",
-            description: `${input.plan.charAt(0).toUpperCase() + input.plan.slice(1)} Plan — ETB ${amount}/month`,
+            description: `${input.plan.charAt(0).toUpperCase() + input.plan.slice(1)} Plan — ETB ${amount}/${billingInterval === "yearly" ? "year" : "month"}`,
           },
         });
 
@@ -833,6 +852,9 @@ export const appRouter = router({
           };
         })
         .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    }),
+    getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
+      return assertFound(await getSupplierListingById(getScope(ctx.user), input), "Supplier listing");
     }),
     create: mutatingProcedure.input(supplierListingInputSchema).mutation(async ({ ctx, input }) => {
       const scope = getScope(ctx.user);
@@ -1099,6 +1121,17 @@ export const appRouter = router({
       create: mutatingProcedure.input(dealInputSchema).mutation(async ({ ctx, input }) => {
         const scope = getScope(ctx.user);
         const id = await createDeal({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input, value: input.value?.toString(), commission: input.commission?.toString() });
+
+        await createContactEvent({
+          userId: ctx.user.id,
+          workspaceId: scope.workspaceId,
+          contactId: input.contactId,
+          dealId: id,
+          type: "system",
+          label: "Deal created",
+          description: input.notes ? `Initial notes: ${input.notes}` : "New deal in pipeline",
+        });
+
         return { success: true, id };
       }),
       update: mutatingProcedure
@@ -1120,9 +1153,10 @@ export const appRouter = router({
               userId: ctx.user.id,
               workspaceId: scope.workspaceId,
               contactId: existing!.contactId,
+              dealId: input.id,
               type: "deal_update",
-              label: `Deal stage updated to ${STAGE_LABELS[data.stage] || data.stage}`,
-              description: `Value: ${data.value ? formatBirr(data.value) : "—"}`,
+              label: `Deal stage updated to ${STAGE_LABELS[data.stage as keyof typeof STAGE_LABELS] || data.stage}`,
+              description: data.value ? `Value: ${formatBirr(data.value)}` : undefined,
               metadata: { dealId: input.id, old: existing?.stage, new: data.stage },
             });
 
@@ -1138,7 +1172,29 @@ export const appRouter = router({
               }
             );
           }
+
+          if (input.data.notes && existing?.notes !== input.data.notes) {
+            await createContactEvent({
+              userId: ctx.user.id,
+              workspaceId: scope.workspaceId,
+              contactId: existing!.contactId,
+              dealId: input.id,
+              type: "note",
+              label: "Deal note updated",
+              description: input.data.notes,
+              metadata: { dealId: input.id },
+            });
+          }
+
           return { success: true } as const;
+        }),
+      listEvents: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          const deal = await getDealById(scope, input);
+          if (!deal) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found" });
+          return getDealEventsByScope(scope, input);
         }),
       delete: mutatingProcedure
         .input(z.number().int().positive())
@@ -1456,8 +1512,36 @@ export const appRouter = router({
       }),
       create: mutatingProcedure.input(designInputSchema).mutation(async ({ ctx, input }) => {
         const scope = getScope(ctx.user);
-        const id = await createDesign({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input });
-        return { success: true, id };
+        let finalPropertyId = input.propertyId;
+
+        // Circular Ecosystem: Studio -> Inventory
+        if (input.isNewInventory && input.content) {
+          const content = input.content as any;
+          // Extract basic property info from design content if available
+          // In a real app, this would use the AI extractor or specific tagged elements
+          const title = input.name || "New Property from Studio";
+          
+          finalPropertyId = await createProperty({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            title,
+            address: "Pending Address",
+            city: "Addis Ababa",
+            status: "available",
+          });
+        } else if (input.propertyId && input.name) {
+          // Update existing property title if it was edited in studio
+          await updateProperty(scope, input.propertyId, { title: input.name });
+        }
+
+        const id = await createDesign({ 
+          userId: ctx.user.id, 
+          workspaceId: scope.workspaceId, 
+          ...input,
+          propertyId: finalPropertyId 
+        });
+        
+        return { success: true, id, propertyId: finalPropertyId };
       }),
     }),
 
@@ -1568,6 +1652,62 @@ The caption should be engaging, professional, and include relevant hashtags for 
 
         return { caption };
       }),
+
+    /**
+     * Defensive Studio AI Routes
+     */
+    generateMarketingPack: protectedProcedure
+      .input(z.object({ propertyId: z.number().int().positive(), templateId: z.string().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const route = "ai.generateMarketingPack";
+        if (isRegistered(route)) {
+          // Future implementation will go here
+          throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "AI Pack handler registered but not fully implemented." });
+        }
+        return getMock(route);
+      }),
+  }),
+
+  /**
+   * Studio Specific Procedures (Defensive)
+   */
+  studio: router({
+    upload: protectedProcedure
+      .input(z.object({
+        fileName: z.string(),
+        fileData: z.string(), // base64
+        contentType: z.string().default("image/png"),
+      }))
+      .mutation(async ({ input }) => {
+        const { storagePut } = await import("./storage.js");
+        const buffer = Buffer.from(input.fileData, "base64");
+        const result = await storagePut(`studio/${Date.now()}-${input.fileName}`, buffer, input.contentType);
+        return { url: result.url };
+      }),
+    extractor: router({
+      parseListing: protectedProcedure
+        .input(z.object({ url: z.string().url().optional(), text: z.string().optional() }))
+        .mutation(async ({ input }) => {
+          const route = "extractor.parseListing";
+          if (isRegistered(route)) {
+             // Future implementation
+             throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "Extractor registered but not fully implemented." });
+          }
+          return getMock(route);
+        }),
+    }),
+    videoEngine: router({
+      render: protectedProcedure
+        .input(z.object({ designId: z.number().int().positive(), format: z.string().optional() }))
+        .mutation(async ({ input }) => {
+          const route = "videoEngine.render";
+          if (isRegistered(route)) {
+            // Future implementation
+            throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "Video engine registered but not fully implemented." });
+          }
+          return getMock(route);
+        }),
+    }),
   }),
 });
 

@@ -43,6 +43,13 @@
       "when": 1774723852743,
       "tag": "0005_perfect_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1774884857707,
+      "tag": "0006_cloudy_catseye",
+      "breakpoints": true
     }
   ]
 }

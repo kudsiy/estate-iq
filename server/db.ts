@@ -381,6 +381,21 @@ export async function getContactEventsByScope(scope: Scope, contactId: number) {
     .orderBy(sql`${contactEvents.createdAt} DESC`);
 }
 
+export async function getDealEventsByScope(scope: Scope, dealId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(contactEvents)
+    .where(
+      and(
+        eq(contactEvents.workspaceId, scope.workspaceId),
+        eq(contactEvents.dealId, dealId)
+      )
+    )
+    .orderBy(sql`${contactEvents.createdAt} DESC`);
+}
+
 export async function createContactEvent(event: InsertContactEvent) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -647,14 +662,18 @@ export async function getSocialMediaPostsByScope(scope: Scope) {
     .where(and(eq(socialMediaPosts.userId, scope.userId), eq(socialMediaPosts.workspaceId, scope.workspaceId)));
 }
 
-export async function getSocialMediaPostById(scope: Scope, id: number) {
+export async function getSocialMediaPostById(id: number, scope?: Scope) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db
-    .select()
-    .from(socialMediaPosts)
-    .where(and(eq(socialMediaPosts.id, id), eq(socialMediaPosts.workspaceId, scope.workspaceId)))
-    .limit(1);
+  
+  const query = db.select().from(socialMediaPosts);
+  const conditions = [eq(socialMediaPosts.id, id)];
+  
+  if (scope) {
+    conditions.push(eq(socialMediaPosts.workspaceId, scope.workspaceId));
+  }
+
+  const result = await query.where(and(...conditions)).limit(1);
   return result[0];
 }
 
@@ -719,7 +738,7 @@ export async function createSocialMediaPost(post: InsertSocialMediaPost) {
 export async function updateSocialMediaPost(scope: Scope, id: number, updates: Partial<InsertSocialMediaPost>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const existing = await getSocialMediaPostById(scope, id);
+  const existing = await getSocialMediaPostById(id, scope);
   if (!existing) return false;
   await db
     .update(socialMediaPosts)
@@ -731,7 +750,7 @@ export async function updateSocialMediaPost(scope: Scope, id: number, updates: P
 export async function deleteSocialMediaPost(scope: Scope, id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const existing = await getSocialMediaPostById(scope, id);
+  const existing = await getSocialMediaPostById(id, scope);
   if (!existing) return false;
   await db
     .delete(socialMediaPosts)
@@ -824,6 +843,27 @@ export async function updateSupplierListing(scope: Scope, id: number, updates: P
     .set(updates)
     .where(and(eq(supplierListings.id, id), eq(supplierListings.workspaceId, scope.workspaceId)));
   return true;
+}
+
+export async function incrementEngagementMetric(postId: number, platform: string, field: "likes" | "comments" | "shares" | "impressions" | "clicks" | "leads") {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db
+    .select()
+    .from(engagementMetrics)
+    .where(and(eq(engagementMetrics.postId, postId), eq(engagementMetrics.platform, platform)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(engagementMetrics)
+      .set({ [field]: (existing[0] as any)[field] + 1 })
+      .where(eq(engagementMetrics.id, existing[0].id));
+  } else {
+    await db
+      .insert(engagementMetrics)
+      .values({ postId, platform, [field]: 1 });
+  }
 }
 
 // Buyer profile queries

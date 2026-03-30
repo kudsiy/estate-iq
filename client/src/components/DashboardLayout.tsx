@@ -243,6 +243,31 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                 );
               })}
             </SidebarMenu>
+
+            {/* Plan badge */}
+            {!isCollapsed && current && (
+              <div className="mx-3 mt-2 mb-1">
+                <button
+                  onClick={() => setLocation("/billing")}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-left hover:bg-accent/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${
+                      current.isActive && !current.isGracePeriod ? "bg-green-500" : 
+                      current.isGracePeriod ? "bg-amber-500" : "bg-red-500"
+                    }`} />
+                    <span className="text-xs font-semibold text-foreground uppercase">
+                      {current.workspace?.plan ?? "starter"}
+                    </span>
+                    {current.workspace?.subscriptionStatus === "trial" && current.daysRemaining !== undefined && current.daysRemaining > 0 && (
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {current.daysRemaining}d left
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
+            )}
           </SidebarContent>
 
           {/* Footer — user menu */}
@@ -309,34 +334,139 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
           </div>
         )}
 
-        {/* Expired Subscription Banner */}
-        {current && !current.isActive && (
-          <div className="bg-destructive/10 border-b border-destructive/20 px-6 py-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/20">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
+        {/* ── Trial / Subscription Lifecycle Banners ── */}
+        {current && (() => {
+          const days = current.daysRemaining ?? 0;
+          const isActive = current.isActive;
+          const isGrace = current.isGracePeriod;
+          const isTrial = current.workspace?.subscriptionStatus === "trial";
+          const plan = current.workspace?.plan ?? "starter";
+
+          // Fully expired (past grace period)
+          if (!isActive && !isGrace) {
+            return (
+              <>
+                {/* Soft-lock overlay */}
+                <div className="bg-destructive/5 border-b-2 border-destructive/30 px-6 py-5">
+                  <div className="max-w-2xl mx-auto flex flex-col items-center gap-4 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
+                      <AlertTriangle className="h-6 w-6 text-destructive" />
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-destructive">
+                        {isTrial ? "Your 14-day trial has ended" : "Your subscription has expired"}
+                      </p>
+                      <p className="text-sm text-destructive/70 mt-1">
+                        Your {current.usage?.leads ?? 0} leads and {current.usage?.properties ?? 0} listings are locked. 
+                        Upgrade now to keep everything and continue growing your pipeline.
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button 
+                        size="sm" 
+                        variant="destructive" 
+                        className="h-9 px-6 rounded-lg shadow-sm font-semibold"
+                        onClick={() => setLocation("/billing")}
+                      >
+                        Unlock Now — From ETB 499/mo
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          }
+
+          // Grace period warning (expired but within 3-day window)
+          if (isGrace) {
+            return (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border-b-2 border-amber-400/50 px-6 py-3 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                      ⏳ Grace period — Your {isTrial ? "trial" : "subscription"} expired
+                    </p>
+                    <p className="text-xs text-amber-700/80 dark:text-amber-400/70">
+                      You have {current.gracePeriodDays} days to upgrade before your account is fully locked.
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="h-8 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-semibold"
+                  onClick={() => setLocation("/billing")}
+                >
+                  Upgrade Now
+                </Button>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-destructive">
-                  {current.workspace?.subscriptionStatus === "trial" 
-                    ? "Your trial has expired" 
-                    : "Your subscription is inactive"}
-                </p>
-                <p className="text-xs text-destructive/80">
-                  Enable your subscription to continue using all features.
-                </p>
+            );
+          }
+
+          // Active trial with countdown (show urgency banners)
+          if (isTrial && days <= 7 && days > 0) {
+            const isUrgent = days <= 3;
+            return (
+              <div className={`border-b-2 px-6 py-2.5 flex items-center justify-between gap-4 ${
+                isUrgent 
+                  ? "bg-red-50 dark:bg-red-950/30 border-red-400/50" 
+                  : "bg-amber-50 dark:bg-amber-950/20 border-amber-300/50"
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                    isUrgent ? "bg-red-100 dark:bg-red-900/50" : "bg-amber-100 dark:bg-amber-900/50"
+                  }`}>
+                    <AlertTriangle className={`h-3.5 w-3.5 ${isUrgent ? "text-red-600" : "text-amber-600"}`} />
+                  </div>
+                  <p className={`text-sm font-semibold ${isUrgent ? "text-red-800 dark:text-red-300" : "text-amber-800 dark:text-amber-300"}`}>
+                    {isUrgent 
+                      ? `🔥 ${days} day${days === 1 ? "" : "s"} left — Your ${current.usage?.leads ?? 0} leads will be locked!` 
+                      : `${days} days left in your trial`}
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  className={`h-7 px-4 rounded-lg shadow-sm text-xs font-bold ${
+                    isUrgent 
+                      ? "bg-red-600 hover:bg-red-700 text-white" 
+                      : "bg-amber-600 hover:bg-amber-700 text-white"
+                  }`}
+                  onClick={() => setLocation("/billing")}
+                >
+                  {isUrgent ? "Upgrade Now" : "See Plans"}
+                </Button>
               </div>
-            </div>
-            <Button 
-              size="sm" 
-              variant="destructive" 
-              className="h-8 rounded-lg shadow-sm"
-              onClick={() => setLocation("/billing")}
-            >
-              Update Billing
-            </Button>
-          </div>
-        )}
+            );
+          }
+
+          // Active trial with plenty of time — subtle indicator
+          if (isTrial && days > 7) {
+            return (
+              <div className="bg-accent/5 border-b border-accent/15 px-6 py-2 flex items-center justify-between gap-4">
+                <p className="text-xs text-accent font-medium">
+                  ✨ Full access trial — {days} days remaining
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-6 px-3 text-xs text-accent hover:text-accent"
+                  onClick={() => setLocation("/billing")}
+                >
+                  See Plans
+                </Button>
+              </div>
+            );
+          }
+
+          // Plan badge for paid users
+          if (!isTrial && isActive) {
+            return null; // No banner needed for active paid users
+          }
+
+          return null;
+        })()}
 
         <main className="flex-1 p-6 bg-background min-h-screen">{children}</main>
       </SidebarInset>

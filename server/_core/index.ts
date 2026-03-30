@@ -54,9 +54,17 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
-  // ── External Lead Ingestion API ──
-  app.post("/api/leads/external", async (req, res) => {
-    await handleExternalLead(req, res);
+  // ── Social Webhook Handler (Comments/DMs -> Leads) ──
+  app.post("/api/webhooks/social", async (req, res) => {
+    const { processSocialInteraction } = await import("./social.js");
+    const { postId, platform, userHandle, text, metadata } = req.body;
+    
+    // Process asynchronously to keep webhook response times low
+    processSocialInteraction(postId, platform, userHandle, text, metadata).catch(err => {
+      console.error("[Social Webhook] Failed to process interaction:", err);
+    });
+
+    return res.status(200).json({ received: true });
   });
 
   // ── Chapa Webhook Handler (outside tRPC) ──

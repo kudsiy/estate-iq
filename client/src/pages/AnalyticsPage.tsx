@@ -370,6 +370,169 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
+      {/* ── Row 3: Deal Pipeline Analytics ──────────────────────────── */}
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-accent" />
+          Deal Pipeline Analytics
+        </h2>
+      </div>
+
+      {/* Deal KPIs */}
+      {(() => {
+        const openDeals = deals.filter((d) => d.stage !== "closed");
+        const closedDeals = deals.filter((d) => d.stage === "closed");
+        const totalOpenValue = openDeals.reduce((s, d) => s + (Number(d.value) || 0), 0);
+        const totalClosedValue = closedDeals.reduce((s, d) => s + (Number(d.value) || 0), 0);
+        const totalCommission = closedDeals.reduce((s, d) => s + (Number(d.commission) || 0), 0);
+        const winRate = deals.length > 0 ? Math.round((closedDeals.length / deals.length) * 100) : 0;
+        
+        // Average days to close
+        const closedWithDates = closedDeals.filter((d) => d.closedAt && d.createdAt);
+        const avgDaysToClose = closedWithDates.length > 0
+          ? Math.round(closedWithDates.reduce((s, d) => {
+              const created = new Date(d.createdAt).getTime();
+              const closed = new Date(d.closedAt!).getTime();
+              return s + (closed - created) / (1000 * 60 * 60 * 24);
+            }, 0) / closedWithDates.length)
+          : 0;
+        
+        const formatBirr = (val: number) => {
+          if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+          if (val >= 1_000) return `${Math.round(val / 1_000)}K`;
+          return `${Math.round(val)}`;
+        };
+
+        // Stage velocity
+        const stages = ["lead", "contacted", "viewing", "offer", "closed"] as const;
+        const stageLabels: Record<string, string> = {
+          lead: "Lead", contacted: "Contacted", viewing: "Viewing",
+          offer: "Offer", closed: "Closed",
+        };
+        const stageColors: Record<string, string> = {
+          lead: "#5a8bc4", contacted: "#7b6fc4", viewing: "#c4a35a",
+          offer: "#c4875a", closed: "#5ac47b",
+        };
+        const stageData = stages.map((stage) => ({
+          name: stageLabels[stage],
+          count: deals.filter((d) => d.stage === stage).length,
+          value: deals.filter((d) => d.stage === stage).reduce((s, d) => s + (Number(d.value) || 0), 0),
+          fill: stageColors[stage],
+        }));
+
+        // Monthly revenue trend (last 6 months)
+        const revenueMonths = Array.from({ length: 6 }, (_, i) => {
+          const d = new Date();
+          d.setDate(1);
+          d.setMonth(d.getMonth() - (5 - i));
+          return {
+            label: d.toLocaleString("default", { month: "short" }),
+            year: d.getFullYear(),
+            monthNum: d.getMonth(),
+          };
+        });
+        const revenueTrend = revenueMonths.map(({ label, year, monthNum }) => {
+          const inMonth = (date: Date) => date.getMonth() === monthNum && date.getFullYear() === year;
+          const monthClosed = closedDeals.filter((d) => d.closedAt && inMonth(new Date(d.closedAt)));
+          return {
+            month: label,
+            revenue: monthClosed.reduce((s, d) => s + (Number(d.value) || 0), 0),
+            commission: monthClosed.reduce((s, d) => s + (Number(d.commission) || 0), 0),
+            deals: monthClosed.length,
+          };
+        });
+
+        return (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+              <StatCard icon={TrendingUp} label="Open pipeline" value={`${formatBirr(totalOpenValue)} ETB`} sub={`${openDeals.length} deals`} color="text-accent" />
+              <StatCard icon={TrendingUp} label="Closed revenue" value={`${formatBirr(totalClosedValue)} ETB`} sub={`${closedDeals.length} deals`} color="text-green-500" />
+              <StatCard icon={TrendingUp} label="Total commission" value={`${formatBirr(totalCommission)} ETB`} sub="earned" color="text-amber-500" />
+              <StatCard icon={Target} label="Win rate" value={`${winRate}%`} sub="lead → closed" color="text-blue-500" />
+              <StatCard icon={Eye} label="Avg days to close" value={avgDaysToClose || "—"} sub="from creation" color="text-violet-500" />
+              <StatCard icon={Users} label="Active pipeline" value={openDeals.length} sub={`${deals.length} total`} color="text-pink-500" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+              {/* Stage velocity */}
+              <Card className="border border-border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Pipeline stage distribution</CardTitle>
+                  <CardDescription className="text-xs">Deals and value per stage</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {deals.length === 0 ? (
+                    <EmptyChart
+                      message="Add deals to see your pipeline distribution"
+                      action="Open Pipeline"
+                      onAction={() => setLocation("/crm/deals")}
+                    />
+                  ) : (
+                    <div className="space-y-2 pt-2">
+                      {stageData.map((stage) => {
+                        const maxCount = Math.max(...stageData.map((s) => s.count), 1);
+                        const pct = Math.round((stage.count / maxCount) * 100);
+                        return (
+                          <div key={stage.name}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-muted-foreground">{stage.name}</span>
+                              <span className="text-xs font-medium text-foreground">
+                                {stage.count} deal{stage.count !== 1 ? "s" : ""} · {formatBirr(stage.value)} ETB
+                              </span>
+                            </div>
+                            <div className="h-5 bg-muted rounded-md overflow-hidden">
+                              <div
+                                className="h-full rounded-md transition-all duration-700"
+                                style={{ width: `${Math.max(pct, 4)}%`, background: stage.fill }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Monthly revenue trend */}
+              <Card className="border border-border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Monthly closed revenue</CardTitle>
+                  <CardDescription className="text-xs">ETB revenue from closed deals — last 6 months</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {closedDeals.length === 0 ? (
+                    <EmptyChart
+                      message="Close deals to see your revenue trend"
+                      action="Open Pipeline"
+                      onAction={() => setLocation("/crm/deals")}
+                    />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={revenueTrend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="month" stroke="#9ca3af" tick={{ fontSize: 11 }} />
+                        <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
+                        <Tooltip
+                          contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                          formatter={(value: number, name: string) => [
+                            `ETB ${value.toLocaleString()}`,
+                            name === "revenue" ? "Revenue" : name === "commission" ? "Commission" : "Deals"
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="revenue" name="Revenue" fill="#5ac47b" radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="commission" name="Commission" fill="#d4af37" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        );
+      })()}
+
       {/* ── CRM summary ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
