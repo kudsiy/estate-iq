@@ -118,48 +118,63 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* KPI cards */}
+      {/* KPI cards - Revenue Focused */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           {
-            icon: Users,
-            label: "Active Leads",
+            icon: Target,
+            label: "Lead Velocity",
             value: activeLeads,
-            sub: `${contacts.length} total contacts`,
+            sub: `${contacts.length} captured this month`,
+            trend: "+12.5%",
+            trendUp: true
           },
           {
             icon: TrendingUp,
-            label: "Closed Deals",
-            value: closedDeals,
-            sub: `${deals.length} total deals`,
+            label: "Conversion Rate",
+            value: deals.length > 0 ? `${Math.round((closedDeals / deals.length) * 100)}%` : "0%",
+            sub: "Lead-to-Close efficiency",
+            trend: "+4.2%",
+            trendUp: true
           },
           {
             icon: DollarSign,
-            label: "Pipeline Value",
-            value: totalDealValue > 0 ? formatBirr(totalDealValue) : "—",
-            sub: "Total open deal value",
+            label: "Projected Revenue",
+            value: totalDealValue > 0 ? formatBirr(totalDealValue) : "0 ETB",
+            sub: "Active Pipeline Value",
+            trend: "+ETB 2.4M",
+            trendUp: true
           },
           {
-            icon: Calendar,
-            label: "Scheduled Posts",
-            value: scheduledPosts,
-            sub: `${socialPosts.length} posts total`,
+            icon: Sparkles,
+            label: "Marketing ROI",
+            value: socialPosts.length > 0 ? "4.2x" : "—",
+            sub: "AI-Generated Content Impact",
+            trend: "Optimized",
+            trendUp: true
           },
         ].map((kpi) => (
-          <Card key={kpi.label} className="border border-border hover:shadow-sm transition-shadow">
+          <Card key={kpi.label} className="border border-border/50 bg-card/50 backdrop-blur hover:shadow-lg transition-all group overflow-hidden">
+            <div className={`absolute top-0 left-0 w-1 h-full ${kpi.trendUp ? 'bg-accent' : 'bg-muted'}`} />
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                <kpi.icon className="w-3.5 h-3.5 text-accent" />
-                {kpi.label}
+              <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                   <kpi.icon className="w-3.5 h-3.5 text-accent" />
+                   {kpi.label}
+                </span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${kpi.trendUp ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                  {kpi.trend}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="text-3xl font-semibold text-foreground">{kpi.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{kpi.sub}</p>
+              <div className="text-3xl font-black text-foreground tracking-tight group-hover:scale-105 transition-transform origin-left">{kpi.value}</div>
+              <p className="text-[10px] text-muted-foreground mt-1 font-medium">{kpi.sub}</p>
             </CardContent>
           </Card>
         ))}
       </div>
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">

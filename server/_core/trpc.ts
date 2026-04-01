@@ -98,3 +98,26 @@ const requireActivePlan = t.middleware(async opts => {
 
 export const mutatingProcedure = t.procedure.use(requireUser).use(requireActivePlan);
 
+const requireProPlan = t.middleware(async opts => {
+  const { ctx, next } = opts;
+  const workspace = (ctx as any).workspace;
+
+  if (!workspace) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Workspace required" });
+  }
+
+  if (workspace.plan === "starter") {
+    throw new TRPCError({ 
+      code: "FORBIDDEN", 
+      message: "This feature requires a Pro or Agency plan. Please upgrade to continue." 
+    });
+  }
+
+  return next({
+    ctx,
+  });
+});
+
+export const protectedProProcedure = mutatingProcedure.use(requireProPlan);
+
+

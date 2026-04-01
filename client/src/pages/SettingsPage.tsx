@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { PremiumUpgradeModal } from "@/components/PremiumUpgradeModal";
 import {
   User,
   Bell,
@@ -98,6 +99,16 @@ function IntegrationCard({
 export default function SettingsPage() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgrade") === "pro") {
+      setIsUpgradeModalOpen(true);
+      // Clean up URL without reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
   const defaultNotificationPreferences: NotificationPreference[] = [
     { key: "newLead", label: "New lead captured", sub: "When a lead arrives through a working capture channel.", enabled: true },
     { key: "dealStage", label: "Deal stage changed", sub: "When a deal moves between pipeline stages.", enabled: true },
@@ -200,11 +211,27 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your account details and see which integrations are live versus still awaiting setup.
-        </p>
+      <PremiumUpgradeModal 
+        open={isUpgradeModalOpen} 
+        onOpenChange={setIsUpgradeModalOpen} 
+        feature="Estate IQ Pro" 
+      />
+
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage your account details and see which integrations are live versus still awaiting setup.
+          </p>
+        </div>
+        {!workspace?.plan || workspace.plan === 'starter' ? (
+          <Button 
+            className="bg-accent text-white font-bold tracking-tight shadow-md"
+            onClick={() => setIsUpgradeModalOpen(true)}
+          >
+            Upgrade to Pro
+          </Button>
+        ) : null}
       </div>
 
       <Tabs defaultValue="profile">

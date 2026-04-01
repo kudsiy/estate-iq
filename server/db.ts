@@ -227,6 +227,18 @@ export async function incrementWorkspaceAiCaptionsCount(id: number) {
     .where(eq(workspaces.id, id));
 }
 
+export async function incrementWorkspaceAiImagesCount(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(workspaces)
+    .set({
+      aiImagesCount: sql`${workspaces.aiImagesCount} + 1`,
+    })
+    .where(eq(workspaces.id, id));
+}
+
+
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];

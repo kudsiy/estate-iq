@@ -87,83 +87,85 @@ export default function PricingPage() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 mb-16">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 mb-16 px-4">
           {plans.map((plan) => {
-            const isFeatured = (plan as any).featured;
+            const isFeatured = (plan as any).featured || plan.key === 'pro';
             const price = isYearly ? (plan as any).priceYearly : plan.priceMonthly;
             const savings = (plan as any).yearlySavings;
             const monthlyEquiv = (plan as any).monthlyEquivalent;
 
             return (
-              <Card 
-                key={plan.key} 
-                className={`relative border-2 transition-shadow hover:shadow-lg ${
-                  isFeatured ? "border-accent shadow-md" : "border-border"
+              <motion.div 
+                key={plan.key}
+                whileHover={{ y: -10 }}
+                className={`relative flex flex-col p-8 rounded-[2rem] transition-all duration-500 ${
+                  isFeatured 
+                    ? "bg-foreground text-background shadow-2xl scale-105 z-10" 
+                    : "bg-white/5 border border-white/10 hover:border-accent/30 text-white"
                 }`}
               >
                 {isFeatured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                      <Star className="w-3 h-3" /> Most Popular
-                    </span>
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-1.5 rounded-full shadow-lg shadow-accent/40">
+                    Most Popular
                   </div>
                 )}
 
-                <CardHeader className="pb-2 pt-6">
-                  <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
-                  <p className="text-xs text-muted-foreground">{(plan as any).tagline}</p>
-                </CardHeader>
+                <div className="mb-8">
+                   <h3 className="text-2xl font-bold tracking-tight mb-2">{plan.name}</h3>
+                   <p className={`text-xs font-medium uppercase tracking-widest ${isFeatured ? 'text-background/60' : 'text-white/40'}`}>
+                      {(plan as any).tagline || 'Essential tools for growth'}
+                   </p>
+                </div>
 
-                <CardContent className="space-y-5">
-                  {/* Price */}
-                  <div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-sm text-muted-foreground font-medium">ETB</span>
-                      <span className="text-4xl font-black text-foreground tracking-tight">
-                        {isYearly ? monthlyEquiv?.toLocaleString() : price?.toLocaleString()}
+                <div className="mb-8">
+                   <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-black tracking-tighter">
+                         ETB {isYearly ? monthlyEquiv?.toLocaleString() : price?.toLocaleString()}
                       </span>
-                      <span className="text-sm text-muted-foreground">/month</span>
-                    </div>
-                    {isYearly && (
-                      <div className="mt-1.5 space-y-0.5">
-                        <p className="text-xs text-muted-foreground">
-                          Billed ETB {price?.toLocaleString()}/year
-                        </p>
-                        <p className="text-xs font-bold text-green-600">
-                          Save ETB {savings?.toLocaleString()} per year
-                        </p>
-                      </div>
-                    )}
-                    {!isYearly && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Or ETB {(plan as any).priceYearly?.toLocaleString()}/year — save ETB {savings?.toLocaleString()}
-                      </p>
-                    )}
-                  </div>
+                      <span className={`text-xs font-bold ${isFeatured ? 'text-background/40' : 'text-white/30'}`}>/month</span>
+                   </div>
+                   {isYearly && (
+                     <p className={`text-[10px] font-bold mt-2 ${isFeatured ? 'text-accent' : 'text-accent'}`}>
+                        Billed annually (ETB {price?.toLocaleString()})
+                     </p>
+                   )}
+                </div>
 
-                  {/* 14-day trial note */}
-                  <p className="text-xs text-accent font-medium">
-                    <Zap className="w-3 h-3 inline mr-1" />
-                    14-day full access included
-                  </p>
+                <div className="flex-1 space-y-4 mb-10">
+                   {FEATURES.map((f, i) => {
+                      const val = f[plan.key as keyof typeof f];
+                      return (
+                        <div key={i} className="flex items-start gap-3">
+                           <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                             val === true ? 'bg-accent/20' : 'bg-white/5'
+                           }`}>
+                              {val === true ? (
+                                <Check className={`w-3 h-3 ${isFeatured ? 'text-background' : 'text-accent'}`} />
+                              ) : val === false ? (
+                                <X className="w-3 h-3 text-white/10" />
+                              ) : (
+                                <div className="w-1 h-1 bg-accent rounded-full" />
+                              )}
+                           </div>
+                           <span className={`text-[11px] font-medium leading-tight ${isFeatured ? 'text-background/80' : 'text-white/60'}`}>
+                              {typeof val === 'string' ? `${val} ${f.label}` : f.label}
+                           </span>
+                        </div>
+                      );
+                   })}
+                </div>
 
-                  {/* CTA */}
-                  <a href={getLoginUrl("/billing")}>
-                    <Button 
-                      className={`w-full font-semibold ${
-                        isFeatured 
-                          ? "bg-accent text-white hover:bg-accent/90 shadow-sm" 
-                          : plan.key === "agency" 
-                            ? "bg-foreground text-background hover:bg-foreground/90"
-                            : "bg-transparent border-2 border-border text-foreground hover:bg-muted"
-                      }`}
-                      size="lg"
-                    >
-                      {plan.key === "agency" ? "Contact for Demo" : `Start ${plan.name} Trial`}
-                    </Button>
-                  </a>
-                </CardContent>
-              </Card>
+                <Button 
+                   className={`w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl transition-all active:scale-95 border-b-4 ${
+                     isFeatured 
+                       ? "bg-accent hover:bg-accent/90 text-white border-black/20" 
+                       : "bg-white/10 hover:bg-white/20 text-white border-white/5"
+                   }`}
+                   onClick={() => window.location.href = getLoginUrl("/billing")}
+                >
+                   {plan.key === 'agency' ? 'Contact Sales' : `Start ${plan.name} Trial`}
+                </Button>
+              </motion.div>
             );
           })}
         </div>

@@ -18,14 +18,34 @@ const LOCALIZED_KEYWORDS: Record<string, string[]> = {
   kazanchis: ["Kazanchis Apartments", "Office Space Kazanchis"],
 };
 
+const AMHARIC_TEMPLATES: Record<string, string> = {
+  luxury: "የቅንጦት ቤት በቦሌ - ለሽያጭ የቀረበ",
+  apartment: "በከተማው እምብርት የሚገኝ ዘመናዊ አፓርትመንት",
+  villa: "ሰፊ እና ምቹ ቪላ ቤት ለሽያጭ",
+  office: "ለቢሮ የሚሆን ምቹ ቦታ - ካዛንቺስ",
+};
+
 /**
- * Generates an SEO-optimized caption from a design state.
+ * Generates an SEO-optimized dual-language caption from a design state.
  */
 export function optimizeCaption(baseCaption: string, subcity?: string, tags: string[] = []): string {
   let optimized = baseCaption;
-  
-  // 1. Inject localized keywords based on subcity
   const key = subcity?.toLowerCase() || "general";
+  
+  // 1. Generate Amharic Prefix based on context
+  let amharicPrefix = "";
+  if (baseCaption.toLowerCase().includes("luxury") || baseCaption.toLowerCase().includes("villa")) {
+    amharicPrefix = AMHARIC_TEMPLATES.luxury || AMHARIC_TEMPLATES.villa;
+  } else if (baseCaption.toLowerCase().includes("apartment")) {
+    amharicPrefix = AMHARIC_TEMPLATES.apartment;
+  } else {
+    amharicPrefix = AMHARIC_TEMPLATES.general || "በአዲስ አበባ የሚሸጥ ቤት";
+  }
+
+  // Combine dual languages
+  optimized = `${amharicPrefix}\n\n${baseCaption}`;
+
+  // 2. Inject localized keywords based on subcity
   const extraKeywords = LOCALIZED_KEYWORDS[key] || LOCALIZED_KEYWORDS.general;
   
   // Take top 2 unique keywords
@@ -35,8 +55,8 @@ export function optimizeCaption(baseCaption: string, subcity?: string, tags: str
     optimized += `\n\n${toAdd.join(' ')}`;
   }
 
-  // 2. Add standard industry hashtags
-  const defaultHashtags = ["#EstateIQ", "#EthiopiaRealEstate", "#AddisAbaba"].filter(h => !optimized.includes(h));
+  // 3. Add standard industry hashtags
+  const defaultHashtags = ["#EstateIQ", "#EthiopiaRealEstate", "#AddisAbaba", "#AddisHome"].filter(h => !optimized.includes(h));
   if (defaultHashtags.length > 0) {
     optimized += ` ${defaultHashtags.join(' ')}`;
   }

@@ -4,23 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CreditCard, Star, Zap, TrendingUp, AlertTriangle, Check } from "lucide-react";
+import { CreditCard, Star, Zap, TrendingUp, AlertTriangle, Check, Info, ArrowUpRight, Layout, Activity, Sparkles, Image as ImageIcon, Video } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function BillingPage() {
-  const [isYearly, setIsYearly] = useState(true); // Push yearly per strategy
+  const [isYearly, setIsYearly] = useState(true);
   const utils = trpc.useUtils();
   const { data: plans = [] } = trpc.subscription.plans.useQuery();
-  const { data: current } = trpc.subscription.current.useQuery();
+  const { data: usage, isLoading } = trpc.billing.getUsage.useQuery();
+  
   const checkoutMutation = trpc.billing.createCheckoutSession.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       window.location.href = data.checkoutUrl;
     },
-    onError: (error) => toast.error(error.message || "Failed to start checkout"),
+    onError: (error: any) => toast.error(error.message || "Failed to start checkout"),
   });
 
-  const isTrial = current?.workspace?.subscriptionStatus === "trial";
-  const isExpired = current && !current.isActive;
-  const isGrace = current?.isGracePeriod;
+  const isTrial = usage?.status === "trial";
+  const planName = usage?.plan ?? "starter";
 
   return (
     <DashboardLayout>
@@ -31,196 +32,172 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* Current plan status */}
-      <Card className="border border-border mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between gap-6 flex-wrap">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-white">
-                <CreditCard className="h-6 w-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-xl font-bold text-foreground capitalize">
-                    {current?.workspace?.plan ?? "starter"} Plan
-                  </p>
-                  {isTrial && (
-                    <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                      TRIAL
-                    </span>
-                  )}
-                  {isGrace && (
-                    <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                      GRACE PERIOD
-                    </span>
-                  )}
-                  {!isTrial && current?.isActive && !isGrace && (
-                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                      ACTIVE
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {current?.daysRemaining !== undefined && current.daysRemaining > 0
-                    ? `${current.daysRemaining} days remaining`
-                    : isExpired
-                      ? "Expired — upgrade to continue"
-                      : "Active subscription"}
-                </p>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        
+        {/* Main Status & Usage */}
+        <div className="xl:col-span-8 space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-8 rounded-[2.5rem] bg-[#151518] border border-white/5 shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent/10 blur-[100px] rounded-full" />
             
-            {/* Usage meters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-              {[
-                { label: "Listings", used: current?.usage.properties ?? 0, limit: current?.limits.properties },
-                { label: "Leads", used: current?.usage.leads ?? 0, limit: current?.limits.leads },
-                { label: "AI Captions", used: current?.usage.aiCaptions ?? 0, limit: current?.limits.aiCaptions },
-                { label: "Contacts", used: current?.usage.contacts ?? 0, limit: current?.limits.contacts },
-              ].map((meter) => (
-                <div key={meter.label} className="px-3 py-2 rounded-lg bg-muted/40">
-                  <p className="text-xs text-muted-foreground">{meter.label}</p>
-                  <p className="text-base font-bold text-foreground">
-                    {meter.used} <span className="text-muted-foreground font-normal text-xs">
-                      / {meter.limit === Infinity ? "∞" : meter.limit}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
+               <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                     <div className="w-12 h-12 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20">
+                        <Zap className="w-6 h-6 text-white" />
+                     </div>
+                     <div>
+                        <h2 className="text-2xl font-bold tracking-tight capitalize">{planName} Plan</h2>
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+                           {isTrial ? 'Free Trial Period' : 'Subscription Active'}
+                        </p>
+                     </div>
+                  </div>
+                  
+                  <div className="flex gap-4 pt-4">
+                     <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Status</p>
+                        <p className="text-xs font-bold text-green-500 flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                           Operational
+                        </p>
+                     </div>
+                     <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Auto-Renew</p>
+                        <p className="text-xs font-bold text-white italic">Active (Telebirr)</p>
+                     </div>
+                  </div>
+               </div>
 
-      {/* Grace period / expired alert */}
-      {(isExpired || isGrace) && (
-        <div className={`rounded-xl p-4 mb-6 border-2 flex items-start gap-3 ${
-          isGrace 
-            ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" 
-            : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
-        }`}>
-          <AlertTriangle className={`h-5 w-5 mt-0.5 ${isGrace ? "text-amber-600" : "text-red-600"}`} />
-          <div>
-            <p className={`text-sm font-semibold ${isGrace ? "text-amber-800 dark:text-amber-300" : "text-red-800 dark:text-red-300"}`}>
-              {isGrace 
-                ? `Grace period active — Upgrade within ${current?.gracePeriodDays} days to keep your data.`
-                : `Your ${current?.usage.leads ?? 0} leads and ${current?.usage.properties ?? 0} listings are locked.`}
-            </p>
-            <p className={`text-xs mt-1 ${isGrace ? "text-amber-700/80" : "text-red-700/80"}`}>
-              {isGrace
-                ? "Your account is read-only during the grace period. Upgrade to unlock full access."
-                : "Upgrade now to instantly unlock everything. Your data is saved."}
-            </p>
+               <div className="space-y-6 min-w-[280px]">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 border-b border-white/5 pb-2">Resource Consumption</h3>
+                  <div className="space-y-5">
+                    {[
+                      { label: "AI Captions", icon: Sparkles, used: usage?.captions ?? 0, limit: usage?.limits.captions },
+                      { label: "AI Images", icon: ImageIcon, used: usage?.images ?? 0, limit: usage?.limits.images },
+                      { label: "Creative Reels", icon: Video, used: usage?.reels ?? 0, limit: usage?.limits.reels },
+                    ].map((m) => {
+                      const pct = Math.min((m.used / (m.limit || 1)) * 100, 100);
+                      return (
+                        <div key={m.label} className="space-y-2">
+                          <div className="flex justify-between items-end">
+                            <div className="flex items-center gap-2 text-white/60">
+                               <m.icon className="w-3 h-3" />
+                               <span className="text-[10px] font-bold uppercase tracking-wider">{m.label}</span>
+                            </div>
+                            <span className="text-xs font-bold">{m.used} <span className="text-white/20 font-light">/ {m.limit}</span></span>
+                          </div>
+                          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                             <motion.div 
+                               initial={{ width: 0 }}
+                               animate={{ width: `${pct}%` }}
+                               className={`h-full rounded-full ${pct > 90 ? 'bg-red-500' : 'bg-accent'}`} 
+                             />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+               </div>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <Card className="bg-[#151518] border-white/5 rounded-[2rem] p-8 shadow-xl overflow-hidden relative group">
+                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                   <TrendingUp className="w-24 h-24" />
+                </div>
+                <h3 className="text-lg font-bold mb-2">Revenue ROI</h3>
+                <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-6">Commission Impact</p>
+                <p className="text-white/60 text-sm leading-relaxed mb-6 italic font-light">
+                   One mid-range deal (ETB 60k+) covers <strong>5 years</strong> of Pro membership. Your platform is paid for within the first conversion.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-bold text-accent">
+                   <Activity className="w-4 h-4" /> Calculate Growth potential
+                </div>
+             </Card>
+
+             <Card className="bg-accent/10 border-accent/20 rounded-[2rem] p-8 shadow-xl relative overflow-hidden">
+                <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-accent/20 blur-[40px] rounded-full" />
+                <h3 className="text-lg font-bold mb-2 text-accent">Pro Features Locked</h3>
+                <p className="text-accent/60 text-[10px] font-black uppercase tracking-widest mb-6">Upgrade required</p>
+                <ul className="space-y-3 mb-8">
+                   {['Instagram Auto-Posting', 'Bulk AI Image Generation', 'Agency Multi-Seat Control'].map(f => (
+                     <li key={f} className="flex items-center gap-2 text-[11px] font-bold text-white/50">
+                        <Check className="w-3.5 h-3.5 text-accent" /> {f}
+                     </li>
+                   ))}
+                </ul>
+                <Button className="w-full bg-accent text-white hover:bg-accent/90 rounded-xl h-12 font-black uppercase tracking-widest text-[10px]">
+                   Unlock Pro Now
+                </Button>
+             </Card>
           </div>
         </div>
-      )}
 
-      {/* Billing toggle */}
-      <div className="flex items-center justify-center gap-3 mb-6">
-        <span className={`text-sm font-medium ${!isYearly ? "text-foreground" : "text-muted-foreground"}`}>
-          Monthly
-        </span>
-        <button
-          onClick={() => setIsYearly(!isYearly)}
-          className={`relative h-7 w-14 rounded-full transition-colors ${
-            isYearly ? "bg-accent" : "bg-muted"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-              isYearly ? "translate-x-7" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className={`text-sm font-medium ${isYearly ? "text-foreground" : "text-muted-foreground"}`}>
-          Yearly
-        </span>
-        {isYearly && (
-          <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-            Save up to 42%
-          </span>
-        )}
-      </div>
+        {/* Right Sidebar - Pricing Simple */}
+        <div className="xl:col-span-4 space-y-6">
+           <div className="flex items-center justify-between px-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-white/40">Available Tiers</h3>
+              <div className="flex items-center gap-2">
+                 <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Yearly</span>
+                 <button onClick={() => setIsYearly(!isYearly)} className={`w-8 h-4 rounded-full relative transition-colors ${isYearly ? 'bg-accent' : 'bg-white/10'}`}>
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isYearly ? 'right-0.5' : 'left-0.5'}`} />
+                 </button>
+              </div>
+           </div>
 
-      {/* Plan cards */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {plans.map((plan) => {
-          const isCurrent = current?.plan === plan.key;
-          const isFeatured = (plan as any).featured;
-          const price = isYearly ? (plan as any).priceYearly : plan.priceMonthly;
-          const savings = (plan as any).yearlySavings;
-          const monthlyEquiv = (plan as any).monthlyEquivalent;
-
-          return (
-            <Card 
-              key={plan.key} 
-              className={`relative border-2 transition-all ${
-                isCurrent ? "border-accent bg-accent/[0.02]" : isFeatured ? "border-accent/50" : "border-border"
-              }`}
-            >
-              {isFeatured && !isCurrent && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-accent text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <Star className="w-3 h-3" /> BEST VALUE
-                  </span>
-                </div>
-              )}
-              {isCurrent && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-green-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <Check className="w-3 h-3" /> CURRENT
-                  </span>
-                </div>
-              )}
-
-              <CardHeader className="pb-1 pt-5">
-                <CardTitle className="text-base">{plan.name}</CardTitle>
-                <CardDescription className="text-xs">{(plan as any).tagline}</CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xs text-muted-foreground">ETB</span>
-                    <span className="text-3xl font-black text-foreground">
-                      {isYearly ? monthlyEquiv?.toLocaleString() : price?.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-muted-foreground">/mo</span>
-                  </div>
-                  {isYearly && (
-                    <p className="text-xs font-semibold text-green-600 mt-1">
-                      Save ETB {savings?.toLocaleString()}/year
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <p>Listings: {Number.isFinite(plan.limits.properties) ? plan.limits.properties : "∞"}</p>
-                  <p>Deals: {Number.isFinite(plan.limits.deals) ? plan.limits.deals : "∞"}</p>
-                  <p>AI Captions: {Number.isFinite(plan.limits.aiCaptions) ? plan.limits.aiCaptions : "∞"}</p>
-                  <p>AI Images: {Number.isFinite(plan.limits.aiImages) ? plan.limits.aiImages + "/mo" : "∞"}</p>
-                </div>
-
-                <Button
-                  className={`w-full font-semibold ${
-                    isFeatured && !isCurrent
-                      ? "bg-accent text-white hover:bg-accent/90"
-                      : ""
+           <div className="space-y-4">
+              {plans.map(plan => (
+                <motion.div 
+                  key={plan.key}
+                  whileHover={{ x: 4 }}
+                  className={`p-6 rounded-3xl border transition-all cursor-pointer ${
+                    plan.key === planName 
+                      ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20' 
+                      : 'bg-white/5 border-white/5 hover:border-white/10 text-white'
                   }`}
-                  variant={isCurrent ? "outline" : isFeatured ? "default" : "outline"}
-                  disabled={isCurrent || checkoutMutation.isPending}
-                  onClick={() => checkoutMutation.mutate({ plan: plan.key as any })}
                 >
-                  {checkoutMutation.isPending 
-                    ? "Processing..." 
-                    : isCurrent 
-                      ? "Current Plan" 
-                      : `Upgrade to ${plan.name}`}
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+                   <div className="flex justify-between items-start mb-4">
+                      <div>
+                         <h4 className="font-bold text-sm tracking-tight">{plan.name}</h4>
+                         <p className="text-[10px] font-medium opacity-50 uppercase tracking-widest">
+                            {(plan as any).tagline}
+                         </p>
+                      </div>
+                      {plan.key === planName && <Check className="w-4 h-4" />}
+                   </div>
+                   <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-black">ETB {isYearly ? (plan as any).monthlyEquivalent?.toLocaleString() : plan.priceMonthly?.toLocaleString()}</span>
+                      <span className="text-[10px] font-bold opacity-30 uppercase">/mo</span>
+                   </div>
+                   
+                   {plan.key !== planName && (
+                     <Button 
+                       className="w-full mt-6 bg-white/10 hover:bg-white/20 text-white border-0 shadow-none rounded-xl text-[10px] font-black uppercase tracking-widest h-10"
+                       onClick={() => checkoutMutation.mutate({ plan: plan.key as any })}
+                       disabled={checkoutMutation.isPending}
+                     >
+                        Upgrade
+                     </Button>
+                   )}
+                </motion.div>
+              ))}
+           </div>
+
+           <div className="p-6 rounded-3xl bg-[#1a1a1e] border border-white/5">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Secured Payments</h4>
+              <div className="flex gap-3 opacity-30 grayscale hover:grayscale-0 transition-all cursor-pointer">
+                 {/* Mock Payment provider visual */}
+                 <div className="h-6 w-10 bg-white/20 rounded flex items-center justify-center text-[8px] font-black italic">CHAPA</div>
+                 <div className="h-6 w-10 bg-white/20 rounded flex items-center justify-center text-[8px] font-black italic">CBE</div>
+                 <div className="h-6 w-10 bg-white/20 rounded flex items-center justify-center text-[8px] font-black italic">BIRR</div>
+              </div>
+           </div>
+        </div>
       </div>
 
       {/* Payment help */}

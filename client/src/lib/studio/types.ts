@@ -47,7 +47,11 @@ export interface StudioElement {
     opacity?: number;
     borderRadius?: number;
     textAlign?: "left" | "center" | "right";
+    letterSpacing?: string;
+    fontFamily?: string;
   };
+
+
   
   // Instance state (Calculated pixels)
   resolvedX?: number;

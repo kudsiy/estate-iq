@@ -17,6 +17,8 @@ export default function ContactsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterSubcity, setFilterSubcity] = useState("all");
+  const [filterInterest, setFilterInterest] = useState("all");
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -78,8 +80,10 @@ export default function ContactsPage() {
 
     const matchesType = filterType === "all" || contact.type === filterType;
     const matchesStatus = filterStatus === "all" || contact.status === filterStatus;
+    const matchesSubcity = filterSubcity === "all" || contact.subcity?.toLowerCase() === filterSubcity.toLowerCase();
+    const matchesInterest = filterInterest === "all" || contact.propertyInterest?.toLowerCase() === filterInterest.toLowerCase();
 
-    return matchesSearch && matchesType && matchesStatus;
+    return matchesSearch && matchesType && matchesStatus && matchesSubcity && matchesInterest;
   });
 
   return (
@@ -285,7 +289,7 @@ export default function ContactsPage() {
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -295,8 +299,45 @@ export default function ContactsPage() {
                 <SelectItem value="lost">Lost</SelectItem>
               </SelectContent>
             </Select>
-            <div className="text-sm text-muted-foreground pt-2">
-              {filteredContacts?.length || 0} contacts
+            <Select value={filterSubcity} onValueChange={setFilterSubcity}>
+              <SelectTrigger>
+                <SelectValue placeholder="Subcity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Everywhere</SelectItem>
+                <SelectItem value="bole">Bole</SelectItem>
+                <SelectItem value="kirkos">Kirkos</SelectItem>
+                <SelectItem value="arada">Arada</SelectItem>
+                <SelectItem value="yeka">Yeka</SelectItem>
+                <SelectItem value="kolfe">Kolfe Keranio</SelectItem>
+                <SelectItem value="akaki">Akaki Kality</SelectItem>
+                <SelectItem value="nifas">Nifas Silk-Lafto</SelectItem>
+                <SelectItem value="lemi">Lemi Kura</SelectItem>
+                <SelectItem value="gullele">Gullele</SelectItem>
+                <SelectItem value="lideta">Lideta</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center justify-between col-span-1 md:col-span-4 mt-2">
+               <div className="flex gap-2">
+                 <Button 
+                   variant={filterInterest === 'all' ? 'default' : 'outline'} 
+                   size="sm" 
+                   className="text-[10px] h-7 rounded-full"
+                   onClick={() => setFilterInterest('all')}
+                 >All Interests</Button>
+                 {['apartment', 'villa', 'office', 'land'].map(interest => (
+                   <Button 
+                    key={interest}
+                    variant={filterInterest === interest ? 'default' : 'outline'} 
+                    size="sm" 
+                    className="text-[10px] h-7 rounded-full capitalize"
+                    onClick={() => setFilterInterest(interest)}
+                   >{interest}</Button>
+                 ))}
+               </div>
+               <div className="text-sm text-muted-foreground">
+                 {filteredContacts?.length || 0} contacts found
+               </div>
             </div>
           </div>
       </div>

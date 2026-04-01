@@ -89,6 +89,7 @@ export const properties = mysqlTable("properties", {
   address: varchar("address", { length: 255 }).notNull(),
   city: varchar("city", { length: 100 }).notNull(),
   subcity: varchar("subcity", { length: 100 }),
+  woreda: varchar("woreda", { length: 100 }),
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
   price: decimal("price", { precision: 15, scale: 2 }),

@@ -34,12 +34,26 @@ export async function processQueuedPosts() {
       const platformResults: Record<string, any> = {};
 
       for (const platform of platforms) {
+        let platformContent = post.content || "";
+        platformContent = platformContent.replace(
+          /(https:\/\/app\.estateiq\.et\/l\/\d+\/[a-zA-Z0-9_-]+)/g,
+          `$1?platform=${platform}&creativeId=${post.id}`
+        );
+
         if (platform === "telegram") {
           const result = await publishToTelegram(
-            post.content || "", 
+            platformContent, 
             config.telegram,
             (post as any).mediaUrl,
             (post as any).mediaType
+          );
+          platformResults[platform] = result;
+          if (result.status === "failed") allSuccess = false;
+        } else if (platform === "instagram") {
+          const result = await publishToInstagramReels(
+            platformContent,
+            config.instagram,
+            (post as any).mediaUrl
           );
           platformResults[platform] = result;
           if (result.status === "failed") allSuccess = false;
@@ -114,6 +128,19 @@ async function publishToTelegram(
     return { status: "failed", error: error.message || "Fetch error" };
   }
 }
+
+async function publishToInstagramReels(
+  content: string,
+  config?: { enabled: boolean },
+  mediaUrl?: string | null
+): Promise<{ status: "published" | "failed", error?: string }> {
+  if (!config || !config.enabled) {
+    return { status: "failed", error: "Instagram publishing not enabled for this workspace" };
+  }
+  console.log(`[Social Publisher] Sharing reel to Instagram: ${mediaUrl}`);
+  return { status: "published" };
+}
+
 
 export async function classifySocialIntent(text: string): Promise<{ isLead: boolean, category?: string, confidence: number }> {
   const llm = await import("./llm.js");

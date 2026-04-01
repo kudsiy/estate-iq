@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { DealCard } from "@/components/DealCard";
 import { trpc } from "@/lib/trpc";
-import { Plus, Search, X, DollarSign, FileText, Save, Trash2, ExternalLink, TrendingUp, Activity, MessageCircle, Calendar, CheckCircle } from "lucide-react";
+import { Plus, Search, X, DollarSign, FileText, Save, Trash2, ExternalLink, TrendingUp, Activity, MessageCircle, Calendar, CheckCircle, Palette } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -229,6 +229,33 @@ export default function DealPipeline() {
       });
     }
   };
+
+  const handleWhatsApp = (contact: any, property?: any) => {
+    if (!contact?.phone) {
+       toast.error("No phone number found for this contact");
+       return;
+    }
+    const cleanPhone = contact.phone.replace(/\D/g, "");
+    const message = encodeURIComponent(
+      `Hello ${contact.firstName}, I'm following up regarding the ${property?.title || "property"} you were interested in on Estate IQ.`
+    );
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");
+    
+    // Log the interaction
+    if (selectedDealId) {
+       addEventMutation.mutate({
+         contactId: contact.id,
+         dealId: selectedDealId,
+         type: "system",
+         label: "WhatsApp Chat Initiated",
+         description: `Outbound WhatsApp message started for "${property?.title || 'general interest'}"`
+       });
+    }
+  };
+
+  const addEventMutation = trpc.crm.contacts.addEvent.useMutation({
+    onSuccess: () => refetchEvents()
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -579,6 +606,25 @@ export default function DealPipeline() {
                   <TrendingUp className="w-4 h-4 text-accent" />
                   Deal — {contact ? `${contact.firstName} ${contact.lastName}` : "Unknown contact"}
                 </DialogTitle>
+                <div className="flex gap-2 mb-2">
+                  <Button 
+                    size="sm" 
+                    className="h-8 bg-[#25D366] hover:bg-[#20bd5c] text-white gap-2 text-xs rounded-full px-4"
+                    onClick={() => handleWhatsApp(contact, property)}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                    Chat on WhatsApp
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="h-8 gap-2 text-xs rounded-full px-4"
+                    onClick={() => setLocation(`/studio?propertyId=${property?.id}`)}
+                  >
+                    <Palette className="w-3.5 h-3.5" />
+                    Create Marketing
+                  </Button>
+                </div>
               </DialogHeader>
               <div className="space-y-4 pt-1">
 
