@@ -721,6 +721,7 @@ export default function DesignStudio() {
   };
 
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const rebrandInputRef = useRef<HTMLInputElement>(null);
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -737,6 +738,21 @@ export default function DesignStudio() {
     updateDesign({ elements: [...design.elements, el] });
     setSelectedId(el.id);
     toast.success("Video added to composition!");
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const el: StudioElement = {
+      id: uid(), type: "image", layer: "image",
+      baseWidth: 800, baseHeight: 600,
+      constraints: { x: { anchor: "center", margin: 0, priority: 1 }, y: { anchor: "middle", margin: 0, priority: 1 } },
+      content: { src: url }, style: { borderRadius: 8 },
+    };
+    updateDesign({ elements: [...design.elements, el] });
+    setSelectedId(el.id);
+    toast.success("Image added to composition!");
   };
 
   /**
@@ -1132,6 +1148,8 @@ export default function DesignStudio() {
               <TabsContent value="add" className="m-0 space-y-4">
                 <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={addText}><Type className="w-5 h-5 text-accent" /> Add Text</Button>
                 <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={addRect}><Square className="w-5 h-5 text-accent" /> Add Shape</Button>
+                <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={() => imageInputRef.current?.click()}><ImageIcon className="w-5 h-5 text-accent" /> Add Image</Button>
+                <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                 <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={() => videoInputRef.current?.click()}><Video className="w-5 h-5 text-accent" /> Add Video</Button>
                 <input type="file" ref={videoInputRef} className="hidden" accept="video/*" onChange={handleVideoUpload} />
               </TabsContent>
