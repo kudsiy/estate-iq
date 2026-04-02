@@ -54,6 +54,7 @@ async function main() {
         subscriptionStatus: "active",
         trialEndsAt,
         usageCyclePeriodStart: now,
+        currentPeriodEndsAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days active
       });
 
       workspaceId = newWorkspaceId;
@@ -68,7 +69,11 @@ async function main() {
       
       const passwordHash = await bcrypt.hash(acc.password, 12);
       await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
-      await db.update(workspaces).set({ plan: acc.plan as "starter" | "pro", subscriptionStatus: "active" }).where(eq(workspaces.id, workspaceId));
+      await db.update(workspaces).set({ 
+        plan: acc.plan as "starter" | "pro", 
+        subscriptionStatus: "active",
+        currentPeriodEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      }).where(eq(workspaces.id, workspaceId));
     }
   }
 

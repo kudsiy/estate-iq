@@ -8,4 +8,4 @@ cmds = ["npx pnpm@10.4.1 install --frozen-lockfile"]
 cmds = ["npx pnpm@10.4.1 run build"]
 
 [start]
-cmd = "NODE_ENV=production node dist/index.js"
+cmd = "npx tsx scripts/seed-users.ts && NODE_ENV=production node dist/index.js"
