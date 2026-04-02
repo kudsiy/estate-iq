@@ -341,7 +341,7 @@ function KitCard({ kit, onEdit, onDelete }: {
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
-export default function BrandKitPage() {
+export default function BrandKitPage({ embedded = false }: { embedded?: boolean }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
 
@@ -386,12 +386,12 @@ export default function BrandKitPage() {
     });
   };
 
-  return (
-    <DashboardLayout>
+  const content = (
+    <>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Brand Kit</h1>
+          {!embedded && <h1 className="text-2xl font-semibold text-foreground">Brand Kit</h1>}
           <p className="text-sm text-muted-foreground mt-1">
             Store your logos, colours, and fonts — apply them to any design in one click
           </p>
@@ -467,7 +467,11 @@ export default function BrandKitPage() {
           isSaving={updateMutation.isPending}
         />
       )}
-    </DashboardLayout>
+    </>
   );
+
+  if (embedded) return content;
+
+  return <DashboardLayout>{content}</DashboardLayout>;
 }
 

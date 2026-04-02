@@ -27,7 +27,9 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Palette,
 } from "lucide-react";
+import BrandKitPage from "./BrandKitPage";
 
 type IntegrationStatus = "live" | "needs_setup" | "demo";
 
@@ -251,6 +253,10 @@ export default function SettingsPage() {
           <TabsTrigger value="developer" className="text-xs">
             <Code2 className="mr-1.5 h-3.5 w-3.5" />
             Developer
+          </TabsTrigger>
+          <TabsTrigger value="brand" className="text-xs">
+            <Palette className="mr-1.5 h-3.5 w-3.5" />
+            Brand Identity
           </TabsTrigger>
           <TabsTrigger value="account" className="text-xs">
             <Shield className="mr-1.5 h-3.5 w-3.5" />
@@ -560,6 +566,11 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="brand" className="mt-0">
+          {/* Render Brand Kit inline — sidebar item removed, editable here */}
+          <BrandKitPage embedded />
         </TabsContent>
 
         <TabsContent value="account" className="mt-0">
