@@ -399,10 +399,7 @@ async function startServer() {
   // Start background workers
   startSocialWorker(60000);
 
-  // In production (Railway) use PORT directly; in dev find an available port
-  const port = process.env.NODE_ENV === "production"
-    ? parseInt(process.env.PORT || "3000")
-    : await findAvailablePort(parseInt(process.env.PORT || "3000"));
+  const port = process.env.PORT || 3000;
 
   console.log(`[Server] Starting on port ${port}...`);
   server.listen(port, "0.0.0.0", () => {
