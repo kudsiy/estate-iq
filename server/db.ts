@@ -171,6 +171,23 @@ export async function getUserById(id: number) {
   return result[0];
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return result[0];
+}
+
+export async function setUserPasswordHash(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ passwordHash } as any).where(eq(users.id, userId));
+}
+
 export async function getWorkspaceByOwnerUserId(ownerUserId: number) {
   const db = await getDb();
   if (!db) return undefined;

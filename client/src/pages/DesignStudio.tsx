@@ -91,6 +91,13 @@ const TEMPLATES: Template[] = [
         constraints: { x: { anchor: "left", margin: 0.05, priority: 7 }, y: { anchor: "bottom", margin: 0.29, priority: 7 } },
         content: { text: "FOR SALE" },
         style: { fontSize: 18, fontWeight: "bold", color: "#1e3a5f", textAlign: "center" }
+      },
+      {
+        type: "text", layer: "component",
+        baseWidth: 250, baseHeight: 40,
+        constraints: { x: { anchor: "left", margin: 0.05, priority: 8 }, y: { anchor: "bottom", margin: 0.1, priority: 8 } },
+        content: { text: "Price: ETB TBD" },
+        style: { fontSize: 24, fontWeight: "bold", color: "#ffffff", textAlign: "left" }
       }
     ],
   },
@@ -113,10 +120,17 @@ const TEMPLATES: Template[] = [
       },
       {
         type: "text", layer: "component",
-        baseWidth: 800, baseHeight: 100,
-        constraints: { x: { anchor: "left", margin: 0.05, priority: 2 }, y: { anchor: "bottom", margin: 0.05, priority: 2 } },
+        baseWidth: 800, baseHeight: 60,
+        constraints: { x: { anchor: "left", margin: 0.05, priority: 2 }, y: { anchor: "bottom", margin: 0.12, priority: 2 } },
         content: { text: "Modern Apartment in Kazanchis" },
         style: { fontSize: 36, fontWeight: "bold", color: "#1e3a5f", textAlign: "left" }
+      },
+      {
+        type: "text", layer: "component",
+        baseWidth: 800, baseHeight: 40,
+        constraints: { x: { anchor: "left", margin: 0.05, priority: 3 }, y: { anchor: "bottom", margin: 0.05, priority: 3 } },
+        content: { text: "Price: ETB TBD" },
+        style: { fontSize: 24, fontWeight: "bold", color: "#1e3a5f", textAlign: "left" }
       }
     ],
   },
@@ -134,9 +148,16 @@ const TEMPLATES: Template[] = [
       {
         type: "text", layer: "component",
         baseWidth: 800, baseHeight: 150,
-        constraints: { x: { anchor: "center", margin: 0, priority: 5 }, y: { anchor: "center", margin: 0, priority: 5 } },
+        constraints: { x: { anchor: "center", margin: 0, priority: 5 }, y: { anchor: "center", margin: 0.05, priority: 5 } },
         content: { text: "Dream Home\nAvailable" },
         style: { fontSize: 64, fontWeight: "bold", color: "#ffffff", textAlign: "center" }
+      },
+      {
+        type: "text", layer: "component",
+        baseWidth: 800, baseHeight: 60,
+        constraints: { x: { anchor: "center", margin: 0, priority: 6 }, y: { anchor: "bottom", margin: 0.25, priority: 6 } },
+        content: { text: "Price: ETB TBD" },
+        style: { fontSize: 36, fontWeight: "bold", color: "#ffffff", textAlign: "center" }
       }
     ]
   },
@@ -149,7 +170,7 @@ const TEMPLATES: Template[] = [
         type: "video", layer: "background",
         baseWidth: 1000, baseHeight: 1777,
         constraints: { x: { anchor: "left", margin: 0, priority: 0 }, y: { anchor: "top", margin: 0, priority: 0 } },
-        videoConfig: { src: "https://estate-iq.storage/samples/walkthrough.mp4", startTime: 0, duration: 15, muted: true, loop: true },
+        videoConfig: { src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", startTime: 0, duration: 15, muted: true, loop: true },
         content: {}, style: { borderRadius: 0 }
       },
       {
@@ -164,6 +185,13 @@ const TEMPLATES: Template[] = [
         constraints: { x: { anchor: "center", margin: 0, priority: 3 }, y: { anchor: "bottom", margin: 0.07, priority: 3 } },
         content: { text: "Contact Agent: +251 911..." },
         style: { fontSize: 24, fontWeight: "bold", color: "#1e3a5f", textAlign: "center" }
+      },
+      {
+        type: "text", layer: "component",
+        baseWidth: 800, baseHeight: 40,
+        constraints: { x: { anchor: "center", margin: 0, priority: 4 }, y: { anchor: "bottom", margin: 0.15, priority: 4 } },
+        content: { text: "Price: ETB TBD" },
+        style: { fontSize: 32, fontWeight: "bold", color: "#ffffff", textAlign: "center" }
       }
     ]
   },
@@ -176,7 +204,7 @@ const TEMPLATES: Template[] = [
         type: "video", layer: "background",
         baseWidth: 1000, baseHeight: 1777,
         constraints: { x: { anchor: "left", margin: 0, priority: 0 }, y: { anchor: "top", margin: 0, priority: 0 } },
-        videoConfig: { src: "https://estate-iq.storage/samples/promo.mp4", startTime: 0, duration: 30, muted: true, loop: true },
+        videoConfig: { src: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", startTime: 0, duration: 30, muted: true, loop: true },
         content: {}, style: { borderRadius: 0 }
       },
       {
@@ -191,6 +219,13 @@ const TEMPLATES: Template[] = [
         constraints: { x: { anchor: "left", margin: 0.07, priority: 6 }, y: { anchor: "top", margin: 0.065, priority: 6 } },
         content: { text: "Luxury Living" },
         style: { fontSize: 28, fontWeight: "bold", color: "#ffffff", textAlign: "left" }
+      },
+      {
+        type: "text", layer: "component",
+        baseWidth: 350, baseHeight: 40,
+        constraints: { x: { anchor: "left", margin: 0.07, priority: 7 }, y: { anchor: "top", margin: 0.12, priority: 7 } },
+        content: { text: "Price: ETB TBD" },
+        style: { fontSize: 24, fontWeight: "bold", color: "#d4af37", textAlign: "left" }
       }
     ]
   },
@@ -227,9 +262,16 @@ const TEMPLATES: Template[] = [
       {
         type: "text", layer: "component",
         baseWidth: 800, baseHeight: 120,
-        constraints: { x: { anchor: "center", margin: 0, priority: 6 }, y: { anchor: "bottom", margin: 0.12, priority: 6 } },
+        constraints: { x: { anchor: "center", margin: 0, priority: 6 }, y: { anchor: "bottom", margin: 0.18, priority: 6 } },
         content: { text: "The Pinnacle of Living" },
         style: { fontSize: 48, fontWeight: "normal", color: "#ffffff", textAlign: "center", fontFamily: "Georgia, serif" }
+      },
+      {
+        type: "text", layer: "component",
+        baseWidth: 800, baseHeight: 60,
+        constraints: { x: { anchor: "center", margin: 0, priority: 7 }, y: { anchor: "bottom", margin: 0.08, priority: 7 } },
+        content: { text: "Price: ETB TBD" },
+        style: { fontSize: 32, fontWeight: "bold", color: "#d4af37", textAlign: "center", fontFamily: "Georgia, serif" }
       }
     ],
   },
