@@ -399,7 +399,7 @@ async function startServer() {
   // Start background workers
   startSocialWorker(60000);
 
-  const port = process.env.PORT || 3000;
+  const port = Number(process.env.PORT) || 3000;
 
   console.log(`[Server] Starting on port ${port}...`);
   server.listen(port, "0.0.0.0", () => {
