@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import {
   Type, Square, Circle, Image as ImageIcon, Download, Save,
   Trash2, Bold, Italic, AlignLeft, AlignCenter, AlignRight,
-  Copy, ChevronUp, ChevronDown, Lock, Unlock, Plus, LayoutTemplate,
+  Copy, ChevronUp, ChevronDown, Lock, Unlock, Plus, LayoutTemplate, Layout,
   Sparkles, Wand2, Video, Search, Undo, Redo, Layers, Settings2, Building2, Calendar, Zap, Palette, TrendingUp, Upload, ArrowRight
 } from "lucide-react";
 import { 
