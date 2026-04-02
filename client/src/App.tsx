@@ -24,6 +24,8 @@ import PricingPage from "./pages/PricingPage";
 import BillingPage from "./pages/BillingPage";
 import AdminPage from "./pages/AdminPage";
 import PropertyTrackingPage from "./pages/PropertyTrackingPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import { useAuth } from "./_core/hooks/useAuth";
 import { getLoginUrl } from "./const";
 import OnboardingPage from "./pages/OnboardingPage";
@@ -45,11 +47,11 @@ function RouteRedirect({ to }: { to: string }) {
 }
 
 function LoginRedirect() {
+  const [, setLocation] = useLocation();
   useEffect(() => {
     const current = `${window.location.pathname}${window.location.search}`;
-    window.location.href = getLoginUrl(current);
-  }, []);
-
+    setLocation(getLoginUrl(current));
+  }, [setLocation]);
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <p className="text-sm text-muted-foreground">Redirecting to sign in...</p>
@@ -81,6 +83,9 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/login"><LoginPage /></Route>
+      <Route path="/register"><RegisterPage /></Route>
+
       <Route path="/">
         {isAuthenticated ? (
           needsOnboarding ? <RouteRedirect to="/onboarding" /> : <RouteRedirect to="/dashboard" />

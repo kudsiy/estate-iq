@@ -11,6 +11,17 @@ import { serveStatic, setupVite } from "./vite";
 import { handleExternalLead } from "./leads";
 import { startSocialWorker } from "./social";
 
+// ── Global Error Catching (Diagnostic for Staging Crashes) ──
+process.on("uncaughtException", (error) => {
+  console.error("FATAL: Uncaught Exception:", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("FATAL: Unhandled Rejection at:", reason);
+  process.exit(1);
+});
+
 // Extend Express Request to include rawBody for HMAC verification
 declare global {
   namespace Express {
@@ -42,6 +53,65 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // ── Dev One-Click Auth Dashboard (Always first, Staging/Dev only) ──
+  app.get("/auth-dev", (req, res) => {
+    if (process.env.NODE_ENV === "production") return res.status(403).send("Forbidden");
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Estate IQ Staging - Auth Dashboard</title>
+        <style>
+          body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+          .card { background: #1a1d2e; border: 1px solid #2a2d3e; border-radius: 16px; padding: 40px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+          h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(to right, #7C3AED, #A78BFA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+          p { color: #9ca3af; font-size: 14px; margin-bottom: 32px; }
+          .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 12px; text-decoration: none; transition: all 0.2s; }
+          .btn-pro { background: #7C3AED; color: #fff; }
+          .btn-pro:hover { background: #6D28D9; transform: translateY(-1px); }
+          .btn-starter { background: #374151; color: #fff; border: 1px solid #4b5563; }
+          .btn-starter:hover { background: #4b5563; }
+          .status { margin-top: 24px; font-size: 12px; color: #059669; display: flex; align-items: center; justify-content: center; gap: 6px; }
+          .dot { width: 8px; height: 8px; background: #059669; border-radius: 50%; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1>Estate IQ - Local Auth</h1>
+          <p>Login to your Cloud DB instance without OAuth</p>
+          <a href="/api/dev/login?openId=pro_test&returnTo=/" class="btn btn-pro">Login as PRO Agent</a>
+          <a href="/api/dev/login?openId=starter_test&returnTo=/" class="btn btn-starter">Login as STARTER Agent</a>
+          <div class="status"><span class="dot"></span> Database Connected (Railway)</div>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+
+  // ── Dev Login Implementation (Prioritized) ──
+  app.get("/api/dev/login", async (req, res) => {
+    if (process.env.NODE_ENV === "production") return res.status(403).send("Forbidden");
+    const { openId } = req.query;
+    const returnTo = (req.query.returnTo as string) || "/";
+    if (!openId) return res.status(400).send("Missing openId");
+    try {
+      const { sdk } = await import("./sdk.js");
+      const { getSessionCookieOptions } = await import("./cookies.js");
+      const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
+      const sessionToken = await sdk.createSessionToken(openId as string, {
+        name: (openId as string).includes("starter") ? "Starter Agent" : "Pro Agent",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return res.redirect(302, returnTo);
+    } catch (e) {
+      console.error("[Local Auth] Login failed:", e);
+      return res.status(500).send("Login failed internally");
+    }
+  });
+
   // Configure body parser with larger size limit for file uploads.
   // We use the 'verify' property to capture the raw body for HMAC checks.
   app.use(express.json({
@@ -51,6 +121,93 @@ async function startServer() {
     }
   }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+  // ── Health Check (Railway uses this) ──
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true, timestamp: new Date().toISOString() });
+  });
+
+  // ── Email/Password Auth ──
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const bcrypt = await import("bcryptjs");
+      const { sdk } = await import("./sdk.js");
+      const { getSessionCookieOptions } = await import("./cookies.js");
+      const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
+      const db = await import("../db.js");
+
+      const { email, password } = req.body as { email?: string; password?: string };
+      if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+      const user = await db.getUserByEmail(email.toLowerCase().trim());
+      if (!user || !user.passwordHash) return res.status(401).json({ error: "Invalid email or password" });
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+      await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name || email,
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[Auth] Login error:", e);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const bcrypt = await import("bcryptjs");
+      const { sdk } = await import("./sdk.js");
+      const { getSessionCookieOptions } = await import("./cookies.js");
+      const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
+      const db = await import("../db.js");
+      const { nanoid } = await import("nanoid");
+
+      const { name, email, password } = req.body as { name?: string; email?: string; password?: string };
+      if (!email || !password || !name) return res.status(400).json({ error: "Name, email and password required" });
+      if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      const existing = await db.getUserByEmail(email.toLowerCase().trim());
+      if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      const openId = `email:${nanoid(16)}`;
+
+      await db.upsertUser({
+        openId,
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        loginMethod: "email",
+        lastSignedIn: new Date(),
+      });
+
+      // Store password hash
+      const newUser = await db.getUserByEmail(email.toLowerCase().trim());
+      if (newUser) {
+        await db.setUserPasswordHash(newUser.id, passwordHash);
+      }
+
+      await db.ensureWorkspaceForUser({ openId, id: newUser?.id ?? 0 } as any);
+
+      const sessionToken = await sdk.createSessionToken(openId, {
+        name: name.trim(),
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[Auth] Register error:", e);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
 
@@ -232,23 +389,24 @@ async function startServer() {
   );
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
+    console.log("[Server] Initializing Vite dev server...");
     await setupVite(app, server);
+    console.log("[Server] Vite initialization complete.");
   } else {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
-
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
-
   // Start background workers
-  startSocialWorker(60000); // Check once per minute
+  startSocialWorker(60000);
 
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  // In production (Railway) use PORT directly; in dev find an available port
+  const port = process.env.NODE_ENV === "production"
+    ? parseInt(process.env.PORT || "3000")
+    : await findAvailablePort(parseInt(process.env.PORT || "3000"));
+
+  console.log(`[Server] Starting on port ${port}...`);
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`Server running on http://0.0.0.0:${port}/`);
   });
 }
 

@@ -270,7 +270,7 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
+    // If user not in DB, attempt to sync from OAuth server (Manus environment only)
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
@@ -283,8 +283,9 @@ class SDKServer {
         });
         user = await db.getUserByOpenId(userInfo.openId);
       } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
+        // OAuth sync failed — this is expected outside the Manus environment.
+        // For email/password users already in the database this path is never reached.
+        console.warn("[Auth] Could not sync user from OAuth server (expected outside Manus):", String(error));
       }
     }
 
