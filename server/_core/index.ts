@@ -122,6 +122,26 @@ async function startServer() {
   }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+  // ── Dev Subscription Fix ──
+  app.get("/api/dev/fix-subscription", async (req, res) => {
+    try {
+      const db = await import("../db.js");
+      const user = await db.getUserByEmail("pro@estateiq.com");
+      if (!user || !user.workspaceId) {
+        return res.status(404).json({ error: "Pro user or workspace not found" });
+      }
+      const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await db.updateWorkspace(user.workspaceId, {
+        currentPeriodEndsAt: nextMonth,
+        subscriptionStatus: "active"
+      });
+      return res.json({ success: true, message: "PRO subscription updated", endsAt: nextMonth });
+    } catch (e) {
+      console.error("[Fix Subscription] Error:", e);
+      return res.status(500).json({ error: "Failed to fix subscription" });
+    }
+  });
+
   // ── Health Check (Railway uses this) ──
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: new Date().toISOString() });
