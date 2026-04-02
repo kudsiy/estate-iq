@@ -213,9 +213,9 @@ export default function SupplierFeedPage() {
                         </Button>
                       ) : null}
                       {listing.status !== "imported" ? (
-                        <Button size="sm" className="h-7 gap-1 bg-accent text-xs text-white hover:bg-accent/90" onClick={() => setLocation(`/design-studio/${listing.id}`)}>
+                        <Button size="sm" className="h-7 gap-1 bg-accent text-xs text-white hover:bg-accent/90" onClick={() => setLocation(`/studio/${listing.id}?mode=listing_creator`)}>
                           <Palette className="h-3 w-3" />
-                          Beautify in Studio
+                          Market This
                         </Button>
                       ) : (
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1" disabled>

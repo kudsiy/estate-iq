@@ -6,39 +6,29 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
-import ContactsPage from "./pages/ContactsPage";
-import DealPipeline from "./pages/DealPipeline";
-import ComingSoon from "./pages/ComingSoon";
-import DesignStudio from "./pages/DesignStudio";
-import LeadCapture from "./pages/LeadCapture";
-import PropertiesPage from "./pages/PropertiesPage";
-import BrandKitPage from "./pages/BrandKitPage";
-import SocialMediaPage from "./pages/SocialMedia";
-import AnalyticsPage from "./pages/AnalyticsPage";
 import ContactDetail from "./pages/ContactDetail";
-import SettingsPage from "./pages/SettingsPage";
-import NotificationsPage from "./pages/NotificationsPage";
+import CRMPage from "./pages/CRMPage";
+import PropertiesPage from "./pages/PropertiesPage";
 import SupplierFeedPage from "./pages/SupplierFeedPage";
-import MatchingPage from "./pages/MatchingPage";
-import PricingPage from "./pages/PricingPage";
+import DesignStudio from "./pages/DesignStudio";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
+import PricingPage from "./pages/PricingPage";
 import AdminPage from "./pages/AdminPage";
 import PropertyTrackingPage from "./pages/PropertyTrackingPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import { useAuth } from "./_core/hooks/useAuth";
 import { getLoginUrl } from "./const";
-import OnboardingPage from "./pages/OnboardingPage";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 
 function RouteRedirect({ to }: { to: string }) {
   const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    setLocation(to);
-  }, [setLocation, to]);
-
+  useEffect(() => { setLocation(to); }, [setLocation, to]);
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <p className="text-sm text-muted-foreground">Redirecting...</p>
@@ -83,8 +73,11 @@ function Router() {
 
   return (
     <Switch>
+      {/* Public routes */}
       <Route path="/login"><LoginPage /></Route>
       <Route path="/register"><RegisterPage /></Route>
+      <Route path="/pricing"><PricingPage /></Route>
+      <Route path="/l/:userId/:listingId"><PropertyTrackingPage /></Route>
 
       <Route path="/">
         {isAuthenticated ? (
@@ -104,33 +97,40 @@ function Router() {
         )}
       </Route>
 
-      <Route path="/pricing">
-        <PricingPage />
-      </Route>
-      
-      <Route path="/l/:userId/:listingId">
-        <PropertyTrackingPage />
-      </Route>
+      {/* Core 6 nav areas */}
+      <Route path="/dashboard">          {guard(<Dashboard />)}                </Route>
+      <Route path="/supplier-feed">      {guard(<SupplierFeedPage />)}         </Route>
+      <Route path="/studio/:contextId?"> {guard(<DesignStudio />)}             </Route>
+      <Route path="/properties">         {guard(<PropertiesPage />)}           </Route>
+      <Route path="/crm">                {guard(<CRMPage />)}                  </Route>
+      <Route path="/crm/contacts/:id">   {guard(<ContactDetail />)}            </Route>
+      <Route path="/analytics">          {guard(<AnalyticsPage />)}            </Route>
 
-      {/* Core CRM */}
-      <Route path="/dashboard">          {guard(<Dashboard />)}               </Route>
-      <Route path="/crm/contacts/:id">   {guard(<ContactDetail />)}           </Route>
-      <Route path="/crm/contacts">       {guard(<ContactsPage />)}            </Route>
-      <Route path="/crm/deals">          {guard(<DealPipeline />)}            </Route>
-      <Route path="/settings">           {guard(<SettingsPage />)}            </Route>
-      <Route path="/notifications">      {guard(<NotificationsPage />)}       </Route>
-      <Route path="/supplier-feed">      {guard(<SupplierFeedPage />)}        </Route>
-      <Route path="/matching">           {guard(<MatchingPage />)}            </Route>
-      <Route path="/billing">            {guard(<BillingPage />)}             </Route>
-      <Route path="/admin">              {guard(<AdminPage />)}               </Route>
+      {/* Utility routes (not in sidebar) */}
+      <Route path="/settings">           {guard(<SettingsPage />)}             </Route>
+      <Route path="/billing">            {guard(<BillingPage />)}              </Route>
+      <Route path="/notifications">      {guard(<NotificationsPage />)}        </Route>
+      <Route path="/admin">              {guard(<AdminPage />)}                </Route>
 
-      {/* Placeholder pages — swapped out as each module is built */}
-      <Route path="/properties">    {guard(<PropertiesPage />)}           </Route>
-      <Route path="/leads">         {guard(<LeadCapture />)}               </Route>
-      <Route path="/design-studio/:contextId?"> {guard(<DesignStudio />)}             </Route>
-      <Route path="/social-media">  {guard(<SocialMediaPage />)}           </Route>
-      <Route path="/analytics">     {guard(<AnalyticsPage />)}             </Route>
-      <Route path="/brand-kit">     {guard(<BrandKitPage />)}              </Route>
+      {/* Legacy redirects — keep old URLs alive */}
+      <Route path="/design-studio/:contextId?">
+        <RouteRedirect to="/studio" />
+      </Route>
+      <Route path="/crm/deals">
+        <RouteRedirect to="/crm" />
+      </Route>
+      <Route path="/brand-kit">
+        <RouteRedirect to="/settings" />
+      </Route>
+      <Route path="/social-media">
+        <RouteRedirect to="/studio" />
+      </Route>
+      <Route path="/leads">
+        <RouteRedirect to="/crm" />
+      </Route>
+      <Route path="/matching">
+        <RouteRedirect to="/crm" />
+      </Route>
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

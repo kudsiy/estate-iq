@@ -1,14 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -25,22 +17,16 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard,
-  Users,
-  TrendingUp,
-  Home,
-  Target,
-  Palette,
-  Share2,
-  BarChart2,
-  Sparkles,
-  LogOut,
-  Settings,
-  PanelLeft,
+  Rss,
+  Wand2,
   Building2,
+  Users,
+  BarChart2,
   Bell,
-  Inbox,
-  Search,
+  Settings,
   CreditCard,
+  LogOut,
+  PanelLeft,
   Shield,
   AlertTriangle,
 } from "lucide-react";
@@ -52,18 +38,11 @@ import { Button } from "./ui/button";
 
 const baseMenuItems = [
   { icon: LayoutDashboard, label: "Dashboard",    path: "/dashboard" },
-  { icon: Users,           label: "Contacts",      path: "/crm/contacts" },
-  { icon: TrendingUp,      label: "Deal Pipeline", path: "/crm/deals" },
-  { icon: Home,            label: "Properties",    path: "/properties" },
-  { icon: Target,          label: "Lead Capture",  path: "/leads" },
-  { icon: Palette,         label: "Design Studio", path: "/design-studio" },
-  { icon: Share2,          label: "Social Media",  path: "/social-media" },
-  { icon: BarChart2,       label: "Analytics",     path: "/analytics" },
-  { icon: Sparkles,        label: "Brand Kit",     path: "/brand-kit" },
-  { icon: Bell,            label: "Notifications", path: "/notifications" },
-  { icon: Inbox,           label: "Supplier Inbox", path: "/supplier-feed" },
-  { icon: Search,          label: "Matching",      path: "/matching" },
-  { icon: CreditCard,      label: "Billing",       path: "/billing" },
+  { icon: Rss,             label: "Supply Feed",  path: "/supplier-feed" },
+  { icon: Wand2,           label: "Studio",       path: "/studio" },
+  { icon: Building2,       label: "My Properties",path: "/properties" },
+  { icon: Users,           label: "CRM",          path: "/crm" },
+  { icon: BarChart2,       label: "Analytics",    path: "/analytics" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -87,7 +66,7 @@ export default function DashboardLayout({
   }, [sidebarWidth]);
 
   if (loading) {
-    return <DashboardLayoutSkeleton />
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!user) {
@@ -141,11 +120,13 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { data: current } = trpc.subscription.current.useQuery();
+  const { data: notifData } = trpc.notifications.list.useQuery({ limit: 1 });
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
   const menuItems = user?.role === "admin"
     ? [...baseMenuItems, { icon: Shield, label: "Admin", path: "/admin" }]
     : baseMenuItems;
@@ -155,6 +136,8 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
       location === item.path ||
       (item.path !== "/dashboard" && location.startsWith(item.path))
   );
+
+  const unreadCount = (notifData as any)?.unreadCount ?? 0;
 
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -192,9 +175,9 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
       <div className="relative" ref={sidebarRef}>
         <Sidebar collapsible="icon" className="border-r border-border" disableTransition={isResizing}>
 
-          {/* Sidebar header — Estate IQ brand */}
+          {/* Sidebar header — Estate IQ brand + notification bell */}
           <SidebarHeader className="h-14 border-b border-border">
-            <div className="flex items-center gap-3 px-3 h-full">
+            <div className="flex items-center gap-2 px-3 h-full">
               <button
                 onClick={toggleSidebar}
                 className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
@@ -202,15 +185,43 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
               >
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
+
               {!isCollapsed && (
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
                     <Building2 className="w-4 h-4 text-white" />
                   </div>
-                  <span className="font-semibold text-foreground tracking-tight truncate">
+                  <span className="font-semibold text-foreground tracking-tight truncate flex-1">
                     Estate IQ
                   </span>
+                  {/* Notification Bell */}
+                  <button
+                    onClick={() => setLocation("/notifications")}
+                    className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors shrink-0"
+                    aria-label="Notifications"
+                  >
+                    <Bell className="h-4 w-4 text-muted-foreground" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
+              )}
+
+              {/* Collapsed bell */}
+              {isCollapsed && (
+                <button
+                  onClick={() => setLocation("/notifications")}
+                  className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors shrink-0"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-500 border border-background" />
+                  )}
+                </button>
               )}
             </div>
           </SidebarHeader>
@@ -243,68 +254,58 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                 );
               })}
             </SidebarMenu>
-
-            {/* Plan badge */}
-            {!isCollapsed && current && (
-              <div className="mx-3 mt-2 mb-1">
-                <button
-                  onClick={() => setLocation("/billing")}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-left hover:bg-accent/5 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      current.isActive && !current.isGracePeriod ? "bg-green-500" : 
-                      current.isGracePeriod ? "bg-amber-500" : "bg-red-500"
-                    }`} />
-                    <span className="text-xs font-semibold text-foreground uppercase">
-                      {current.workspace?.plan ?? "starter"}
-                    </span>
-                    {current.workspace?.subscriptionStatus === "trial" && current.daysRemaining !== undefined && current.daysRemaining > 0 && (
-                      <span className="text-[10px] text-muted-foreground ml-auto">
-                        {current.daysRemaining}d left
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </div>
-            )}
           </SidebarContent>
 
-          {/* Footer — user menu */}
-          <SidebarFooter className="p-2 border-t border-border">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent/10 transition-colors w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring group-data-[collapsible=icon]:justify-center">
-                  <Avatar className="h-8 w-8 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium bg-accent/10 text-accent">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">{user?.name || "—"}</p>
-                    <p className="text-xs text-muted-foreground truncate mt-1">{user?.email || "—"}</p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-                  {user?.email}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => setLocation("/settings")}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {/* Footer — agent name + always-visible Billing & Settings */}
+          <SidebarFooter className="p-2 border-t border-border space-y-1">
+            {/* Agent identity */}
+            <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 group-data-[collapsible=icon]:justify-center">
+              <Avatar className="h-8 w-8 border shrink-0">
+                <AvatarFallback className="text-xs font-medium bg-accent/10 text-accent">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate leading-none">{user?.name || "—"}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{user?.email || "—"}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Billing */}
+            <button
+              onClick={() => setLocation("/billing")}
+              className={`flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 hover:bg-accent/10 transition-colors text-left ${
+                location === "/billing" ? "bg-accent/10 text-accent" : "text-muted-foreground"
+              }`}
+              title="Billing"
+            >
+              <CreditCard className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span className="text-sm font-normal">Billing</span>}
+            </button>
+
+            {/* Settings */}
+            <button
+              onClick={() => setLocation("/settings")}
+              className={`flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 hover:bg-accent/10 transition-colors text-left ${
+                location === "/settings" ? "bg-accent/10 text-accent" : "text-muted-foreground"
+              }`}
+              title="Settings"
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span className="text-sm font-normal">Settings</span>}
+            </button>
+
+            {/* Sign out */}
+            <button
+              onClick={logout}
+              className="flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors text-left"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span className="text-sm font-normal">Sign out</span>}
+            </button>
           </SidebarFooter>
         </Sidebar>
 
@@ -331,6 +332,19 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                 {activeMenuItem?.label ?? "Estate IQ"}
               </span>
             </div>
+            <div className="ml-auto">
+              <button
+                onClick={() => setLocation("/notifications")}
+                className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors"
+              >
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
@@ -340,13 +354,10 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
           const isActive = current.isActive;
           const isGrace = current.isGracePeriod;
           const isTrial = current.workspace?.subscriptionStatus === "trial";
-          const plan = current.workspace?.plan ?? "starter";
 
-          // Fully expired (past grace period)
           if (!isActive && !isGrace) {
             return (
               <>
-                {/* Soft-lock overlay */}
                 <div className="bg-destructive/5 border-b-2 border-destructive/30 px-6 py-5">
                   <div className="max-w-2xl mx-auto flex flex-col items-center gap-4 text-center">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
@@ -357,27 +368,24 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                         {isTrial ? "Your 14-day trial has ended" : "Your subscription has expired"}
                       </p>
                       <p className="text-sm text-destructive/70 mt-1">
-                        Your {current.usage?.leads ?? 0} leads and {current.usage?.properties ?? 0} listings are locked. 
+                        Your {current.usage?.leads ?? 0} leads and {current.usage?.properties ?? 0} listings are locked.
                         Upgrade now to keep everything and continue growing your pipeline.
                       </p>
                     </div>
-                    <div className="flex gap-3">
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        className="h-9 px-6 rounded-lg shadow-sm font-semibold"
-                        onClick={() => setLocation("/billing")}
-                      >
-                        Unlock Now — From ETB 499/mo
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-9 px-6 rounded-lg shadow-sm font-semibold"
+                      onClick={() => setLocation("/billing")}
+                    >
+                      Unlock Now — From ETB 499/mo
+                    </Button>
                   </div>
                 </div>
               </>
             );
           }
 
-          // Grace period warning (expired but within 3-day window)
           if (isGrace) {
             return (
               <div className="bg-amber-50 dark:bg-amber-950/30 border-b-2 border-amber-400/50 px-6 py-3 flex items-center justify-between gap-4">
@@ -394,8 +402,8 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                     </p>
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="h-8 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-semibold"
                   onClick={() => setLocation("/billing")}
                 >
@@ -405,13 +413,12 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             );
           }
 
-          // Active trial with countdown (show urgency banners)
           if (isTrial && days <= 7 && days > 0) {
             const isUrgent = days <= 3;
             return (
               <div className={`border-b-2 px-6 py-2.5 flex items-center justify-between gap-4 ${
-                isUrgent 
-                  ? "bg-red-50 dark:bg-red-950/30 border-red-400/50" 
+                isUrgent
+                  ? "bg-red-50 dark:bg-red-950/30 border-red-400/50"
                   : "bg-amber-50 dark:bg-amber-950/20 border-amber-300/50"
               }`}>
                 <div className="flex items-center gap-3">
@@ -421,16 +428,16 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                     <AlertTriangle className={`h-3.5 w-3.5 ${isUrgent ? "text-red-600" : "text-amber-600"}`} />
                   </div>
                   <p className={`text-sm font-semibold ${isUrgent ? "text-red-800 dark:text-red-300" : "text-amber-800 dark:text-amber-300"}`}>
-                    {isUrgent 
-                      ? `🔥 ${days} day${days === 1 ? "" : "s"} left — Your ${current.usage?.leads ?? 0} leads will be locked!` 
+                    {isUrgent
+                      ? `🔥 ${days} day${days === 1 ? "" : "s"} left — Your ${current.usage?.leads ?? 0} leads will be locked!`
                       : `${days} days left in your trial`}
                   </p>
                 </div>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className={`h-7 px-4 rounded-lg shadow-sm text-xs font-bold ${
-                    isUrgent 
-                      ? "bg-red-600 hover:bg-red-700 text-white" 
+                    isUrgent
+                      ? "bg-red-600 hover:bg-red-700 text-white"
                       : "bg-amber-600 hover:bg-amber-700 text-white"
                   }`}
                   onClick={() => setLocation("/billing")}
@@ -441,15 +448,14 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             );
           }
 
-          // Active trial with plenty of time — subtle indicator
           if (isTrial && days > 7) {
             return (
               <div className="bg-accent/5 border-b border-accent/15 px-6 py-2 flex items-center justify-between gap-4">
                 <p className="text-xs text-accent font-medium">
                   ✨ Full access trial — {days} days remaining
                 </p>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="ghost"
                   className="h-6 px-3 text-xs text-accent hover:text-accent"
                   onClick={() => setLocation("/billing")}
@@ -458,11 +464,6 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                 </Button>
               </div>
             );
-          }
-
-          // Plan badge for paid users
-          if (!isTrial && isActive) {
-            return null; // No banner needed for active paid users
           }
 
           return null;

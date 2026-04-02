@@ -52,6 +52,14 @@ interface ResizeState {
   elBaseX: number; elBaseY: number; elBaseW: number; elBaseH: number;
 }
 
+type StudioMode =
+  | "listing_creator"
+  | "image_rebrander"
+  | "advert_creator"
+  | "video_tour"
+  | "video_ad";
+
+
 // ─── TEMPLATES ───────────────────────────────────────────────────────────────
 
 const TEMPLATES: Template[] = [
@@ -425,7 +433,11 @@ import { useParams } from "wouter";
 
 export default function DesignStudio() {
   const { contextId } = useParams();
-  const [phase, setPhase] = useState<"pick" | "edit">("pick");
+  // Detect Journey B: Supply Feed passes ?mode=listing_creator in URL
+  const searchParams = new URLSearchParams(window.location.search);
+  const preloadMode = searchParams.get("mode") as StudioMode | null;
+  const [studioMode, setStudioMode] = useState<StudioMode | null>(preloadMode || (contextId ? "listing_creator" : null));
+  const [phase, setPhase] = useState<"mode_select" | "pick" | "edit">(studioMode ? "pick" : "mode_select");
   const [design, setDesign] = useState<DesignState>({
     version: "2.0",
     id: "temp",
@@ -1029,13 +1041,72 @@ export default function DesignStudio() {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  // ── MODE SELECTION SCREEN ────────────────────────────────────────────────
+  if (phase === "mode_select") {
+    const MODES: { id: StudioMode; icon: string; label: string; tagline: string; badge?: string }[] = [
+      { id: "listing_creator",  icon: "🏠", label: "Listing Creator",  tagline: "Upload photos, fill details, pick a template, publish." },
+      { id: "image_rebrander",  icon: "🎨", label: "Image Rebrander",  tagline: "Upload a competitor ad — AI strips the watermark and applies your brand." },
+      { id: "advert_creator",   icon: "✨", label: "Advert Creator",   tagline: "AI generates a complete ad from your Brand Kit. No photo needed.", badge: "AI" },
+      { id: "video_tour",       icon: "🎬", label: "Video Tour",       tagline: "Upload walkthrough footage, add overlays, export as Reel or Story." },
+      { id: "video_ad",         icon: "📱", label: "Video Ad",         tagline: "Landscape or vertical — brand intro, listing highlights, and a strong CTA.", badge: "New" },
+    ];
+    return (
+      <DashboardLayout>
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold tracking-tight">Design Studio</h1>
+          <p className="text-muted-foreground mt-2">Choose a mode to start creating.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => { setStudioMode(m.id); setPhase("pick"); }}
+              className="group relative flex flex-col gap-4 p-6 rounded-3xl border-2 border-border bg-card hover:border-accent hover:shadow-2xl hover:bg-accent/5 transition-all duration-300 text-left"
+            >
+              {m.badge && (
+                <span className="absolute top-4 right-4 text-[10px] font-bold bg-accent text-white px-2 py-0.5 rounded-full">{m.badge}</span>
+              )}
+              <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                {m.icon}
+              </div>
+              <div>
+                <p className="text-base font-bold text-foreground">{m.label}</p>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{m.tagline}</p>
+              </div>
+              <div className="mt-auto flex items-center gap-2 text-accent text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                Get started <ArrowRight className="w-4 h-4" />
+              </div>
+            </button>
+          ))}
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // ── TEMPLATE PICKER (secondary, within mode) ─────────────────────────────
   if (phase === "pick") {
+    const modeLabel: Record<StudioMode, string> = {
+      listing_creator: "Listing Creator",
+      image_rebrander: "Image Rebrander",
+      advert_creator: "Advert Creator",
+      video_tour: "Video Tour",
+      video_ad: "Video Ad",
+    };
     const categories = Array.from(new Set(TEMPLATES.map((t) => t.category)));
     return (
       <DashboardLayout>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Design Studio</h1>
-          <p className="text-muted-foreground mt-2">Professional, constraint-based marketing engine.</p>
+        <div className="mb-8 flex items-center gap-4">
+          <button
+            onClick={() => { if (!contextId) setPhase("mode_select"); }}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            ← {studioMode ? modeLabel[studioMode] : "Studio"}
+          </button>
+          <div className="h-4 w-px bg-border" />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Choose a Template</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">Professional, constraint-based marketing engine.</p>
+          </div>
         </div>
         {categories.map((cat) => (
           <div key={cat} className="mb-10">
