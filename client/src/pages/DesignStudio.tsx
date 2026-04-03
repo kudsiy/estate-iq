@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import {
+import { 
   Type, Square, Circle, Image as ImageIcon, Download, Save,
   Trash2, Bold, Italic, AlignLeft, AlignCenter, AlignRight,
   Copy, ChevronUp, ChevronDown, Lock, Unlock, Plus, LayoutTemplate, Layout,
-  Sparkles, Wand2, Video, Search, Undo, Redo, Layers, Settings2, Building2, Calendar, Zap, Palette, TrendingUp, Upload, ArrowRight
+  Sparkles, Wand2, Video, Search, Undo, Redo, Layers, Settings2, Building2, Calendar, Zap, Palette, TrendingUp, Upload, ArrowRight,
+  Phone, MapPin, Bed, Bath, Maximize, FileText
 } from "lucide-react";
 import { 
   DesignState, 
@@ -29,7 +30,17 @@ import { HistoryManager } from "@/lib/studio/HistoryManager";
 import { getSafeTextColor, applyBrandTheme } from "@/lib/studio/BrandIntelligence";
 import { optimizeCaption, inferAltText } from "@/lib/studio/SEOIntelligence";
 import { PremiumUpgradeModal } from "@/components/PremiumUpgradeModal";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { toPng } from 'html-to-image';
+import { LISTING_TEMPLATES, ListingFormData, BrandData } from "@/components/studio/ListingTemplates";
+
+const SUBCITIES = [
+  'Bole', 'Kirkos', 'Yeka', 'Arada', 'Lideta', 'Gulele',
+  'Kolfe Keranio', 'Nifas Silk-Lafto', 'Akaky Kaliti',
+  'Lemi Kura', 'CMC', 'Kazanchis', 'Piassa', 'Sarbet',
+  'Summit', 'Ayat', 'Gerji', 'Megenagna', 'Other'
+];
 
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -424,51 +435,26 @@ async function exportAsPng(design: DesignState, name: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
-import { useParams } from "wouter";
-
-// ── PROPERTY FORM UTILS ────────────────────────────────────────────────────────
-interface FormData {
-  price: string;
-  subcity: string;
-  propertyType: string;
-  beds: string;
-  baths: string;
-  imageSrc: string;
-}
-
-function syncFormDataToDesign(elements: StudioElement[], data: FormData): StudioElement[] {
-  return elements.map(el => {
-    if (el.type === 'text') {
-      const text = el.content.text?.toLowerCase() || "";
-      let newText = el.content.text;
-
-      if (text.includes("price") || text.includes("etb")) {
-        newText = data.price ? (data.price.startsWith("ETB") ? data.price : `ETB ${data.price}`) : el.content.text;
-      } else if (text.includes("location") || text.includes("subcity") || text.includes("addis")) {
-        newText = data.subcity || el.content.text;
-      } else if (text.includes("bed") || text.includes("bedroom")) {
-        newText = data.beds ? `${data.beds} Bed${Number(data.beds) !== 1 ? 's' : ''}` : el.content.text;
-      } else if (text.includes("bath") || text.includes("bathroom")) {
-        newText = data.baths ? `${data.baths} Bath${Number(data.baths) !== 1 ? 's' : ''}` : el.content.text;
-      } else if (text.includes("property") || text.includes("villa") || text.includes("apartment")) {
-        newText = data.propertyType || el.content.text;
-      }
-      return { ...el, content: { ...el.content, text: newText } };
-    }
-    
-    if (el.type === 'image' && data.imageSrc && el.layer === 'image') {
-      return { ...el, content: { ...el.content, src: data.imageSrc } };
-    }
-    
-    return el;
-  });
-}
-
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-
 export default function DesignStudio() {
   const { contextId } = useParams();
+  const { user } = useAuth();
+  
+  // ── context fetching ───────────────────────────────────────────────────────
+  const { data: propContext } = trpc.crm.properties.getById.useQuery(
+    Number(contextId), 
+    { enabled: !!contextId && !isNaN(Number(contextId)) }
+  );
+  
+  const { data: supplierContext } = trpc.supplierFeed.getById.useQuery(
+    Number(contextId),
+    { enabled: !!contextId && !isNaN(Number(contextId)) && !propContext }
+  );
+
+  const activeContext = propContext || supplierContext;
+
+  const { data: brandKits = [] } = trpc.crm.brandKits.list.useQuery();
+  const brandKit = brandKits[0];
+
   // Detect Journey B: Supply Feed passes ?mode=listing_creator in URL
   const searchParams = new URLSearchParams(window.location.search);
   const preloadMode = searchParams.get("mode") as StudioMode | null;
@@ -495,14 +481,33 @@ export default function DesignStudio() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [resize, setResize] = useState<ResizeState | null>(null);
   const [scaleFactor, setScaleFactor] = useState(0.85);
-  const [formData, setFormData] = useState<FormData>({
-    price: "",
-    subcity: "",
-    propertyType: "Villa",
-    beds: "",
-    baths: "",
-    imageSrc: ""
+
+  const [formData, setFormData] = useState<ListingFormData>({
+    title: activeContext?.title || '',
+    price: activeContext?.price ? `ETB ${Number(activeContext.price).toLocaleString()}` : '',
+    location: activeContext?.subcity || '',
+    bedrooms: (activeContext as any)?.bedrooms ? `${(activeContext as any).bedrooms}` : '',
+    bathrooms: (activeContext as any)?.bathrooms ? `${(activeContext as any).bathrooms}` : '',
+    area: (activeContext as any)?.squareFeet ? `${(activeContext as any).squareFeet}` : '',
+    phone: '',
+    description: (activeContext as any)?.description || '',
+    image: (activeContext as any)?.photos?.[0] || null,
+    ctaText: 'View Listing'
   });
+
+  const brandData = useMemo<BrandData>(() => ({
+    logo: (brandKit?.logos as any)?.[0]?.src || null,
+    companyName: user?.companyName || 'Estate IQ',
+    color: (brandKit?.colors as any)?.[0]?.hex || '#d4af37',
+    backgroundColor: (brandKit?.colors as any)?.[1]?.hex || '#0a0a0f',
+    textColor: '#ffffff'
+  }), [brandKit, user]);
+
+  useEffect(() => {
+    if (brandKit) {
+       setFormData(prev => ({ ...prev, phone: (brandKit as any).phone || prev.phone }));
+    }
+  }, [brandKit]);
 
   const [leftTab, setLeftTab] = useState<"add" | "ai" | "seo" | "layers" | "growth" | "video">("ai");
   const { data: metrics } = trpc.crm.socialMediaPosts.engagement.useQuery(undefined, {
@@ -521,14 +526,8 @@ export default function DesignStudio() {
     };
   }, [metrics, design.id]);
 
-  // Handle Form Change with Live Preview
-  const handleFormChange = (patch: Partial<FormData>) => {
-    const nextData = { ...formData, ...patch };
-    setFormData(nextData);
-    setDesign(prev => ({
-      ...prev,
-      elements: syncFormDataToDesign(prev.elements, nextData)
-    }));
+  const handleFormChange = (patch: Partial<ListingFormData>) => {
+    setFormData(prev => ({ ...prev, ...patch }));
   };
 
   const [seoCaption, setSeoCaption] = useState("");
@@ -554,42 +553,15 @@ export default function DesignStudio() {
   const uiResolution = getResolution(design.format, workspaceWidth * scaleFactor);
   const uiElements = resolveLayout(design, uiResolution);
 
-  const visibleTemplates = useMemo(() => {
-    if (!studioMode) return []; // Default to empty if no mode (avoids showing all 8 initially)
-    if (studioMode === "listing_creator") {
-      return TEMPLATES.filter(t => t.category === "Print" || t.category === "Social" || t.id === "blank");
-    }
-    if (studioMode === "video_tour") {
-      return TEMPLATES.filter(t => t.id === "tiktok-walkthrough");
-    }
-    if (studioMode === "video_ad") {
-      return TEMPLATES.filter(t => t.id === "video-ad" || t.id === "reel-thumbnail");
-    }
-    return []; // Tool-based modes like Rebrander/Advert Creator
-  }, [studioMode]);
-
-  // ── context fetching ───────────────────────────────────────────────────────
-  const { data: propContext } = trpc.crm.properties.getById.useQuery(
-    Number(contextId), 
-    { enabled: !!contextId && !isNaN(Number(contextId)) }
-  );
-  
-  const { data: supplierContext } = trpc.supplierFeed.getById.useQuery(
-    Number(contextId),
-    { enabled: !!contextId && !isNaN(Number(contextId)) && !propContext }
-  );
-
-  const { data: brandKits } = trpc.crm.brandKits.list.useQuery();
-  const activeBrandKit = brandKits?.[0];
-
-  const activeContext = propContext || supplierContext;
-
   useEffect(() => {
     if (activeContext) {
       handleFormChange({
-        price: activeContext.price ? `${activeContext.price}` : formData.price,
-        subcity: activeContext.subcity || formData.subcity,
-        propertyType: activeContext.propertyType || formData.propertyType,
+        price: activeContext.price ? `ETB ${Number(activeContext.price).toLocaleString()}` : formData.price,
+        location: activeContext.subcity || formData.location,
+        bedrooms: (activeContext as any).bedrooms ? `${(activeContext as any).bedrooms}` : formData.bedrooms,
+        bathrooms: (activeContext as any).bathrooms ? `${(activeContext as any).bathrooms}` : formData.bathrooms,
+        area: (activeContext as any).squareFeet ? `${(activeContext as any).squareFeet}` : formData.area,
+        title: (activeContext as any).title || formData.title,
       });
     }
   }, [activeContext]);
@@ -776,6 +748,21 @@ export default function DesignStudio() {
   }, [design, seoCaption, uploadMutation, publishMutation]);
 
   // ── helpers ──────────────────────────────────────────────────────────────
+  const syncFormDataToDesign = (elements: StudioElement[], data: ListingFormData): StudioElement[] => {
+    return elements.map(el => {
+      if (el.type !== 'text') return el;
+      const text = el.content.text?.toLowerCase() || "";
+      let newText = el.content.text;
+
+      if (text.includes("title") || text.includes("luxury")) newText = data.title || el.content.text;
+      if (text.includes("price") || text.includes("etb")) newText = data.price || el.content.text;
+      if (text.includes("location") || text.includes("bole")) newText = data.location || el.content.text;
+      if (text.includes("beds") || text.includes("bedrooms")) newText = `${data.bedrooms} Beds` || el.content.text;
+      if (text.includes("baths") || text.includes("bathrooms")) newText = `${data.bathrooms} Baths` || el.content.text;
+
+      return { ...el, content: { ...el.content, text: newText } };
+    });
+  };
 
   const pickTemplate = (t: Template) => {
     const elements = syncFormDataToDesign(makeElements(t), formData);
@@ -836,7 +823,7 @@ export default function DesignStudio() {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    handleFormChange({ imageSrc: url });
+    handleFormChange({ image: url });
     const el: StudioElement = {
       id: uid(), type: "image", layer: "image",
       baseWidth: 800, baseHeight: 600,
@@ -1349,49 +1336,188 @@ export default function DesignStudio() {
       );
     }
 
-    // LISTING CREATOR (filtered image templates + photo upload shortcut)
+    // LISTING CREATOR (split view: 40/60)
+    const [selectedTemplateId, setSelectedTemplateId] = useState(LISTING_TEMPLATES[0].id);
+    const ActiveTemplate = LISTING_TEMPLATES.find(t => t.id === selectedTemplateId)?.component || LISTING_TEMPLATES[0].component;
+    const previewRef = useRef<HTMLDivElement>(null);
+
     return (
       <DashboardLayout>
-        <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
-          <div><h1 className="text-2xl font-bold tracking-tight">Listing Creator</h1>
-            <p className="text-muted-foreground text-sm">Upload a photo, pick a template, fill in the details, publish.</p></div></div>
-        <div className="mb-8 p-5 rounded-2xl border border-border bg-card flex items-center gap-5">
-          <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0"><ImageIcon className="w-6 h-6 text-accent" /></div>
-          <div className="flex-1"><p className="font-semibold text-sm">Start with a photo</p>
-            <p className="text-xs text-muted-foreground">Upload your property photo first — placed automatically on the chosen template.</p></div>
-          <label className="cursor-pointer shrink-0">
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) { (window as any).__pendingPhotoUrl = URL.createObjectURL(file); toast.success("Photo ready — pick a template below."); }
-            }} />
-            <span className="inline-flex items-center gap-2 border border-accent text-accent font-semibold px-4 py-2 rounded-xl hover:bg-accent/5 transition-colors text-sm">
-              <Upload className="w-3.5 h-3.5" /> Upload Photo
-            </span>
-          </label>
-          {activeContext && (<div className="shrink-0 flex items-center gap-1.5 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-semibold">
-            <Zap className="w-3 h-3" /> Magic Fill ready
-          </div>)}
-        </div>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mb-5">Choose a Template</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5">
-          {visibleTemplates.map((t) => (
-            <button key={t.id} onClick={() => {
-              const pendingUrl = (window as any).__pendingPhotoUrl as string | undefined;
-              pickTemplate(t);
-              if (pendingUrl) {
-                setTimeout(() => {
-                  const imgEl: StudioElement = { id: uid(), type: "image", layer: "image", baseWidth: 900, baseHeight: 650,
-                    constraints: { x: { anchor: "center", margin: 0, priority: 1 }, y: { anchor: "top", margin: 0.04, priority: 1 } },
-                    content: { src: pendingUrl }, style: { borderRadius: 8 } };
-                  setDesign(prev => ({ ...prev, elements: [prev.elements[0], imgEl, ...prev.elements.slice(1)] }));
-                  (window as any).__pendingPhotoUrl = undefined;
-                }, 50);
-              }
-            }} className="group flex flex-col gap-3 text-left">
-              <div className="aspect-[4/5] rounded-2xl border-2 border-border flex items-center justify-center text-5xl bg-card group-hover:border-accent group-hover:shadow-2xl transition-all duration-300">{t.emoji}</div>
-              <div><p className="text-sm font-semibold">{t.name}</p><p className="text-xs text-muted-foreground">{t.format}</p></div>
-            </button>
-          ))}
+        <div className="flex h-[calc(100vh-100px)] overflow-hidden gap-6">
+          {/* Left Panel: Form & Controls (40%) */}
+          <div className="w-[40%] flex flex-col gap-6 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-accent/20">
+            <div className="flex items-center gap-3">
+               <BackBtn />
+               <div className="h-4 w-px bg-border" />
+               <h1 className="text-xl font-bold tracking-tight">Listing Creator</h1>
+            </div>
+
+            {/* Template Selector Row */}
+            <div className="space-y-3">
+              <Label className="text-[11px] font-bold uppercase opacity-60 tracking-wider">Select Style</Label>
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                {LISTING_TEMPLATES.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTemplateId(t.id)}
+                    className={`shrink-0 flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                      selectedTemplateId === t.id ? "border-accent bg-accent/5 ring-1 ring-accent/20" : "border-border hover:border-accent/40"
+                    }`}
+                  >
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-sm" style={{ backgroundColor: t.color }}>
+                      <span className="drop-shadow-md">✨</span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-tight">{t.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Format Selector Row */}
+            <div className="space-y-3">
+               <Label className="text-[11px] font-bold uppercase opacity-60 tracking-wider">Format</Label>
+               <div className="flex gap-2">
+                 {(["1:1", "9:16", "4:5", "16:9"] as AspectRatio[]).map((fmt) => (
+                    <Button
+                      key={fmt}
+                      variant={design.format === fmt ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => updateDesign({ format: fmt })}
+                      className="rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider"
+                    >
+                      {fmt === "1:1" ? "Post" : fmt === "9:16" ? "Story" : fmt === "4:5" ? "Flyer" : "Wide"}
+                    </Button>
+                 ))}
+               </div>
+            </div>
+
+            {/* Property Form */}
+            <div className="p-6 rounded-[2rem] border border-border bg-card space-y-6 shadow-sm">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Listing Title</Label>
+                      <Input value={formData.title} onChange={(e) => handleFormChange({ title: e.target.value })} placeholder="e.g. Modern Villa" className="rounded-xl border-border/50 h-11" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Price (ETB)</Label>
+                      <Input value={formData.price} onChange={(e) => handleFormChange({ price: e.target.value })} placeholder="e.g. 12,500,000" className="rounded-xl border-border/50 h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Location (Subcity)</Label>
+                      <Select value={formData.location} onValueChange={(v) => handleFormChange({ location: v })}>
+                         <SelectTrigger className="rounded-xl border-border/50 h-11"><SelectValue placeholder="Select" /></SelectTrigger>
+                         <SelectContent>
+                           {SUBCITIES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                         </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Beds</Label>
+                      <Input type="number" value={formData.bedrooms} onChange={(e) => handleFormChange({ bedrooms: e.target.value })} placeholder="3" className="rounded-xl border-border/50 h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Baths</Label>
+                      <Input type="number" value={formData.bathrooms} onChange={(e) => handleFormChange({ bathrooms: e.target.value })} placeholder="2" className="rounded-xl border-border/50 h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Area (m²)</Label>
+                      <Input type="number" value={formData.area} onChange={(e) => handleFormChange({ area: e.target.value })} placeholder="250" className="rounded-xl border-border/50 h-11" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase opacity-60">Phone Number</Label>
+                      <Input value={formData.phone} onChange={(e) => handleFormChange({ phone: e.target.value })} placeholder="Agent Contact" className="rounded-xl border-border/50 h-11" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase opacity-60">Property Photo</Label>
+                    <div className="flex gap-3">
+                       <button onClick={() => imageInputRef.current?.click()} className="flex-1 h-24 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-muted transition-colors">
+                          <Upload className="w-5 h-5 opacity-40" />
+                          <span className="text-[10px] font-bold uppercase opacity-60 tracking-wider">Upload Image</span>
+                       </button>
+                       {formData.image && (
+                         <div className="w-24 h-24 rounded-2xl border border-border overflow-hidden relative group">
+                            <img src={formData.image} className="w-full h-full object-cover" />
+                            <button onClick={() => handleFormChange({ image: null })} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                               <Trash2 className="w-4 h-4 text-white" />
+                            </button>
+                         </div>
+                       )}
+                       <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                         const file = e.target.files?.[0];
+                         if (file) handleFormChange({ image: URL.createObjectURL(file) });
+                       }} />
+                    </div>
+                  </div>
+                </div>
+            </div>
+            
+            <div className="flex gap-3 pb-8">
+               <Button className="flex-1 bg-zinc-900 text-white hover:bg-black rounded-xl h-12 font-bold uppercase tracking-widest text-[11px] gap-2"
+                 onClick={async () => {
+                   if (!previewRef.current) return;
+                   const tid = toast.loading("Rendering high-res display...");
+                   try {
+                     const dataUrl = await toPng(previewRef.current, { pixelRatio: 2 });
+                     const link = document.createElement('a');
+                     link.download = `${formData.title || 'listing'}-export.png`;
+                     link.href = dataUrl;
+                     link.click();
+                     toast.success("Ready for social sharing!", { id: tid });
+                   } catch (e) {
+                     toast.error("Export failed", { id: tid });
+                   }
+                 }}
+               >
+                 <Download className="w-4 h-4" /> Export PNG
+               </Button>
+               <Button className="flex-1 bg-accent text-white hover:bg-accent/90 rounded-xl h-12 font-bold uppercase tracking-widest text-[11px] gap-2"
+                 onClick={handlePublish}
+               >
+                 <ArrowRight className="w-4 h-4" /> Publish
+               </Button>
+            </div>
+          </div>
+
+          {/* Right Panel: Live Preview (60%) */}
+          <div className="flex-1 bg-muted/30 rounded-[3rem] border border-border/50 flex flex-col items-center justify-center relative p-8">
+             <div className="absolute top-8 left-8 flex items-center gap-3">
+                 <div className="w-3 h-3 rounded-full bg-red-400" />
+                 <div className="w-3 h-3 rounded-full bg-amber-400" />
+                 <div className="w-3 h-3 rounded-full bg-emerald-400" />
+                 <span className="ml-2 text-[10px] font-black uppercase opacity-30 tracking-[0.2em]">Real-time Render View</span>
+             </div>
+
+             <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                <div 
+                  ref={previewRef}
+                  style={{
+                    width: '1080px',
+                    height: design.format === '1:1' ? '1080px' : design.format === '9:16' ? '1920px' : design.format === '4:5' ? '1350px' : '607.5px',
+                    transform: `scale(${design.format === '9:16' ? 0.35 : 0.5})`,
+                    transformOrigin: 'center center',
+                    boxShadow: '0 50px 100px -20px rgba(0,0,0,0.3)',
+                  }}
+                  className="bg-white shrink-0"
+                >
+                   <ActiveTemplate data={formData} brand={brandData} />
+                </div>
+             </div>
+
+             {/* Zoom Controls Overlay */}
+             <div className="absolute bottom-8 right-8 flex items-center gap-2 bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-black/5 shadow-xl">
+                 <div className="px-3 py-1 text-[10px] font-black opacity-40">1080P ACTIVE</div>
+             </div>
+          </div>
         </div>
       </DashboardLayout>
     );
