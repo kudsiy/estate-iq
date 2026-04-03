@@ -1083,7 +1083,7 @@ export default function DesignStudio() {
     );
   }
 
-  // ── TEMPLATE PICKER (secondary, within mode) ─────────────────────────────
+  // ── MODE-AWARE PICK SCREEN ────────────────────────────────────────────────
   if (phase === "pick") {
     const modeLabel: Record<StudioMode, string> = {
       listing_creator: "Listing Creator",
@@ -1092,40 +1092,227 @@ export default function DesignStudio() {
       video_tour: "Video Tour",
       video_ad: "Video Ad",
     };
-    const categories = Array.from(new Set(TEMPLATES.map((t) => t.category)));
-    return (
+    const LISTING_TEMPLATE_IDS = ["property-poster","luxury-gold-listing","instagram-post","modern-minimal-flyer","blank"];
+    const BackBtn = () => (
+      <button onClick={() => { if (!contextId) setPhase("mode_select"); }}
+        className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+        ← {studioMode ? modeLabel[studioMode] : "Studio"}
+      </button>
+    );
+
+    if (studioMode === "image_rebrander") return (
       <DashboardLayout>
-        <div className="mb-8 flex items-center gap-4">
-          <button
-            onClick={() => { if (!contextId) setPhase("mode_select"); }}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-          >
-            ← {studioMode ? modeLabel[studioMode] : "Studio"}
-          </button>
-          <div className="h-4 w-px bg-border" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Choose a Template</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Professional, constraint-based marketing engine.</p>
+        <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
+          <div><h1 className="text-2xl font-bold tracking-tight">Image Rebrander</h1>
+            <p className="text-muted-foreground text-sm">Upload a competitor ad — apply your brand colours and logo.</p></div></div>
+        <div className="max-w-xl space-y-4">
+          <div className="border-2 border-dashed border-border rounded-3xl p-12 flex flex-col items-center gap-6 hover:border-accent/60 transition-colors bg-card">
+            <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center text-4xl">🎨</div>
+            <div className="text-center"><p className="font-semibold">Upload Competitor Ad</p>
+              <p className="text-sm text-muted-foreground mt-1">PNG, JPG or WebP. Apply your brand colours and logo.</p></div>
+            <label className="cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0]; if (!file) return;
+                const url = URL.createObjectURL(file);
+                const bgEl: StudioElement = { id: uid(), type: "rect", layer: "background", baseWidth: 1000, baseHeight: 1000,
+                  constraints: { x: { anchor: "left", margin: 0, priority: 0 }, y: { anchor: "top", margin: 0, priority: 0 } }, content: {}, style: { fill: "#ffffff", borderRadius: 0 } };
+                const imgEl: StudioElement = { id: uid(), type: "image", layer: "image", baseWidth: 1000, baseHeight: 1000,
+                  constraints: { x: { anchor: "center", margin: 0, priority: 1 }, y: { anchor: "middle", margin: 0, priority: 1 } }, content: { src: url }, style: { borderRadius: 0 } };
+                updateDesign({ name: "Rebranded Ad", format: "1:1", elements: [bgEl, imgEl] });
+                setPhase("edit"); toast.success("Image loaded — use AI Rebrand in the left panel.");
+              }} />
+              <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:bg-accent/90 transition-colors">
+                <Upload className="w-4 h-4" /> Choose Image
+              </span>
+            </label>
+          </div>
+          {activeBrandKit && (<div className="p-4 rounded-2xl border border-border bg-muted/30 flex items-center gap-3">
+            <Palette className="w-5 h-5 text-accent shrink-0" />
+            <div><p className="text-sm font-semibold">Brand Kit Ready</p>
+              <p className="text-xs text-muted-foreground">{(activeBrandKit as any).name} will be applied automatically.</p></div>
+          </div>)}
+        </div>
+      </DashboardLayout>
+    );
+
+    if (studioMode === "advert_creator") return (
+      <DashboardLayout>
+        <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
+          <div><h1 className="text-2xl font-bold tracking-tight">Advert Creator</h1>
+            <p className="text-muted-foreground text-sm">AI generates a complete ad from your Brand Kit. No photos needed.</p></div></div>
+        <div className="max-w-lg space-y-6">
+          <div className="p-6 rounded-3xl border border-border bg-card space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center"><Sparkles className="w-5 h-5 text-accent" /></div>
+              <div><p className="font-semibold">AI Ad Generator</p><p className="text-xs text-muted-foreground">Brand Kit auto-applied</p></div>
+              {activeBrandKit && <span className="ml-auto text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">✓ {(activeBrandKit as any).name}</span>}
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Property Description</label>
+              <textarea id="advert-desc" className="w-full h-28 bg-background border border-border rounded-xl p-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+                placeholder="e.g. 3-bedroom villa in Bole. Modern kitchen, rooftop terrace. ETB 8.5M..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-xs font-semibold text-muted-foreground uppercase">Format</label>
+                <select id="advert-format" className="w-full h-9 bg-background border border-border rounded-lg px-3 text-sm mt-1">
+                  <option value="1:1">Square (1:1)</option><option value="4:5">Portrait (4:5)</option><option value="9:16">Story (9:16)</option>
+                </select></div>
+              <div><label className="text-xs font-semibold text-muted-foreground uppercase">Style</label>
+                <select className="w-full h-9 bg-background border border-border rounded-lg px-3 text-sm mt-1">
+                  <option>Luxury Gold/Black</option><option>Minimalist Clean</option><option>Bold Commercial</option>
+                </select></div>
+            </div>
+            <Button className="w-full bg-accent text-white hover:bg-accent/90 h-11 gap-2 font-semibold" onClick={() => {
+              const desc = (document.getElementById("advert-desc") as HTMLTextAreaElement)?.value || "Luxury property";
+              const fmt = ((document.getElementById("advert-format") as HTMLSelectElement)?.value || "1:1") as AspectRatio;
+              const tpl = TEMPLATES.find(t => t.id === "luxury-gold-listing") || TEMPLATES[0];
+              updateDesign({ id: tpl.id, name: `Ad — ${desc.slice(0, 30)}`, format: fmt, elements: makeElements(tpl) });
+              if (activeBrandKit) {
+                const colors = (activeBrandKit.colors as any) || {};
+                updateDesign(prev => applyBrandTheme(prev, { primary: colors.primary || "#1e3a5f", secondary: colors.secondary || "#f5f0eb",
+                  accent: colors.accent || "#d4af37", fonts: (activeBrandKit.fonts as any) || { heading: "Poppins, sans-serif", body: "Poppins, sans-serif" }}));
+              }
+              setPhase("edit"); toast.success("AI Ad generated — Brand Kit applied!");
+            }}>
+              <Sparkles className="w-4 h-4" /> Generate Advert
+            </Button>
+          </div>
+          {!activeBrandKit && (<div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
+            <Palette className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>No Brand Kit found. <a href="/settings" className="font-semibold underline">Create one in Settings → Brand Identity</a> to auto-apply your logo, colours and fonts.</span>
+          </div>)}
+        </div>
+      </DashboardLayout>
+    );
+
+    if (studioMode === "video_tour") return (
+      <DashboardLayout>
+        <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
+          <div><h1 className="text-2xl font-bold tracking-tight">Video Tour</h1>
+            <p className="text-muted-foreground text-sm">Upload walkthrough footage, add overlays, export as Reel or Story.</p></div></div>
+        <div className="max-w-xl space-y-4">
+          <div className="border-2 border-dashed border-border rounded-3xl p-12 flex flex-col items-center gap-6 hover:border-accent/60 transition-colors bg-card">
+            <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center text-4xl">🎬</div>
+            <div className="text-center"><p className="font-semibold">Upload Walkthrough Footage</p>
+              <p className="text-sm text-muted-foreground mt-1">MP4, MOV or WebM. Formatted to 9:16 for Reels and TikTok.</p></div>
+            <label className="cursor-pointer">
+              <input type="file" accept="video/*" className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0]; if (!file) return;
+                const url = URL.createObjectURL(file);
+                const tpl = TEMPLATES.find(t => t.id === "tiktok-walkthrough") || TEMPLATES[3];
+                const elements = makeElements(tpl).map(el =>
+                  el.type === "video" ? { ...el, videoConfig: { ...el.videoConfig!, src: url } } : el);
+                updateDesign({ id: tpl.id, name: "Property Tour", format: "9:16", elements });
+                setPhase("edit"); toast.success("Video loaded — add overlays in the left panel.");
+              }} />
+              <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:bg-accent/90 transition-colors">
+                <Video className="w-4 h-4" /> Upload Footage
+              </span>
+            </label>
+          </div>
+          <div className="p-4 rounded-2xl border border-border bg-muted/30">
+            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Available in the editor:</p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>✓ Text overlays (price, location, contact)</li><li>✓ Branded lower-third panels</li><li>✓ Export as 9:16 for Reels & TikTok</li>
+            </ul>
           </div>
         </div>
-        {categories.map((cat) => (
-          <div key={cat} className="mb-10">
-            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mb-6">{cat}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-              {TEMPLATES.filter((t) => t.category === cat).map((t) => (
-                <button key={t.id} onClick={() => pickTemplate(t)} className="group flex flex-col gap-3 text-left">
-                  <div className="aspect-[4/5] rounded-2xl border-2 border-border flex items-center justify-center text-5xl bg-card group-hover:border-accent group-hover:shadow-2xl transition-all duration-300">
-                    {t.emoji}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">{t.name}</p>
-                    <p className="text-xs text-muted-foreground">{t.format}</p>
-                  </div>
+      </DashboardLayout>
+    );
+
+    if (studioMode === "video_ad") {
+      const [adFmt, setAdFmt] = useState<"9:16" | "16:9">("9:16");
+      return (
+        <DashboardLayout>
+          <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
+            <div><h1 className="text-2xl font-bold tracking-tight">Video Ad</h1>
+              <p className="text-muted-foreground text-sm">Brand intro + highlights + CTA. Vertical or landscape.</p></div></div>
+          <div className="max-w-xl space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              {(["9:16", "16:9"] as const).map((fmt) => (
+                <button key={fmt} onClick={() => setAdFmt(fmt)}
+                  className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all ${adFmt === fmt ? "border-accent bg-accent/5" : "border-border hover:border-accent/40"}`}>
+                  <div className={`bg-accent/10 rounded-lg flex items-center justify-center ${fmt === "9:16" ? "w-10 h-16" : "w-16 h-10"}`}>
+                    <Video className="w-4 h-4 text-accent" /></div>
+                  <div><p className="text-sm font-semibold">{fmt === "9:16" ? "Vertical" : "Landscape"}</p>
+                    <p className="text-xs text-muted-foreground">{fmt === "9:16" ? "Reels & Stories" : "YouTube & Facebook"}</p></div>
                 </button>
               ))}
             </div>
+            <div className="border-2 border-dashed border-border rounded-3xl p-10 flex flex-col items-center gap-5 hover:border-accent/60 transition-colors bg-card">
+              <div className="text-4xl">📱</div>
+              <div className="text-center"><p className="font-semibold">Upload Property Footage</p>
+                <p className="text-sm text-muted-foreground mt-1">Brand intro and CTA overlay added automatically.</p></div>
+              <label className="cursor-pointer">
+                <input type="file" accept="video/*" className="hidden" onChange={(e) => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  const url = URL.createObjectURL(file);
+                  const tpl = TEMPLATES.find(t => t.id === "video-ad") || TEMPLATES[4];
+                  const elements = makeElements(tpl).map(el =>
+                    el.type === "video" ? { ...el, videoConfig: { ...el.videoConfig!, src: url } } : el);
+                  updateDesign({ id: tpl.id, name: "Property Video Ad", format: adFmt, elements });
+                  if (activeBrandKit) {
+                    const colors = (activeBrandKit.colors as any) || {};
+                    updateDesign(prev => applyBrandTheme(prev, { primary: colors.primary || "#1e3a5f", secondary: colors.secondary || "#f5f0eb",
+                      accent: colors.accent || "#d4af37", fonts: (activeBrandKit.fonts as any) || { heading: "Poppins, sans-serif", body: "Poppins, sans-serif" }}));
+                  }
+                  setPhase("edit"); toast.success("Video Ad loaded — edit brand overlay and CTA.");
+                }} />
+                <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:bg-accent/90 transition-colors">
+                  <Video className="w-4 h-4" /> Upload & Build Ad
+                </span>
+              </label>
+            </div>
           </div>
-        ))}
+        </DashboardLayout>
+      );
+    }
+
+    // LISTING CREATOR (filtered image templates + photo upload shortcut)
+    const listingTemplates = TEMPLATES.filter(t => LISTING_TEMPLATE_IDS.includes(t.id));
+    return (
+      <DashboardLayout>
+        <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
+          <div><h1 className="text-2xl font-bold tracking-tight">Listing Creator</h1>
+            <p className="text-muted-foreground text-sm">Upload a photo, pick a template, fill in the details, publish.</p></div></div>
+        <div className="mb-8 p-5 rounded-2xl border border-border bg-card flex items-center gap-5">
+          <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0"><ImageIcon className="w-6 h-6 text-accent" /></div>
+          <div className="flex-1"><p className="font-semibold text-sm">Start with a photo</p>
+            <p className="text-xs text-muted-foreground">Upload your property photo first — placed automatically on the chosen template.</p></div>
+          <label className="cursor-pointer shrink-0">
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) { (window as any).__pendingPhotoUrl = URL.createObjectURL(file); toast.success("Photo ready — pick a template below."); }
+            }} />
+            <span className="inline-flex items-center gap-2 border border-accent text-accent font-semibold px-4 py-2 rounded-xl hover:bg-accent/5 transition-colors text-sm">
+              <Upload className="w-3.5 h-3.5" /> Upload Photo
+            </span>
+          </label>
+          {activeContext && (<div className="shrink-0 flex items-center gap-1.5 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-semibold">
+            <Zap className="w-3 h-3" /> Magic Fill ready
+          </div>)}
+        </div>
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mb-5">Choose a Template</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5">
+          {listingTemplates.map((t) => (
+            <button key={t.id} onClick={() => {
+              const pendingUrl = (window as any).__pendingPhotoUrl as string | undefined;
+              pickTemplate(t);
+              if (pendingUrl) {
+                setTimeout(() => {
+                  const imgEl: StudioElement = { id: uid(), type: "image", layer: "image", baseWidth: 900, baseHeight: 650,
+                    constraints: { x: { anchor: "center", margin: 0, priority: 1 }, y: { anchor: "top", margin: 0.04, priority: 1 } },
+                    content: { src: pendingUrl }, style: { borderRadius: 8 } };
+                  setDesign(prev => ({ ...prev, elements: [prev.elements[0], imgEl, ...prev.elements.slice(1)] }));
+                  (window as any).__pendingPhotoUrl = undefined;
+                }, 50);
+              }
+            }} className="group flex flex-col gap-3 text-left">
+              <div className="aspect-[4/5] rounded-2xl border-2 border-border flex items-center justify-center text-5xl bg-card group-hover:border-accent group-hover:shadow-2xl transition-all duration-300">{t.emoji}</div>
+              <div><p className="text-sm font-semibold">{t.name}</p><p className="text-xs text-muted-foreground">{t.format}</p></div>
+            </button>
+          ))}
+        </div>
       </DashboardLayout>
     );
   }
