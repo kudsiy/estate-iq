@@ -499,6 +499,20 @@ export default function DesignStudio() {
   const uiResolution = getResolution(design.format, workspaceWidth * scaleFactor);
   const uiElements = resolveLayout(design, uiResolution);
 
+  const visibleTemplates = useMemo(() => {
+    if (!studioMode) return TEMPLATES;
+    if (studioMode === "listing_creator") {
+      return TEMPLATES.filter(t => t.category === "Print" || t.category === "Social" || t.id === "blank");
+    }
+    if (studioMode === "video_tour") {
+      return TEMPLATES.filter(t => t.id === "tiktok-walkthrough");
+    }
+    if (studioMode === "video_ad") {
+      return TEMPLATES.filter(t => t.id === "video-ad" || t.id === "reel-thumbnail");
+    }
+    return []; // Tool-based modes like Rebrander/Advert Creator
+  }, [studioMode]);
+
   // ── context fetching ───────────────────────────────────────────────────────
   const { data: propContext } = trpc.crm.properties.getById.useQuery(
     Number(contextId), 
@@ -1104,7 +1118,7 @@ export default function DesignStudio() {
       <DashboardLayout>
         <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
           <div><h1 className="text-2xl font-bold tracking-tight">Image Rebrander</h1>
-            <p className="text-muted-foreground text-sm">Upload a competitor ad — apply your brand colours and logo.</p></div></div>
+            <p className="text-muted-foreground text-sm">Upload a competitor ad to get started — our AI replaces their brand with yours.</p></div></div>
         <div className="max-w-xl space-y-4">
           <div className="border-2 border-dashed border-border rounded-3xl p-12 flex flex-col items-center gap-6 hover:border-accent/60 transition-colors bg-card">
             <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center text-4xl">🎨</div>
@@ -1139,7 +1153,7 @@ export default function DesignStudio() {
       <DashboardLayout>
         <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
           <div><h1 className="text-2xl font-bold tracking-tight">Advert Creator</h1>
-            <p className="text-muted-foreground text-sm">AI generates a complete ad from your Brand Kit. No photos needed.</p></div></div>
+            <p className="text-muted-foreground text-sm">Describe your property and our AI will generate an ad from your Brand Kit.</p></div></div>
         <div className="max-w-lg space-y-6">
           <div className="p-6 rounded-3xl border border-border bg-card space-y-5">
             <div className="flex items-center gap-3">
@@ -1269,7 +1283,6 @@ export default function DesignStudio() {
     }
 
     // LISTING CREATOR (filtered image templates + photo upload shortcut)
-    const listingTemplates = TEMPLATES.filter(t => LISTING_TEMPLATE_IDS.includes(t.id));
     return (
       <DashboardLayout>
         <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
@@ -1294,7 +1307,7 @@ export default function DesignStudio() {
         </div>
         <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mb-5">Choose a Template</p>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5">
-          {listingTemplates.map((t) => (
+          {visibleTemplates.map((t) => (
             <button key={t.id} onClick={() => {
               const pendingUrl = (window as any).__pendingPhotoUrl as string | undefined;
               pickTemplate(t);
@@ -1381,7 +1394,7 @@ export default function DesignStudio() {
         <div className="w-72 shrink-0 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
           <Tabs value={leftTab} onValueChange={(v) => setLeftTab(v as any)} className="flex flex-col h-full">
             <TabsList className="w-full grid grid-cols-6 h-12 bg-muted/30">
-              <TabsTrigger value="templates" className="rounded-none"><LayoutTemplate className="w-4 h-4" /></TabsTrigger>
+              {visibleTemplates.length > 0 && <TabsTrigger value="templates" className="rounded-none"><LayoutTemplate className="w-4 h-4" /></TabsTrigger>}
               <TabsTrigger value="add" className="rounded-none"><Plus className="w-4 h-4" /></TabsTrigger>
               <TabsTrigger value="ai" className="rounded-none"><Sparkles className="w-4 h-4" /></TabsTrigger>
               <TabsTrigger value="video" className="rounded-none"><Video className="w-4 h-4 text-accent" /></TabsTrigger>
@@ -1394,7 +1407,7 @@ export default function DesignStudio() {
               <TabsContent value="templates" className="m-0 space-y-4">
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Studio Templates</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {TEMPLATES.map(t => (
+                  {visibleTemplates.map(t => (
                     <button key={t.id} onClick={() => pickTemplate(t)} className="p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left">
                        <div className="text-2xl mb-1">{t.emoji}</div>
                        <div className="text-[10px] font-bold truncate opacity-60 uppercase">{t.name}</div>
