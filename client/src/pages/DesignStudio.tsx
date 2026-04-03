@@ -427,7 +427,43 @@ async function exportAsPng(design: DesignState, name: string) {
 
 import { useParams } from "wouter";
 
-// ... (previous imports)
+// ── PROPERTY FORM UTILS ────────────────────────────────────────────────────────
+interface FormData {
+  price: string;
+  subcity: string;
+  propertyType: string;
+  beds: string;
+  baths: string;
+  imageSrc: string;
+}
+
+function syncFormDataToDesign(elements: StudioElement[], data: FormData): StudioElement[] {
+  return elements.map(el => {
+    if (el.type === 'text') {
+      const text = el.content.text?.toLowerCase() || "";
+      let newText = el.content.text;
+
+      if (text.includes("price") || text.includes("etb")) {
+        newText = data.price ? (data.price.startsWith("ETB") ? data.price : `ETB ${data.price}`) : el.content.text;
+      } else if (text.includes("location") || text.includes("subcity") || text.includes("addis")) {
+        newText = data.subcity || el.content.text;
+      } else if (text.includes("bed") || text.includes("bedroom")) {
+        newText = data.beds ? `${data.beds} Bed${Number(data.beds) !== 1 ? 's' : ''}` : el.content.text;
+      } else if (text.includes("bath") || text.includes("bathroom")) {
+        newText = data.baths ? `${data.baths} Bath${Number(data.baths) !== 1 ? 's' : ''}` : el.content.text;
+      } else if (text.includes("property") || text.includes("villa") || text.includes("apartment")) {
+        newText = data.propertyType || el.content.text;
+      }
+      return { ...el, content: { ...el.content, text: newText } };
+    }
+    
+    if (el.type === 'image' && data.imageSrc && el.layer === 'image') {
+      return { ...el, content: { ...el.content, src: data.imageSrc } };
+    }
+    
+    return el;
+  });
+}
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
@@ -459,9 +495,16 @@ export default function DesignStudio() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [resize, setResize] = useState<ResizeState | null>(null);
   const [scaleFactor, setScaleFactor] = useState(0.85);
-  const [leftTab, setLeftTab] = useState<"templates" | "add" | "ai" | "seo" | "layers" | "growth" | "video">(
-    (preloadMode === "image_rebrander" || preloadMode === "advert_creator") ? "ai" : "templates"
-  );
+  const [formData, setFormData] = useState<FormData>({
+    price: "",
+    subcity: "",
+    propertyType: "Villa",
+    beds: "",
+    baths: "",
+    imageSrc: ""
+  });
+
+  const [leftTab, setLeftTab] = useState<"add" | "ai" | "seo" | "layers" | "growth" | "video">("ai");
   const { data: metrics } = trpc.crm.socialMediaPosts.engagement.useQuery(undefined, {
     enabled: leftTab === "growth"
   });
@@ -477,6 +520,16 @@ export default function DesignStudio() {
       comments: currentMetrics.reduce((sum: number, m: any) => sum + (m.comments || 0), 0),
     };
   }, [metrics, design.id]);
+
+  // Handle Form Change with Live Preview
+  const handleFormChange = (patch: Partial<FormData>) => {
+    const nextData = { ...formData, ...patch };
+    setFormData(nextData);
+    setDesign(prev => ({
+      ...prev,
+      elements: syncFormDataToDesign(prev.elements, nextData)
+    }));
+  };
 
   const [seoCaption, setSeoCaption] = useState("");
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
@@ -530,6 +583,16 @@ export default function DesignStudio() {
   const activeBrandKit = brandKits?.[0];
 
   const activeContext = propContext || supplierContext;
+
+  useEffect(() => {
+    if (activeContext) {
+      handleFormChange({
+        price: activeContext.price ? `${activeContext.price}` : formData.price,
+        subcity: activeContext.subcity || formData.subcity,
+        propertyType: activeContext.propertyType || formData.propertyType,
+      });
+    }
+  }, [activeContext]);
 
   const createMutation = trpc.crm.designs.create.useMutation({
     onSuccess: () => toast.success("Design saved!"),
@@ -715,11 +778,12 @@ export default function DesignStudio() {
   // ── helpers ──────────────────────────────────────────────────────────────
 
   const pickTemplate = (t: Template) => {
+    const elements = syncFormDataToDesign(makeElements(t), formData);
     updateDesign({
       id: t.id,
       name: t.name,
       format: t.format,
-      elements: makeElements(t),
+      elements: elements,
     });
     setSelectedId(null);
     setPhase("edit");
@@ -772,6 +836,7 @@ export default function DesignStudio() {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
+    handleFormChange({ imageSrc: url });
     const el: StudioElement = {
       id: uid(), type: "image", layer: "image",
       baseWidth: 800, baseHeight: 600,
@@ -1391,12 +1456,98 @@ export default function DesignStudio() {
         </div>
       </div>
 
+      {/* SMART HEADER FORM (Ollaa-inspired) */}
+      {studioMode === "listing_creator" && (
+        <div className="bg-card border border-border rounded-3xl p-4 mb-6 shadow-sm flex flex-col gap-4">
+          <div className="flex items-center gap-6 overflow-x-auto pb-2 scrollbar-hide">
+            {/* Visual Template Row */}
+            <div className="flex items-center gap-3 pr-6 border-r border-border shrink-0">
+               {visibleTemplates.map(t => (
+                 <button 
+                   key={t.id} 
+                   onClick={() => pickTemplate(t)}
+                   className={`flex flex-col items-center gap-2 p-2 rounded-2xl border-2 transition-all shrink-0 w-24 ${design.id === t.id ? 'border-accent bg-accent/5' : 'border-transparent hover:bg-muted'}`}
+                 >
+                   <div className="w-16 h-12 rounded-xl flex items-center justify-center text-2xl relative shadow-sm overflow-hidden" style={{ background: t.bgColor }}>
+                      <span className="z-10">{t.emoji}</span>
+                      <div className="absolute inset-0 opacity-10" style={{ background: 'linear-gradient(45deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent)' , backgroundSize: '10px 10px'}} />
+                   </div>
+                   <span className="text-[10px] font-bold uppercase truncate w-full text-center">{t.name}</span>
+                 </button>
+               ))}
+            </div>
+
+            {/* Property Data Form */}
+            <div className="flex items-center gap-4 flex-1">
+              <div className="space-y-1 min-w-[200px]">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Main Photo</Label>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl border-dashed" onClick={() => imageInputRef.current?.click()}>
+                    <Upload className="w-3.5 h-3.5" /> {formData.imageSrc ? "Replace" : "Upload"}
+                  </Button>
+                  {formData.imageSrc && <div className="w-9 h-9 rounded-lg bg-muted overflow-hidden border border-border"><img src={formData.imageSrc} className="w-full h-full object-cover" /></div>}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Price (ETB)</Label>
+                <Input 
+                  value={formData.price} 
+                  onChange={(e) => handleFormChange({ price: e.target.value })} 
+                  className="h-9 w-32 rounded-xl bg-muted/30 border-0 focus-visible:ring-1 focus-visible:ring-accent" 
+                  placeholder="e.g. 5.5M"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Subcity</Label>
+                <Select value={formData.subcity} onValueChange={(v) => handleFormChange({ subcity: v })}>
+                   <SelectTrigger className="h-9 w-28 rounded-xl bg-muted/30 border-0"><SelectValue placeholder="Bole" /></SelectTrigger>
+                   <SelectContent>
+                      <SelectItem value="Bole">Bole</SelectItem>
+                      <SelectItem value="Kazanchis">Kazanchis</SelectItem>
+                      <SelectItem value="Old Airport">Old Airport</SelectItem>
+                      <SelectItem value="Lamberet">Lamberet</SelectItem>
+                      <SelectItem value="Yeka">Yeka</SelectItem>
+                   </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-4">
+                 <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beds</Label>
+                    <Input type="number" value={formData.beds} onChange={(e) => handleFormChange({ beds: e.target.value })} className="h-9 w-16 rounded-xl bg-muted/30 border-0" placeholder="3" />
+                 </div>
+                 <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Baths</Label>
+                    <Input type="number" value={formData.baths} onChange={(e) => handleFormChange({ baths: e.target.value })} className="h-9 w-16 rounded-xl bg-muted/30 border-0" placeholder="2" />
+                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FORMAT PILLS (Always visible in listing mode) */}
+      {studioMode === "listing_creator" && (
+        <div className="flex items-center gap-2 mb-6">
+           {([["Post", "1:1"], ["Story", "9:16"], ["Flyer", "4:5"], ["Wide", "16:9"]] as [string, AspectRatio][]).map(([label, fmt]) => (
+             <button 
+               key={fmt} 
+               onClick={() => updateDesign({ format: fmt })}
+               className={`px-4 py-1.5 rounded-full text-[11px] font-bold border transition-all ${design.format === fmt ? 'bg-accent text-white border-accent shadow-md shadow-accent/20' : 'bg-card text-muted-foreground border-border hover:border-accent/40'}`}
+             >
+               {label}
+             </button>
+           ))}
+        </div>
+      )}
+
       <div className="flex gap-4 h-[calc(100vh-210px)]">
         {/* LEFT PANEL */}
         <div className="w-72 shrink-0 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
           <Tabs value={leftTab} onValueChange={(v) => setLeftTab(v as any)} className="flex flex-col h-full">
-            <TabsList className="w-full grid grid-cols-7 h-12 bg-muted/30">
-              {visibleTemplates.length > 0 && <TabsTrigger value="templates" className="rounded-none"><LayoutTemplate className="w-4 h-4" /></TabsTrigger>}
+            <TabsList className="w-full grid grid-cols-6 h-12 bg-muted/30">
               <TabsTrigger value="add" className="rounded-none"><Plus className="w-4 h-4" /></TabsTrigger>
               <TabsTrigger value="ai" className="rounded-none"><Sparkles className="w-4 h-4" /></TabsTrigger>
               <TabsTrigger value="video" className="rounded-none"><Video className="w-4 h-4 text-accent" /></TabsTrigger>
@@ -1406,20 +1557,6 @@ export default function DesignStudio() {
             </TabsList>
             
             <div className="flex-1 overflow-y-auto p-4">
-              {visibleTemplates.length > 0 && (
-                <TabsContent value="templates" className="m-0 space-y-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Studio Templates</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {visibleTemplates.map(t => (
-                      <button key={t.id} onClick={() => pickTemplate(t)} className="p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left">
-                         <div className="text-2xl mb-1">{t.emoji}</div>
-                         <div className="text-[10px] font-bold truncate opacity-60 uppercase">{t.name}</div>
-                      </button>
-                    ))}
-                  </div>
-                </TabsContent>
-              )}
-
               <TabsContent value="add" className="m-0 space-y-4">
                 <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={addText}><Type className="w-5 h-5 text-accent" /> Add Text</Button>
                 <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={addRect}><Square className="w-5 h-5 text-accent" /> Add Shape</Button>
