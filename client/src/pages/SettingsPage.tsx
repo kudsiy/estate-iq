@@ -28,6 +28,7 @@ import {
   Copy,
   Check,
   Palette,
+  LogOut,
 } from "lucide-react";
 import BrandKitPage from "./BrandKitPage";
 
@@ -99,7 +100,7 @@ function IntegrationCard({
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const utils = trpc.useUtils();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
@@ -586,6 +587,17 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                   </div>
                   <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">Active</span>
+                </div>
+                <div className="pt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-xs gap-2 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                    onClick={logout}
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sign out of session
+                  </Button>
                 </div>
               </CardContent>
             </Card>

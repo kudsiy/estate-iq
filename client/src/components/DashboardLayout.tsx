@@ -25,7 +25,6 @@ import {
   Bell,
   Settings,
   CreditCard,
-  LogOut,
   PanelLeft,
   Shield,
   AlertTriangle,
@@ -186,29 +185,32 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
 
-              {!isCollapsed && (
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
-                    <Building2 className="w-4 h-4 text-white" />
+              <div className="flex items-center justify-between flex-1 min-w-0">
+                {!isCollapsed && (
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
+                      <Building2 className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="font-semibold text-foreground tracking-tight truncate">
+                      Estate IQ
+                    </span>
                   </div>
-                  <span className="font-semibold text-foreground tracking-tight truncate flex-1">
-                    Estate IQ
-                  </span>
-                  {/* Notification Bell */}
-                  <button
-                    onClick={() => setLocation("/notifications")}
-                    className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors shrink-0"
-                    aria-label="Notifications"
-                  >
-                    <Bell className="h-4 w-4 text-muted-foreground" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              )}
+                )}
+                
+                {/* Notification Bell — Always visible */}
+                <button
+                  onClick={() => setLocation("/notifications")}
+                  className={`relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors shrink-0 ${isCollapsed ? 'ml-auto' : ''}`}
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center leading-none border-2 border-background">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+              </div>
 
               {/* Collapsed bell */}
               {isCollapsed && (
@@ -295,16 +297,6 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             >
               <Settings className="h-4 w-4 shrink-0" />
               {!isCollapsed && <span className="text-sm font-normal">Settings</span>}
-            </button>
-
-            {/* Sign out */}
-            <button
-              onClick={logout}
-              className="flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors text-left"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span className="text-sm font-normal">Sign out</span>}
             </button>
           </SidebarFooter>
         </Sidebar>
