@@ -459,7 +459,9 @@ export default function DesignStudio() {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [resize, setResize] = useState<ResizeState | null>(null);
   const [scaleFactor, setScaleFactor] = useState(0.85);
-  const [leftTab, setLeftTab] = useState<"templates" | "add" | "ai" | "seo" | "layers" | "growth" | "video">("templates");
+  const [leftTab, setLeftTab] = useState<"templates" | "add" | "ai" | "seo" | "layers" | "growth" | "video">(
+    (preloadMode === "image_rebrander" || preloadMode === "advert_creator") ? "ai" : "templates"
+  );
   const { data: metrics } = trpc.crm.socialMediaPosts.engagement.useQuery(undefined, {
     enabled: leftTab === "growth"
   });
@@ -500,7 +502,7 @@ export default function DesignStudio() {
   const uiElements = resolveLayout(design, uiResolution);
 
   const visibleTemplates = useMemo(() => {
-    if (!studioMode) return TEMPLATES;
+    if (!studioMode) return []; // Default to empty if no mode (avoids showing all 8 initially)
     if (studioMode === "listing_creator") {
       return TEMPLATES.filter(t => t.category === "Print" || t.category === "Social" || t.id === "blank");
     }
@@ -1393,7 +1395,7 @@ export default function DesignStudio() {
         {/* LEFT PANEL */}
         <div className="w-72 shrink-0 bg-card border border-border rounded-2xl shadow-sm flex flex-col overflow-hidden">
           <Tabs value={leftTab} onValueChange={(v) => setLeftTab(v as any)} className="flex flex-col h-full">
-            <TabsList className="w-full grid grid-cols-6 h-12 bg-muted/30">
+            <TabsList className="w-full grid grid-cols-7 h-12 bg-muted/30">
               {visibleTemplates.length > 0 && <TabsTrigger value="templates" className="rounded-none"><LayoutTemplate className="w-4 h-4" /></TabsTrigger>}
               <TabsTrigger value="add" className="rounded-none"><Plus className="w-4 h-4" /></TabsTrigger>
               <TabsTrigger value="ai" className="rounded-none"><Sparkles className="w-4 h-4" /></TabsTrigger>
@@ -1404,17 +1406,19 @@ export default function DesignStudio() {
             </TabsList>
             
             <div className="flex-1 overflow-y-auto p-4">
-              <TabsContent value="templates" className="m-0 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Studio Templates</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {visibleTemplates.map(t => (
-                    <button key={t.id} onClick={() => pickTemplate(t)} className="p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left">
-                       <div className="text-2xl mb-1">{t.emoji}</div>
-                       <div className="text-[10px] font-bold truncate opacity-60 uppercase">{t.name}</div>
-                    </button>
-                  ))}
-                </div>
-              </TabsContent>
+              {visibleTemplates.length > 0 && (
+                <TabsContent value="templates" className="m-0 space-y-4">
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Studio Templates</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {visibleTemplates.map(t => (
+                      <button key={t.id} onClick={() => pickTemplate(t)} className="p-3 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-all text-left">
+                         <div className="text-2xl mb-1">{t.emoji}</div>
+                         <div className="text-[10px] font-bold truncate opacity-60 uppercase">{t.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </TabsContent>
+              )}
 
               <TabsContent value="add" className="m-0 space-y-4">
                 <Button variant="outline" className="w-full h-12 justify-start gap-4 rounded-xl" onClick={addText}><Type className="w-5 h-5 text-accent" /> Add Text</Button>
