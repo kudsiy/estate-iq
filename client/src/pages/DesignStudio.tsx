@@ -453,7 +453,7 @@ export default function DesignStudio() {
   const activeContext = propContext || supplierContext;
 
   const { data: brandKits = [] } = trpc.crm.brandKits.list.useQuery();
-  const brandKit = brandKits[0];
+  const activeBrandKit = brandKits[0];
 
   // Detect Journey B: Supply Feed passes ?mode=listing_creator in URL
   const searchParams = new URLSearchParams(window.location.search);
@@ -496,18 +496,18 @@ export default function DesignStudio() {
   });
 
   const brandData = useMemo<BrandData>(() => ({
-    logo: (brandKit?.logos as any)?.[0]?.src || null,
+    logo: (activeBrandKit?.logos as any)?.[0]?.src || null,
     companyName: user?.companyName || 'Estate IQ',
-    color: (brandKit?.colors as any)?.[0]?.hex || '#d4af37',
-    backgroundColor: (brandKit?.colors as any)?.[1]?.hex || '#0a0a0f',
+    color: (activeBrandKit?.colors as any)?.[0]?.hex || '#d4af37',
+    backgroundColor: (activeBrandKit?.colors as any)?.[1]?.hex || '#0a0a0f',
     textColor: '#ffffff'
-  }), [brandKit, user]);
+  }), [activeBrandKit, user]);
 
   useEffect(() => {
-    if (brandKit) {
-       setFormData(prev => ({ ...prev, phone: (brandKit as any).phone || prev.phone }));
+    if (activeBrandKit) {
+       setFormData(prev => ({ ...prev, phone: (activeBrandKit as any).phone || prev.phone }));
     }
-  }, [brandKit]);
+  }, [activeBrandKit]);
 
   const [leftTab, setLeftTab] = useState<"add" | "ai" | "seo" | "layers" | "growth" | "video">("ai");
   const { data: metrics } = trpc.crm.socialMediaPosts.engagement.useQuery(undefined, {
