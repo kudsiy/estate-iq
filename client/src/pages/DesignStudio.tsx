@@ -545,9 +545,12 @@ export default function DesignStudio() {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const [aiPresetRoom, setAiPresetRoom] = useState("living-room");
   const [aiPresetStyle, setAiPresetStyle] = useState("luxury");
+  const [adFmt, setAdFmt] = useState<"9:16" | "16:9">("9:16");
+  const [selectedTemplateId, setSelectedTemplateId] = useState(LISTING_TEMPLATES[0].id);
 
   const workspaceWidth = 600;
   const uiResolution = getResolution(design.format, workspaceWidth * scaleFactor);
@@ -1289,7 +1292,6 @@ export default function DesignStudio() {
     );
 
     if (studioMode === "video_ad") {
-      const [adFmt, setAdFmt] = useState<"9:16" | "16:9">("9:16");
       return (
         <DashboardLayout>
           <div className="mb-8 flex items-center gap-4"><BackBtn /><div className="h-4 w-px bg-border" />
@@ -1337,9 +1339,7 @@ export default function DesignStudio() {
     }
 
     // LISTING CREATOR (split view: 40/60)
-    const [selectedTemplateId, setSelectedTemplateId] = useState(LISTING_TEMPLATES[0].id);
     const ActiveTemplate = LISTING_TEMPLATES.find(t => t.id === selectedTemplateId)?.component || LISTING_TEMPLATES[0].component;
-    const previewRef = useRef<HTMLDivElement>(null);
 
     return (
       <DashboardLayout>

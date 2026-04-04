@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -38,143 +38,225 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: "100vh",
+        width: "100%",
+        position: "relative",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #0f1117 0%, #1a1d2e 100%)",
-        fontFamily: "'Segoe UI', system-ui, sans-serif",
+        overflow: "hidden",
+        fontFamily: "'DM Sans', sans-serif"
       }}
     >
-      <div
+      <div 
         style={{
-          width: "100%",
-          maxWidth: 420,
-          padding: "0 1rem",
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url(/login-bg.jpeg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center 35%"
+        }}
+      />
+      <div 
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(110deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0.55) 50%,rgba(0,0,0,0.72) 100%)"
+        }}
+      />
+      <div 
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          padding: "28px 48px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          zIndex: 10
         }}
       >
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div 
             style={{
-              display: "inline-flex",
+              width: "36px",
+              height: "36px",
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "9px",
+              display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              width: 56,
-              height: 56,
-              borderRadius: 16,
-              background: "linear-gradient(135deg, #7C3AED, #A78BFA)",
-              marginBottom: 16,
-              boxShadow: "0 8px 32px rgba(124,58,237,0.4)",
+              justifyContent: "center"
             }}
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="9 22 9 12 15 12 15 22" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="9 22 9 12 15 12 15 22" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <h1
+          <span 
             style={{
-              fontSize: 28,
-              fontWeight: 800,
-              background: "linear-gradient(to right, #fff, #A78BFA)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              margin: "0 0 6px",
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "20px",
+              fontWeight: 600,
+              color: "#fff",
+              letterSpacing: "0.04em"
             }}
           >
             Estate IQ
-          </h1>
-          <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
-            Sign in to your workspace
-          </p>
+          </span>
         </div>
-
-        {/* Card */}
-        <div
+        <div 
           style={{
-            background: "rgba(26, 29, 46, 0.9)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 20,
-            padding: "36px 32px",
-            boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+            padding: "6px 16px",
+            border: "1px solid rgba(255,255,255,0.25)",
+            borderRadius: "50px",
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.7)",
+            letterSpacing: "0.08em"
           }}
         >
+          EN
+        </div>
+      </div>
+      
+      <div 
+        style={{
+          position: "relative",
+          zIndex: 10,
+          width: "100%",
+          maxWidth: "1100px",
+          padding: "0 48px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "48px"
+        }}
+      >
+        <div style={{ flex: 1, maxWidth: "460px" }}>
+          <div 
+            style={{
+              fontSize: "11px",
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.55)",
+              marginBottom: "18px"
+            }}
+          >
+            Ethiopia's Real Estate Intelligence Platform
+          </div>
+          <h1 
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "66px",
+              fontWeight: 500,
+              color: "#fff",
+              lineHeight: 1.08,
+              marginBottom: "20px",
+              letterSpacing: "-0.01em"
+            }}
+          >
+            Market your<br />listings smarter.
+          </h1>
+          <p 
+            style={{
+              fontSize: "16px",
+              color: "rgba(255,255,255,0.5)",
+              lineHeight: 1.75,
+              fontWeight: 300,
+              maxWidth: "360px"
+            }}
+          >
+            Generate professional property graphics, capture leads automatically, and close deals — built for Addis Ababa agents.
+          </p>
+        </div>
+        
+        <div 
+          style={{
+            width: "390px",
+            flexShrink: 0,
+            background: "rgba(255,255,255,0.08)",
+            backdropFilter: "blur(28px)",
+            WebkitBackdropFilter: "blur(28px)",
+            border: "1px solid rgba(255,255,255,0.16)",
+            borderRadius: "20px",
+            padding: "40px 34px",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.5)"
+          }}
+        >
+          <h2 
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "26px",
+              fontWeight: 500,
+              color: "#fff",
+              marginBottom: "4px"
+            }}
+          >
+            Sign in to your workspace
+          </h2>
+          <p 
+            style={{
+              fontSize: "14px",
+              color: "rgba(255,255,255,0.4)",
+              marginBottom: "28px",
+              fontWeight: 300
+            }}
+          >
+            Welcome back. Enter your details below.
+          </p>
+          
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 20 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#9ca3af",
-                  marginBottom: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Email address
-              </label>
-              <input
-                type="email"
+            <div style={{ marginBottom: "12px" }}>
+              <input 
+                type="email" 
+                placeholder="Email address"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
                 style={{
                   width: "100%",
-                  padding: "12px 14px",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "50px",
+                  padding: "14px 22px",
                   color: "#fff",
-                  fontSize: 15,
-                  outline: "none",
-                  boxSizing: "border-box",
-                  transition: "border-color 0.2s",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "15px",
+                  outline: "none"
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "#7C3AED")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+                onFocus={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.4)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
               />
             </div>
-
-            <div style={{ marginBottom: 28 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#9ca3af",
-                  marginBottom: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Password
-              </label>
-              <input
-                type="password"
+            <div style={{ marginBottom: "10px" }}>
+              <input 
+                type="password" 
+                placeholder="Password" 
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
                 style={{
                   width: "100%",
-                  padding: "12px 14px",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "50px",
+                  padding: "14px 22px",
                   color: "#fff",
-                  fontSize: 15,
-                  outline: "none",
-                  boxSizing: "border-box",
-                  transition: "border-color 0.2s",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "15px",
+                  outline: "none"
                 }}
-                onFocus={(e) => (e.target.style.borderColor = "#7C3AED")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+                onFocus={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.4)")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.15)")}
               />
             </div>
-
+            <div style={{ textAlign: "right", marginBottom: "24px" }}>
+              <a href="#" style={{ color: "rgba(255,255,255,0.55)", fontSize: "13px", textDecoration: "none" }}>
+                Forgot password?
+              </a>
+            </div>
+            
             {error && (
               <div
                 style={{
@@ -190,62 +272,57 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
-
-            <button
+            
+            <button 
               type="submit"
               disabled={loading}
               style={{
                 width: "100%",
-                padding: "14px",
-                background: loading
-                  ? "rgba(124,58,237,0.5)"
-                  : "linear-gradient(135deg, #7C3AED, #6D28D9)",
+                padding: "15px",
+                background: loading ? "rgba(17,17,17,0.5)" : "#111",
                 border: "none",
-                borderRadius: 12,
+                borderRadius: "50px",
                 color: "#fff",
-                fontSize: 16,
-                fontWeight: 700,
-                cursor: loading ? "not-allowed" : "pointer",
-                boxShadow: loading ? "none" : "0 4px 20px rgba(124,58,237,0.4)",
-                transition: "all 0.2s",
-                letterSpacing: "0.02em",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "15px",
+                fontWeight: 500,
+                cursor: loading ? "not-allowed" : "pointer"
               }}
             >
-              {loading ? "Signing in…" : "Sign In →"}
+              {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
-
-          <div
-            style={{
-              marginTop: 24,
-              paddingTop: 24,
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-              textAlign: "center",
-            }}
-          >
-            <p style={{ color: "#6b7280", fontSize: 13, margin: 0 }}>
-              Don't have an account?{" "}
-              <a
-                href="/register"
-                style={{ color: "#A78BFA", textDecoration: "none", fontWeight: 600 }}
-              >
+          
+          <div style={{ marginTop: "20px", textAlign: "center", fontSize: "14px", color: "rgba(255,255,255,0.4)" }}>
+            Don't have an account?{" "}
+            <Link href="/register">
+              <span style={{ color: "#fff", fontWeight: 500, textDecoration: "none", borderBottom: "1px solid rgba(255,255,255,0.4)", cursor: "pointer" }}>
                 Create one
-              </a>
-            </p>
+              </span>
+            </Link>
+          </div>
+          <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid rgba(255,255,255,0.08)", fontSize: "11px", color: "rgba(255,255,255,0.25)", textAlign: "center" }}>
+            By signing in you agree to our Terms of Service
           </div>
         </div>
-
-        <p
-          style={{
-            textAlign: "center",
-            color: "#374151",
-            fontSize: 12,
-            marginTop: 24,
-          }}
-        >
-          © 2025 Estate IQ • Ethiopian Real Estate Intelligence Platform
-        </p>
       </div>
+      
+      <div 
+        style={{
+          position: "absolute",
+          bottom: "28px",
+          left: "48px",
+          zIndex: 10,
+          fontSize: "12px",
+          color: "rgba(255,255,255,0.25)",
+          letterSpacing: "0.06em"
+        }}
+      >
+        © 2026 Estate IQ · Addis Ababa, Ethiopia
+      </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=DM+Sans:wght@300;400;500&display=swap');
+      `}} />
     </div>
   );
 }
