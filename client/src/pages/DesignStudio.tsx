@@ -1583,7 +1583,9 @@ export default function DesignStudio() {
       </div>
 
       {/* SMART HEADER FORM (Ollaa-inspired) */}
-      {studioMode === "listing_creator" && (
+      {studioMode === "listing_creator" && (() => {
+        const visibleTemplates = TEMPLATES.filter(t => ["property-poster","luxury-gold-listing","instagram-post","modern-minimal-flyer","blank"].includes(t.id));
+        return (
         <div className="bg-card border border-border rounded-3xl p-4 mb-6 shadow-sm flex flex-col gap-4">
           <div className="flex items-center gap-6 overflow-x-auto pb-2 scrollbar-hide">
             {/* Visual Template Row */}
@@ -1609,9 +1611,9 @@ export default function DesignStudio() {
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Main Photo</Label>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="h-9 gap-2 rounded-xl border-dashed" onClick={() => imageInputRef.current?.click()}>
-                    <Upload className="w-3.5 h-3.5" /> {formData.imageSrc ? "Replace" : "Upload"}
+                    <Upload className="w-3.5 h-3.5" /> {formData.image ? "Replace" : "Upload"}
                   </Button>
-                  {formData.imageSrc && <div className="w-9 h-9 rounded-lg bg-muted overflow-hidden border border-border"><img src={formData.imageSrc} className="w-full h-full object-cover" /></div>}
+                  {formData.image && <div className="w-9 h-9 rounded-lg bg-muted overflow-hidden border border-border"><img src={formData.image} className="w-full h-full object-cover" /></div>}
                 </div>
               </div>
 
@@ -1627,7 +1629,7 @@ export default function DesignStudio() {
 
               <div className="space-y-1">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Subcity</Label>
-                <Select value={formData.subcity} onValueChange={(v) => handleFormChange({ subcity: v })}>
+                <Select value={formData.location} onValueChange={(v) => handleFormChange({ location: v })}>
                    <SelectTrigger className="h-9 w-28 rounded-xl bg-muted/30 border-0"><SelectValue placeholder="Bole" /></SelectTrigger>
                    <SelectContent>
                       <SelectItem value="Bole">Bole</SelectItem>
@@ -1642,17 +1644,17 @@ export default function DesignStudio() {
               <div className="flex items-center gap-4">
                  <div className="space-y-1">
                     <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beds</Label>
-                    <Input type="number" value={formData.beds} onChange={(e) => handleFormChange({ beds: e.target.value })} className="h-9 w-16 rounded-xl bg-muted/30 border-0" placeholder="3" />
+                    <Input type="number" value={formData.bedrooms} onChange={(e) => handleFormChange({ bedrooms: e.target.value })} className="h-9 w-16 rounded-xl bg-muted/30 border-0" placeholder="3" />
                  </div>
                  <div className="space-y-1">
                     <Label className="text-[10px] font-bold uppercase text-muted-foreground">Baths</Label>
-                    <Input type="number" value={formData.baths} onChange={(e) => handleFormChange({ baths: e.target.value })} className="h-9 w-16 rounded-xl bg-muted/30 border-0" placeholder="2" />
+                    <Input type="number" value={formData.bathrooms} onChange={(e) => handleFormChange({ bathrooms: e.target.value })} className="h-9 w-16 rounded-xl bg-muted/30 border-0" placeholder="2" />
                  </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      );})()}
 
       {/* FORMAT PILLS (Always visible in listing mode) */}
       {studioMode === "listing_creator" && (

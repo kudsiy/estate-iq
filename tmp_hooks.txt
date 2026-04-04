@@ -1,0 +1,63 @@
+1: import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+33: import { useLocation, useParams } from "wouter";
+34: import { useAuth } from "@/_core/hooks/useAuth";
+439: const { contextId } = useParams();
+440: const { user } = useAuth();
+443: const { data: propContext } = trpc.crm.properties.getById.useQuery(
+448: const { data: supplierContext } = trpc.supplierFeed.getById.useQuery(
+455: const { data: brandKits = [] } = trpc.crm.brandKits.list.useQuery();
+461: const [studioMode, setStudioMode] = useState<StudioMode | null>(preloadMode || (contextId ? "listing_creator" : null));
+462: const [phase, setPhase] = useState<"mode_select" | "pick" | "edit">(studioMode ? "pick" : "mode_select");
+463: const [design, setDesign] = useState<DesignState>({
+477: const history = useRef(new HistoryManager());
+478: const [selectedId, setSelectedId] = useState<string | null>(null);
+479: const [editingId, setEditingId] = useState<string | null>(null);
+480: const [editingText, setEditingText] = useState("");
+481: const [drag, setDrag] = useState<DragState | null>(null);
+482: const [resize, setResize] = useState<ResizeState | null>(null);
+483: const [scaleFactor, setScaleFactor] = useState(0.85);
+485: const [formData, setFormData] = useState<ListingFormData>({
+498: const brandData = useMemo<BrandData>(() => ({
+500: companyName: user?.companyName || 'Estate IQ',
+504: }), [activeBrandKit, user]);
+506: useEffect(() => {
+512: const [leftTab, setLeftTab] = useState<"add" | "ai" | "seo" | "layers" | "growth" | "video">("ai");
+513: const { data: metrics } = trpc.crm.socialMediaPosts.engagement.useQuery(undefined, {
+518: const stats = useMemo(() => {
+533: const [seoCaption, setSeoCaption] = useState("");
+534: const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+535: const [gatedFeature, setGatedFeature] = useState("");
+537: const { data: subData } = trpc.subscription.current.useQuery();
+541: const [isMasking, setIsMasking] = useState(false);
+542: const [maskPaths, setMaskPaths] = useState<{ x: number, y: number }[][]>([]);
+543: const [currentPath, setCurrentPath] = useState<{ x: number, y: number }[]>([]);
+544: const [isStaging, setIsStaging] = useState(false);
+546: const canvasRef = useRef<HTMLDivElement>(null);
+547: const workspaceRef = useRef<HTMLDivElement>(null);
+548: const previewRef = useRef<HTMLDivElement>(null);
+550: const [aiPresetRoom, setAiPresetRoom] = useState("living-room");
+551: const [aiPresetStyle, setAiPresetStyle] = useState("luxury");
+552: const [adFmt, setAdFmt] = useState<"9:16" | "16:9">("9:16");
+553: const [selectedTemplateId, setSelectedTemplateId] = useState(LISTING_TEMPLATES[0].id);
+559: useEffect(() => {
+572: const createMutation = trpc.crm.designs.create.useMutation({
+577: const generatePackMutation = trpc.ai.generateMarketingPack.useMutation({
+584: const extractMutation = trpc.studio.extractor.parseListing.useMutation({
+587: const renderMutation = trpc.studio.videoEngine.render.useMutation({
+591: const publishPropertyMutation = trpc.crm.properties.publish.useMutation();
+592: const publishMutation = trpc.crm.socialMediaPosts.create.useMutation({
+598: const [isAiLoading, setIsAiLoading] = useState(false);
+601: const pushHistory = useCallback((state: DesignState) => {
+633: const handleMagicFill = useCallback(() => {
+656: const handleMagicRebrand = useCallback(() => {
+675: const handleOptimizeCaption = useCallback(() => {
+685: const uploadMutation = trpc.studio.upload.useMutation();
+686: const renderVideoMutation = trpc.studio.videoEngine.render.useMutation({
+696: const handlePublish = useCallback(async () => {
+805: const videoInputRef = useRef<HTMLInputElement>(null);
+806: const imageInputRef = useRef<HTMLInputElement>(null);
+807: const rebrandInputRef = useRef<HTMLInputElement>(null);
+846: toast.error("Please select an image to use the Magic Eraser.");
+1014: const deleteSelected = useCallback(() => {
+1020: useEffect(() => {
+1193: setPhase("edit"); toast.success("Image loaded — use AI Rebrand in the left panel.");
