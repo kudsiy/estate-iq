@@ -2,7 +2,14 @@ import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, publicProcedure, router, protectedProcedure, mutatingProcedure, protectedProProcedure } from "./_core/trpc";
+import {
+  adminProcedure,
+  publicProcedure,
+  router,
+  protectedProcedure,
+  mutatingProcedure,
+  protectedProProcedure,
+} from "./_core/trpc";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { registerRoute, isRegistered, getMock } from "./_core/studio_registry";
@@ -13,7 +20,15 @@ registerRoute("extractor.parseListing");
 registerRoute("videoEngine.render");
 
 import { createChapaCheckoutSession } from "./_core/chapa";
-import { PLAN_LIMITS, PLAN_PRICES, YEARLY_SAVINGS, isLimitReached, isSubscriptionActive, isInGracePeriod, GRACE_PERIOD_DAYS } from "./_core/monetization";
+import {
+  PLAN_LIMITS,
+  PLAN_PRICES,
+  YEARLY_SAVINGS,
+  isLimitReached,
+  isSubscriptionActive,
+  isInGracePeriod,
+  GRACE_PERIOD_DAYS,
+} from "./_core/monetization";
 import {
   createBuyerProfile,
   createBrandKit,
@@ -75,9 +90,15 @@ import {
   updateWorkspace,
 } from "./db";
 
-
 const platformEnum = z.enum(["telegram", "facebook", "instagram", "tiktok"]);
-const postStatusEnum = z.enum(["draft", "scheduled", "queued", "publishing", "published", "failed"]);
+const postStatusEnum = z.enum([
+  "draft",
+  "scheduled",
+  "queued",
+  "publishing",
+  "published",
+  "failed",
+]);
 
 const STAGE_LABELS: Record<string, string> = {
   lead: "Lead",
@@ -112,9 +133,13 @@ const contactInputSchema = z.object({
 });
 
 const atLeastOne = <T extends z.ZodRawShape>(shape: T) =>
-  z.object(shape).partial().strict().refine((data) => Object.keys(data).length > 0, {
-    message: "At least one field is required",
-  });
+  z
+    .object(shape)
+    .partial()
+    .strict()
+    .refine(data => Object.keys(data).length > 0, {
+      message: "At least one field is required",
+    });
 
 const contactUpdateSchema = atLeastOne({
   firstName: z.string().trim().min(1),
@@ -189,9 +214,19 @@ const propertyUpdateSchema = atLeastOne({
 const leadInputSchema = z.object({
   contactId: z.number().int().positive().optional(),
   propertyId: z.number().int().positive().optional(),
-  source: z.enum(["form", "whatsapp", "facebook", "instagram", "tiktok", "manual", "tracking_link"]),
+  source: z.enum([
+    "form",
+    "whatsapp",
+    "facebook",
+    "instagram",
+    "tiktok",
+    "manual",
+    "tracking_link",
+  ]),
   leadData: z.record(z.string(), z.unknown()).optional(),
-  status: z.enum(["new", "contacted", "qualified", "converted", "lost"]).optional(),
+  status: z
+    .enum(["new", "contacted", "qualified", "converted", "lost"])
+    .optional(),
   score: z.number().int().min(0).max(100).optional(),
 });
 
@@ -208,7 +243,9 @@ const convertLeadSchema = z.object({
   leadId: z.number().int().positive(),
   createDeal: z.boolean().default(false),
   propertyId: z.number().int().positive().optional(),
-  stage: z.enum(["lead", "contacted", "viewing", "offer", "closed"]).default("lead"),
+  stage: z
+    .enum(["lead", "contacted", "viewing", "offer", "closed"])
+    .default("lead"),
 });
 
 const leadCascadeSchema = z.object({
@@ -218,7 +255,15 @@ const leadCascadeSchema = z.object({
   phone: z.string().min(1),
   email: z.string().email().nullable().optional(),
   notes: z.string().nullable().optional(),
-  source: z.enum(["form", "whatsapp", "facebook", "instagram", "tiktok", "manual", "tracking_link"]),
+  source: z.enum([
+    "form",
+    "whatsapp",
+    "facebook",
+    "instagram",
+    "tiktok",
+    "manual",
+    "tracking_link",
+  ]),
   leadData: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -226,7 +271,19 @@ const brandKitInputSchema = z.object({
   name: z.string().trim().min(1),
   logos: z.array(z.object({ src: z.string(), name: z.string() })).optional(),
   colors: z.array(z.object({ hex: z.string(), name: z.string() })).optional(),
-  fonts: z.array(z.object({ family: z.string(), label: z.string() })).optional(),
+  fonts: z
+    .array(z.object({ family: z.string(), label: z.string() }))
+    .optional(),
+  phoneNumber: z.string().trim().max(32).optional(),
+  whatsappNumber: z.string().trim().max(32).optional(),
+  facebookUrl: z.string().trim().max(500).optional(),
+  instagramHandle: z.string().trim().max(100).optional(),
+  tiktokHandle: z.string().trim().max(100).optional(),
+  telegramChannel: z.string().trim().max(100).optional(),
+  agentPortrait: z.string().trim().max(500).optional(),
+  tagline: z.string().trim().max(255).optional(),
+  targetAreas: z.array(z.string()).optional(),
+  languagePreference: z.enum(["amharic", "english", "both"]).optional(),
 });
 
 const brandKitUpdateSchema = atLeastOne({
@@ -234,6 +291,16 @@ const brandKitUpdateSchema = atLeastOne({
   logos: z.array(z.object({ src: z.string(), name: z.string() })),
   colors: z.array(z.object({ hex: z.string(), name: z.string() })),
   fonts: z.array(z.object({ family: z.string(), label: z.string() })),
+  phoneNumber: z.string().nullable(),
+  whatsappNumber: z.string().nullable(),
+  facebookUrl: z.string().nullable(),
+  instagramHandle: z.string().nullable(),
+  tiktokHandle: z.string().nullable(),
+  telegramChannel: z.string().nullable(),
+  agentPortrait: z.string().nullable(),
+  tagline: z.string().nullable(),
+  targetAreas: z.array(z.string()),
+  languagePreference: z.enum(["amharic", "english", "both"]),
 });
 
 const designInputSchema = z.object({
@@ -368,7 +435,12 @@ const buyerProfileUpdateSchema = atLeastOne({
 });
 
 const workspacePlanEnum = z.enum(["starter", "pro", "agency"]);
-const subscriptionStatusEnum = z.enum(["trial", "active", "past_due", "canceled"]);
+const subscriptionStatusEnum = z.enum([
+  "trial",
+  "active",
+  "past_due",
+  "canceled",
+]);
 
 const subscriptionUpdateSchema = z.object({
   plan: workspacePlanEnum,
@@ -411,7 +483,7 @@ function buildPlatformStatuses(
 ) {
   const now = new Date().toISOString();
   return Object.fromEntries(
-    platforms.map((platform) => [
+    platforms.map(platform => [
       platform,
       {
         status,
@@ -421,7 +493,9 @@ function buildPlatformStatuses(
   );
 }
 
-function getNotificationPreferences(user: { notificationPreferences?: unknown }) {
+function getNotificationPreferences(user: {
+  notificationPreferences?: unknown;
+}) {
   const defaults = {
     newLead: true,
     dealStage: true,
@@ -438,7 +512,11 @@ function getNotificationPreferences(user: { notificationPreferences?: unknown })
     if (!item || typeof item !== "object") continue;
     const key = (item as { key?: unknown }).key;
     const enabled = (item as { enabled?: unknown }).enabled;
-    if (typeof key === "string" && key in defaults && typeof enabled === "boolean") {
+    if (
+      typeof key === "string" &&
+      key in defaults &&
+      typeof enabled === "boolean"
+    ) {
       defaults[key as keyof typeof defaults] = enabled;
     }
   }
@@ -447,14 +525,25 @@ function getNotificationPreferences(user: { notificationPreferences?: unknown })
 }
 
 async function createScopedNotification(
-  ctx: { user: { id: number; workspaceId: number | null; notificationPreferences?: unknown } },
+  ctx: {
+    user: {
+      id: number;
+      workspaceId: number | null;
+      notificationPreferences?: unknown;
+    };
+  },
   input: {
     type: "lead" | "deal" | "engagement" | "supplier" | "match" | "system";
     title: string;
     message: string;
     entityType?: string;
     entityId?: number;
-    preferenceKey?: "newLead" | "dealStage" | "supplierReview" | "matchAlert" | "publishFailure";
+    preferenceKey?:
+      | "newLead"
+      | "dealStage"
+      | "supplierReview"
+      | "matchAlert"
+      | "publishFailure";
   }
 ) {
   const workspaceId = ctx.user.workspaceId;
@@ -467,7 +556,7 @@ async function createScopedNotification(
       workspaceId,
     })) ?? [];
   const duplicate = existing.find(
-    (item) =>
+    item =>
       !item.isRead &&
       item.title === input.title &&
       item.entityType === (input.entityType ?? null) &&
@@ -508,7 +597,11 @@ function scoreBuyerMatch(
   const minBudget = Number(buyer.budgetMin ?? 0);
   const maxBudget = Number(buyer.budgetMax ?? 0);
 
-  if (buyer.city && property.city && buyer.city.toLowerCase() === property.city.toLowerCase()) {
+  if (
+    buyer.city &&
+    property.city &&
+    buyer.city.toLowerCase() === property.city.toLowerCase()
+  ) {
     score += 25;
     reasons.push("city match");
   }
@@ -523,7 +616,10 @@ function scoreBuyerMatch(
   }
 
   if ((minBudget || maxBudget) && price) {
-    if ((!minBudget || price >= minBudget) && (!maxBudget || price <= maxBudget)) {
+    if (
+      (!minBudget || price >= minBudget) &&
+      (!maxBudget || price <= maxBudget)
+    ) {
       score += 25;
       reasons.push("within budget");
     } else if (maxBudget && price <= maxBudget * 1.1) {
@@ -532,12 +628,20 @@ function scoreBuyerMatch(
     }
   }
 
-  if (buyer.bedrooms && property.bedrooms && property.bedrooms >= buyer.bedrooms) {
+  if (
+    buyer.bedrooms &&
+    property.bedrooms &&
+    property.bedrooms >= buyer.bedrooms
+  ) {
     score += 15;
     reasons.push("bedrooms fit");
   }
 
-  if (buyer.bathrooms && property.bathrooms && property.bathrooms >= buyer.bathrooms) {
+  if (
+    buyer.bathrooms &&
+    property.bathrooms &&
+    property.bathrooms >= buyer.bathrooms
+  ) {
     score += 15;
     reasons.push("bathrooms fit");
   }
@@ -562,7 +666,8 @@ async function assertPlanCapacity(
   getCurrentCount: () => Promise<number>
 ) {
   let { workspace, plan } = await getWorkspacePlan(scope);
-  if (!workspace) throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+  if (!workspace)
+    throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
 
   // 0. Monthly usage reset logic
   if (workspace.usageCyclePeriodStart) {
@@ -577,7 +682,7 @@ async function assertPlanCapacity(
         aiImagesCount: 0,
       });
       // Refresh workspace data after reset
-      workspace = await getWorkspaceById(scope.workspaceId) as any;
+      workspace = (await getWorkspaceById(scope.workspaceId)) as any;
     }
   }
 
@@ -604,7 +709,7 @@ async function assertPlanCapacity(
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+    me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -687,34 +792,55 @@ export const appRouter = router({
     }),
     get: protectedProcedure.query(async ({ ctx }) => {
       if (!ctx.user.workspaceId) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Workspace not found",
+        });
       }
-      return assertFound(await getWorkspaceById(ctx.user.workspaceId), "Workspace");
+      return assertFound(
+        await getWorkspaceById(ctx.user.workspaceId),
+        "Workspace"
+      );
     }),
     current: protectedProcedure.query(async ({ ctx }) => {
       const scope = getScope(ctx.user);
-      const [contacts, properties, socialPosts, buyerProfiles, leads] = await Promise.all([
-        getContactsByScope(scope),
-        getPropertiesByScope(scope),
-        getSocialMediaPostsByScope(scope),
-        getBuyerProfilesByScope(scope),
-        getLeadsByScope(scope),
-      ]);
+      const [contacts, properties, socialPosts, buyerProfiles, leads] =
+        await Promise.all([
+          getContactsByScope(scope),
+          getPropertiesByScope(scope),
+          getSocialMediaPostsByScope(scope),
+          getBuyerProfilesByScope(scope),
+          getLeadsByScope(scope),
+        ]);
 
-      const workspace = ctx.user.workspaceId ? await getWorkspaceById(ctx.user.workspaceId) : undefined;
+      const workspace = ctx.user.workspaceId
+        ? await getWorkspaceById(ctx.user.workspaceId)
+        : undefined;
       const plan = workspace?.plan ?? "starter";
 
       // Check if trial or subscription is expired
       const now = new Date();
-      const isTrialActive = workspace?.subscriptionStatus === "trial" &&
-        workspace.trialEndsAt && new Date(workspace.trialEndsAt) > now;
-      const isSubscriptionActive = workspace?.subscriptionStatus === "active" &&
-        workspace.currentPeriodEndsAt && new Date(workspace.currentPeriodEndsAt) > now;
-      const daysRemaining = isTrialActive && workspace?.trialEndsAt
-        ? Math.ceil((new Date(workspace.trialEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        : isSubscriptionActive && workspace?.currentPeriodEndsAt
-          ? Math.ceil((new Date(workspace.currentPeriodEndsAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-          : 0;
+      const isTrialActive =
+        workspace?.subscriptionStatus === "trial" &&
+        workspace.trialEndsAt &&
+        new Date(workspace.trialEndsAt) > now;
+      const isSubscriptionActive =
+        workspace?.subscriptionStatus === "active" &&
+        workspace.currentPeriodEndsAt &&
+        new Date(workspace.currentPeriodEndsAt) > now;
+      const daysRemaining =
+        isTrialActive && workspace?.trialEndsAt
+          ? Math.ceil(
+              (new Date(workspace.trialEndsAt).getTime() - now.getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          : isSubscriptionActive && workspace?.currentPeriodEndsAt
+            ? Math.ceil(
+                (new Date(workspace.currentPeriodEndsAt).getTime() -
+                  now.getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            : 0;
 
       return {
         workspace,
@@ -757,8 +883,12 @@ export const appRouter = router({
     getUsage: protectedProcedure.query(async ({ ctx }) => {
       const db = await import("./db.js");
       const workspace = await db.getWorkspaceById(ctx.user.workspaceId!);
-      if (!workspace) throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
-      
+      if (!workspace)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Workspace not found",
+        });
+
       return {
         plan: workspace.plan || "starter",
         status: workspace.subscriptionStatus || "trial",
@@ -766,24 +896,31 @@ export const appRouter = router({
         images: 8,
         reels: 3,
         limits: {
-          captions: workspace.plan === 'starter' ? 20 : 100,
-          images: workspace.plan === 'starter' ? 0 : 30,
-          reels: workspace.plan === 'starter' ? 2 : 10
-        }
+          captions: workspace.plan === "starter" ? 20 : 100,
+          images: workspace.plan === "starter" ? 0 : 30,
+          reels: workspace.plan === "starter" ? 2 : 10,
+        },
       };
     }),
     createCheckoutSession: protectedProcedure
-      .input(z.object({
-        plan: workspacePlanEnum,
-      }))
+      .input(
+        z.object({
+          plan: workspacePlanEnum,
+        })
+      )
       .mutation(async ({ ctx, input }) => {
         if (!ctx.user.workspaceId) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Workspace not initialized" });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Workspace not initialized",
+          });
         }
 
-        const billingInterval = (input as any).billingInterval === "yearly" ? "yearly" : "monthly";
+        const billingInterval =
+          (input as any).billingInterval === "yearly" ? "yearly" : "monthly";
         const prices = PLAN_PRICES[input.plan as keyof typeof PLAN_PRICES];
-        const amount = billingInterval === "yearly" ? prices.yearly : prices.monthly;
+        const amount =
+          billingInterval === "yearly" ? prices.yearly : prices.monthly;
         const txRef = `eiq-${ctx.user.workspaceId}-${nanoid(12)}`;
         const appBaseUrl = process.env.BASE_URL || "http://localhost:3000";
 
@@ -826,35 +963,51 @@ export const appRouter = router({
         flags,
         counts: {
           users: users.length,
-          admins: users.filter((user) => user.role === "admin").length,
+          admins: users.filter(user => user.role === "admin").length,
           workspaces: workspaces.length,
-          activeSubscriptions: workspaces.filter((workspace) => workspace.subscriptionStatus === "active").length,
+          activeSubscriptions: workspaces.filter(
+            workspace => workspace.subscriptionStatus === "active"
+          ).length,
         },
       };
     }),
     featureFlags: router({
       list: adminProcedure.query(async () => getFeatureFlags()),
-      upsert: adminProcedure.input(featureFlagSchema).mutation(async ({ input }) => {
-        await upsertFeatureFlag({
-          key: input.key,
-          description: input.description ?? null,
-          enabled: input.enabled,
-        });
-        return { success: true } as const;
-      }),
+      upsert: adminProcedure
+        .input(featureFlagSchema)
+        .mutation(async ({ input }) => {
+          await upsertFeatureFlag({
+            key: input.key,
+            description: input.description ?? null,
+            enabled: input.enabled,
+          });
+          return { success: true } as const;
+        }),
     }),
   }),
 
   notifications: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       const rows = await getNotificationsByScope(getScope(ctx.user));
-      return rows.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+      return rows.sort(
+        (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)
+      );
     }),
-    update: protectedProcedure.input(notificationUpdateSchema).mutation(async ({ ctx, input }) => {
-      const updated = await markNotificationRead(getScope(ctx.user), input.id, input.isRead);
-      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Notification not found" });
-      return { success: true } as const;
-    }),
+    update: protectedProcedure
+      .input(notificationUpdateSchema)
+      .mutation(async ({ ctx, input }) => {
+        const updated = await markNotificationRead(
+          getScope(ctx.user),
+          input.id,
+          input.isRead
+        );
+        if (!updated)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Notification not found",
+          });
+        return { success: true } as const;
+      }),
   }),
 
   supplierFeed: router({
@@ -866,10 +1019,11 @@ export const appRouter = router({
       ]);
 
       return listings
-        .map((listing) => {
+        .map(listing => {
           const duplicate = existingProperties.find(
-            (property) =>
-              property.address.trim().toLowerCase() === listing.address.trim().toLowerCase() &&
+            property =>
+              property.address.trim().toLowerCase() ===
+                listing.address.trim().toLowerCase() &&
               Number(property.price ?? 0) === Number(listing.price ?? 0)
           );
 
@@ -880,88 +1034,114 @@ export const appRouter = router({
         })
         .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     }),
-    getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-      return assertFound(await getSupplierListingById(getScope(ctx.user), input), "Supplier listing");
-    }),
-    create: mutatingProcedure.input(supplierListingInputSchema).mutation(async ({ ctx, input }) => {
-      const scope = getScope(ctx.user);
-      const fingerprint = `${input.address.trim().toLowerCase()}::${Number(input.price ?? 0)}::${input.sourceName.trim().toLowerCase()}`;
-      const id = await createSupplierListing({
-        userId: ctx.user.id,
-        workspaceId: scope.workspaceId,
-        sourceName: input.sourceName,
-        supplierContact: input.supplierContact ?? null,
-        title: input.title,
-        address: input.address,
-        city: input.city,
-        subcity: input.subcity ?? null,
-        price: input.price?.toString() ?? null,
-        bedrooms: input.bedrooms ?? null,
-        bathrooms: input.bathrooms ?? null,
-        notes: input.notes ?? null,
-        fingerprint,
-      });
-
-      await createScopedNotification(
-        { user: ctx.user },
-        {
-          type: "supplier",
-          title: "Supplier listing needs review",
-          message: `${input.title} was added to the supplier inbox.`,
-          entityType: "supplierListing",
-          entityId: id,
-          preferenceKey: "supplierReview",
-        }
-      );
-
-      return { success: true, id } as const;
-    }),
-    update: mutatingProcedure
-      .input(z.object({ id: z.number().int().positive(), data: supplierListingUpdateSchema }))
+    getById: protectedProcedure
+      .input(z.number().int().positive())
+      .query(async ({ ctx, input }) => {
+        return assertFound(
+          await getSupplierListingById(getScope(ctx.user), input),
+          "Supplier listing"
+        );
+      }),
+    create: mutatingProcedure
+      .input(supplierListingInputSchema)
       .mutation(async ({ ctx, input }) => {
-        const data = { ...input.data, price: input.data.price?.toString() ?? undefined };
-        const updated = await updateSupplierListing(getScope(ctx.user), input.id, data);
-        if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Supplier listing not found" });
+        const scope = getScope(ctx.user);
+        const fingerprint = `${input.address.trim().toLowerCase()}::${Number(input.price ?? 0)}::${input.sourceName.trim().toLowerCase()}`;
+        const id = await createSupplierListing({
+          userId: ctx.user.id,
+          workspaceId: scope.workspaceId,
+          sourceName: input.sourceName,
+          supplierContact: input.supplierContact ?? null,
+          title: input.title,
+          address: input.address,
+          city: input.city,
+          subcity: input.subcity ?? null,
+          price: input.price?.toString() ?? null,
+          bedrooms: input.bedrooms ?? null,
+          bathrooms: input.bathrooms ?? null,
+          notes: input.notes ?? null,
+          fingerprint,
+        });
+
+        await createScopedNotification(
+          { user: ctx.user },
+          {
+            type: "supplier",
+            title: "Supplier listing needs review",
+            message: `${input.title} was added to the supplier inbox.`,
+            entityType: "supplierListing",
+            entityId: id,
+            preferenceKey: "supplierReview",
+          }
+        );
+
+        return { success: true, id } as const;
+      }),
+    update: mutatingProcedure
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          data: supplierListingUpdateSchema,
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const data = {
+          ...input.data,
+          price: input.data.price?.toString() ?? undefined,
+        };
+        const updated = await updateSupplierListing(
+          getScope(ctx.user),
+          input.id,
+          data
+        );
+        if (!updated)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Supplier listing not found",
+          });
         return { success: true } as const;
       }),
-    importToProperties: mutatingProcedure.input(supplierImportSchema).mutation(async ({ ctx, input }) => {
-      const scope = getScope(ctx.user);
+    importToProperties: mutatingProcedure
+      .input(supplierImportSchema)
+      .mutation(async ({ ctx, input }) => {
+        const scope = getScope(ctx.user);
 
-      // Only Pro and Agency plans can import from supplier feed
-      const { plan } = await getWorkspacePlan(scope);
-      if (plan !== "agency" && plan !== "pro") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Supplier import is only available on the Pro or Agency plan. Please upgrade.",
+        // Only Pro and Agency plans can import from supplier feed
+        const { plan } = await getWorkspacePlan(scope);
+        if (plan !== "agency" && plan !== "pro") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Supplier import is only available on the Pro or Agency plan. Please upgrade.",
+          });
+        }
+
+        const listing = assertFound(
+          await getSupplierListingById(scope, input.supplierListingId),
+          "Supplier listing"
+        );
+
+        const propertyId = await createProperty({
+          userId: ctx.user.id,
+          workspaceId: scope.workspaceId,
+          title: listing.title,
+          description: listing.notes,
+          address: listing.address,
+          city: listing.city,
+          subcity: listing.subcity,
+          price: listing.price?.toString() ?? null,
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          status: "available",
         });
-      }
 
-      const listing = assertFound(
-        await getSupplierListingById(scope, input.supplierListingId),
-        "Supplier listing"
-      );
+        await updateSupplierListing(scope, listing.id, {
+          status: "imported",
+          importedPropertyId: propertyId,
+        });
 
-      const propertyId = await createProperty({
-        userId: ctx.user.id,
-        workspaceId: scope.workspaceId,
-        title: listing.title,
-        description: listing.notes,
-        address: listing.address,
-        city: listing.city,
-        subcity: listing.subcity,
-        price: listing.price?.toString() ?? null,
-        bedrooms: listing.bedrooms,
-        bathrooms: listing.bathrooms,
-        status: "available",
-      });
-
-      await updateSupplierListing(scope, listing.id, {
-        status: "imported",
-        importedPropertyId: propertyId,
-      });
-
-      return { success: true, propertyId } as const;
-    }),
+        return { success: true, propertyId } as const;
+      }),
   }),
 
   matching: router({
@@ -969,50 +1149,78 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getBuyerProfilesByScope(getScope(ctx.user));
       }),
-      create: mutatingProcedure.input(buyerProfileInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        await assertPlanCapacity(scope, "buyerProfiles", async () => {
-          const profiles = await getBuyerProfilesByScope(scope);
-          return profiles.length;
-        });
-        const id = await createBuyerProfile({
-          userId: ctx.user.id,
-          workspaceId: scope.workspaceId,
-          contactId: input.contactId ?? null,
-          name: input.name,
-          city: input.city ?? null,
-          subcity: input.subcity ?? null,
-          budgetMin: input.budgetMin?.toString() ?? null,
-          budgetMax: input.budgetMax?.toString() ?? null,
-          bedrooms: input.bedrooms ?? null,
-          bathrooms: input.bathrooms ?? null,
-          notes: input.notes ?? null,
-        });
-        return { success: true, id } as const;
-      }),
-      update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: buyerProfileUpdateSchema }))
+      create: mutatingProcedure
+        .input(buyerProfileInputSchema)
         .mutation(async ({ ctx, input }) => {
-          const data = { ...input.data, budgetMin: input.data.budgetMin?.toString() ?? undefined, budgetMax: input.data.budgetMax?.toString() ?? undefined  };
-          const updated = await updateBuyerProfile(getScope(ctx.user), input.id, data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Buyer profile not found" });
+          const scope = getScope(ctx.user);
+          await assertPlanCapacity(scope, "buyerProfiles", async () => {
+            const profiles = await getBuyerProfilesByScope(scope);
+            return profiles.length;
+          });
+          const id = await createBuyerProfile({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            contactId: input.contactId ?? null,
+            name: input.name,
+            city: input.city ?? null,
+            subcity: input.subcity ?? null,
+            budgetMin: input.budgetMin?.toString() ?? null,
+            budgetMax: input.budgetMax?.toString() ?? null,
+            bedrooms: input.bedrooms ?? null,
+            bathrooms: input.bathrooms ?? null,
+            notes: input.notes ?? null,
+          });
+          return { success: true, id } as const;
+        }),
+      update: mutatingProcedure
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            data: buyerProfileUpdateSchema,
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const data = {
+            ...input.data,
+            budgetMin: input.data.budgetMin?.toString() ?? undefined,
+            budgetMax: input.data.budgetMax?.toString() ?? undefined,
+          };
+          const updated = await updateBuyerProfile(
+            getScope(ctx.user),
+            input.id,
+            data
+          );
+          if (!updated)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Buyer profile not found",
+            });
           return { success: true } as const;
         }),
-      delete: mutatingProcedure.input(z.number().int().positive()).mutation(async ({ ctx, input }) => {
-        const deleted = await deleteBuyerProfile(getScope(ctx.user), input);
-        if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Buyer profile not found" });
-        return { success: true } as const;
-      }),
+      delete: mutatingProcedure
+        .input(z.number().int().positive())
+        .mutation(async ({ ctx, input }) => {
+          const deleted = await deleteBuyerProfile(getScope(ctx.user), input);
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Buyer profile not found",
+            });
+          return { success: true } as const;
+        }),
     }),
     matches: protectedProcedure
       .input(z.object({ buyerProfileId: z.number().int().positive() }))
       .query(async ({ ctx, input }) => {
         const scope = getScope(ctx.user);
-        const buyer = assertFound(await getBuyerProfileById(scope, input.buyerProfileId), "Buyer profile");
+        const buyer = assertFound(
+          await getBuyerProfileById(scope, input.buyerProfileId),
+          "Buyer profile"
+        );
         const allProperties = await getPropertiesByScope(scope);
 
         const matches = allProperties
-          .map((property) => {
+          .map(property => {
             const result = scoreBuyerMatch(buyer, property);
             return {
               property,
@@ -1020,7 +1228,7 @@ export const appRouter = router({
               reasons: result.reasons,
             };
           })
-          .filter((match) => match.score > 0)
+          .filter(match => match.score > 0)
           .sort((a, b) => b.score - a.score);
 
         const hottest = matches[0];
@@ -1047,36 +1255,58 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getContactsByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number()).query(async ({ ctx, input }) => {
-        return assertFound(await getContactById(getScope(ctx.user), input), "Contact");
-      }),
-      create: mutatingProcedure.input(contactInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        await assertPlanCapacity(scope, "contacts", async () => {
-          const contacts = await getContactsByScope(scope);
-          return contacts.length;
-        });
-        const id = await createContact({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input });
-        
-        await createContactEvent({
-          userId: ctx.user.id,
-          workspaceId: scope.workspaceId,
-          contactId: id,
-          type: "system",
-          label: "Contact created",
-          description: input.source ? `Source: ${input.source}` : "Manual entry",
-        });
+      getById: protectedProcedure
+        .input(z.number())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getContactById(getScope(ctx.user), input),
+            "Contact"
+          );
+        }),
+      create: mutatingProcedure
+        .input(contactInputSchema)
+        .mutation(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          await assertPlanCapacity(scope, "contacts", async () => {
+            const contacts = await getContactsByScope(scope);
+            return contacts.length;
+          });
+          const id = await createContact({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            ...input,
+          });
 
-        return { success: true, id };
-      }),
+          await createContactEvent({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            contactId: id,
+            type: "system",
+            label: "Contact created",
+            description: input.source
+              ? `Source: ${input.source}`
+              : "Manual entry",
+          });
+
+          return { success: true, id };
+        }),
       update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: contactUpdateSchema }))
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            data: contactUpdateSchema,
+          })
+        )
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
           const existing = await getContactById(scope, input.id);
           const updated = await updateContact(scope, input.id, input.data);
-          if (!updated || !existing) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
-          
+          if (!updated || !existing)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Contact not found",
+            });
+
           if (input.data.status && existing?.status !== input.data.status) {
             await createContactEvent({
               userId: ctx.user.id,
@@ -1087,7 +1317,7 @@ export const appRouter = router({
               metadata: { old: existing.status, new: input.data.status },
             });
           }
-          
+
           if (input.data.notes && existing?.notes !== input.data.notes) {
             await createContactEvent({
               userId: ctx.user.id,
@@ -1105,7 +1335,11 @@ export const appRouter = router({
         .input(z.number().int().positive())
         .mutation(async ({ ctx, input }) => {
           const deleted = await deleteContact(getScope(ctx.user), input);
-          if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Contact not found",
+            });
           return { success: true } as const;
         }),
       listEvents: protectedProcedure
@@ -1113,23 +1347,39 @@ export const appRouter = router({
         .query(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
           const contact = await getContactById(scope, input);
-          if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+          if (!contact)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Contact not found",
+            });
           return getContactEventsByScope(scope, input);
         }),
       addEvent: mutatingProcedure
-        .input(z.object({
-          contactId: z.number().int().positive(),
-          dealId: z.number().int().positive().optional(),
-          type: z.enum(["note", "status_change", "deal_update", "lead_conversion", "system"]),
-          label: z.string().min(1),
-          description: z.string().optional(),
-          metadata: z.record(z.string(), z.unknown()).optional(),
-        }))
+        .input(
+          z.object({
+            contactId: z.number().int().positive(),
+            dealId: z.number().int().positive().optional(),
+            type: z.enum([
+              "note",
+              "status_change",
+              "deal_update",
+              "lead_conversion",
+              "system",
+            ]),
+            label: z.string().min(1),
+            description: z.string().optional(),
+            metadata: z.record(z.string(), z.unknown()).optional(),
+          })
+        )
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
           const contact = await getContactById(scope, input.contactId);
-          if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
-          
+          if (!contact)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Contact not found",
+            });
+
           const id = await createContactEvent({
             ...input,
             userId: ctx.user.id,
@@ -1143,27 +1393,44 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getDealsByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-        return assertFound(await getDealById(getScope(ctx.user), input), "Deal");
-      }),
-      create: mutatingProcedure.input(dealInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        const id = await createDeal({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input, value: input.value?.toString(), commission: input.commission?.toString() });
+      getById: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getDealById(getScope(ctx.user), input),
+            "Deal"
+          );
+        }),
+      create: mutatingProcedure
+        .input(dealInputSchema)
+        .mutation(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          const id = await createDeal({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            ...input,
+            value: input.value?.toString(),
+            commission: input.commission?.toString(),
+          });
 
-        await createContactEvent({
-          userId: ctx.user.id,
-          workspaceId: scope.workspaceId,
-          contactId: input.contactId,
-          dealId: id,
-          type: "system",
-          label: "Deal created",
-          description: input.notes ? `Initial notes: ${input.notes}` : "New deal in pipeline",
-        });
+          await createContactEvent({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            contactId: input.contactId,
+            dealId: id,
+            type: "system",
+            label: "Deal created",
+            description: input.notes
+              ? `Initial notes: ${input.notes}`
+              : "New deal in pipeline",
+          });
 
-        return { success: true, id };
-      }),
+          return { success: true, id };
+        }),
       update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: dealUpdateSchema }))
+        .input(
+          z.object({ id: z.number().int().positive(), data: dealUpdateSchema })
+        )
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
           const existing = await getDealById(scope, input.id);
@@ -1171,11 +1438,19 @@ export const appRouter = router({
             ...input.data,
             value: input.data.value?.toString() ?? undefined,
             commission: input.data.commission?.toString() ?? undefined,
-            ...(input.data.stage === "closed" && !input.data.closedAt ? { closedAt: new Date() } : {}),
-            ...(input.data.stage && input.data.stage !== "closed" ? { closedAt: null } : {}),
+            ...(input.data.stage === "closed" && !input.data.closedAt
+              ? { closedAt: new Date() }
+              : {}),
+            ...(input.data.stage && input.data.stage !== "closed"
+              ? { closedAt: null }
+              : {}),
           };
           const updated = await updateDeal(scope, input.id, data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found" });
+          if (!updated)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Deal not found",
+            });
           if (data.stage && existing?.stage !== data.stage) {
             await createContactEvent({
               userId: ctx.user.id,
@@ -1184,8 +1459,14 @@ export const appRouter = router({
               dealId: input.id,
               type: "deal_update",
               label: `Deal stage updated to ${STAGE_LABELS[data.stage as keyof typeof STAGE_LABELS] || data.stage}`,
-              description: data.value ? `Value: ${formatBirr(data.value)}` : undefined,
-              metadata: { dealId: input.id, old: existing?.stage, new: data.stage },
+              description: data.value
+                ? `Value: ${formatBirr(data.value)}`
+                : undefined,
+              metadata: {
+                dealId: input.id,
+                old: existing?.stage,
+                new: data.stage,
+              },
             });
 
             await createScopedNotification(
@@ -1221,14 +1502,22 @@ export const appRouter = router({
         .query(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
           const deal = await getDealById(scope, input);
-          if (!deal) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found" });
+          if (!deal)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Deal not found",
+            });
           return getDealEventsByScope(scope, input);
         }),
       delete: mutatingProcedure
         .input(z.number().int().positive())
         .mutation(async ({ ctx, input }) => {
           const deleted = await deleteDeal(getScope(ctx.user), input);
-          if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found" });
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Deal not found",
+            });
           return { success: true } as const;
         }),
     }),
@@ -1237,31 +1526,69 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getPropertiesByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-        return assertFound(await getPropertyById(getScope(ctx.user), input), "Property");
-      }),
-      create: mutatingProcedure.input(propertyInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        await assertPlanCapacity(scope, "properties", async () => {
-          const properties = await getPropertiesByScope(scope);
-          return properties.length;
-        });
-        const id = await createProperty({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input, price: input.price?.toString(), latitude: input.latitude?.toString(), longitude: input.longitude?.toString(), squareFeet: input.squareFeet?.toString() });
-        return { success: true, id };
-      }),
-      update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: propertyUpdateSchema }))
+      getById: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getPropertyById(getScope(ctx.user), input),
+            "Property"
+          );
+        }),
+      create: mutatingProcedure
+        .input(propertyInputSchema)
         .mutation(async ({ ctx, input }) => {
-          const data = { ...input.data, price: input.data.price?.toString() ?? undefined, latitude: input.data.latitude?.toString() ?? undefined, longitude: input.data.longitude?.toString() ?? undefined, squareFeet: input.data.squareFeet?.toString() ?? undefined };
-          const updated = await updateProperty(getScope(ctx.user), input.id, data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found" });
+          const scope = getScope(ctx.user);
+          await assertPlanCapacity(scope, "properties", async () => {
+            const properties = await getPropertiesByScope(scope);
+            return properties.length;
+          });
+          const id = await createProperty({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            ...input,
+            price: input.price?.toString(),
+            latitude: input.latitude?.toString(),
+            longitude: input.longitude?.toString(),
+            squareFeet: input.squareFeet?.toString(),
+          });
+          return { success: true, id };
+        }),
+      update: mutatingProcedure
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            data: propertyUpdateSchema,
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const data = {
+            ...input.data,
+            price: input.data.price?.toString() ?? undefined,
+            latitude: input.data.latitude?.toString() ?? undefined,
+            longitude: input.data.longitude?.toString() ?? undefined,
+            squareFeet: input.data.squareFeet?.toString() ?? undefined,
+          };
+          const updated = await updateProperty(
+            getScope(ctx.user),
+            input.id,
+            data
+          );
+          if (!updated)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Property not found",
+            });
           return { success: true } as const;
         }),
       delete: mutatingProcedure
         .input(z.number().int().positive())
         .mutation(async ({ ctx, input }) => {
           const deleted = await deleteProperty(getScope(ctx.user), input);
-          if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found" });
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Property not found",
+            });
           return { success: true } as const;
         }),
       publish: mutatingProcedure
@@ -1269,7 +1596,11 @@ export const appRouter = router({
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
           const property = await getPropertyById(scope, input.id);
-          if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found" });
+          if (!property)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Property not found",
+            });
 
           const uniqueId = nanoid(10);
           const trackingLink = `https://app.estateiq.et/l/${ctx.user.id}/${uniqueId}`;
@@ -1289,52 +1620,83 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getLeadsByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-        return assertFound(await getLeadById(getScope(ctx.user), input), "Lead");
-      }),
-      create: mutatingProcedure.input(leadInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        await assertPlanCapacity(scope, "leads", async () => {
-          const existingLeads = await getLeadsByScope(scope);
-          return existingLeads.length;
-        });
-        const id = await createLead({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input });
-        const leadData = (input.leadData ?? {}) as Record<string, unknown>;
-        const leadName = [leadData.firstName, leadData.lastName]
-          .filter((value): value is string => typeof value === "string" && value.length > 0)
-          .join(" ");
-        await createScopedNotification(
-          { user: ctx.user },
-          {
-            type: "lead",
-            title: "New lead captured",
-            message: `${leadName || "A new lead"} was added from ${input.source}.`,
-            entityType: "lead",
-            entityId: id,
-            preferenceKey: "newLead",
-          }
-        );
-        return { success: true, id };
-      }),
-      update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: leadUpdateSchema }))
+      getById: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getLeadById(getScope(ctx.user), input),
+            "Lead"
+          );
+        }),
+      create: mutatingProcedure
+        .input(leadInputSchema)
         .mutation(async ({ ctx, input }) => {
-          const updated = await updateLead(getScope(ctx.user), input.id, input.data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found" });
+          const scope = getScope(ctx.user);
+          await assertPlanCapacity(scope, "leads", async () => {
+            const existingLeads = await getLeadsByScope(scope);
+            return existingLeads.length;
+          });
+          const id = await createLead({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            ...input,
+          });
+          const leadData = (input.leadData ?? {}) as Record<string, unknown>;
+          const leadName = [leadData.firstName, leadData.lastName]
+            .filter(
+              (value): value is string =>
+                typeof value === "string" && value.length > 0
+            )
+            .join(" ");
+          await createScopedNotification(
+            { user: ctx.user },
+            {
+              type: "lead",
+              title: "New lead captured",
+              message: `${leadName || "A new lead"} was added from ${input.source}.`,
+              entityType: "lead",
+              entityId: id,
+              preferenceKey: "newLead",
+            }
+          );
+          return { success: true, id };
+        }),
+      update: mutatingProcedure
+        .input(
+          z.object({ id: z.number().int().positive(), data: leadUpdateSchema })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const updated = await updateLead(
+            getScope(ctx.user),
+            input.id,
+            input.data
+          );
+          if (!updated)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Lead not found",
+            });
           return { success: true } as const;
         }),
       delete: mutatingProcedure
         .input(z.number().int().positive())
         .mutation(async ({ ctx, input }) => {
           const deleted = await deleteLead(getScope(ctx.user), input);
-          if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found" });
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Lead not found",
+            });
           return { success: true } as const;
         }),
       convert: mutatingProcedure
         .input(convertLeadSchema)
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
-          const lead = assertFound(await getLeadById(scope, input.leadId), "Lead");
+          const lead = assertFound(
+            await getLeadById(scope, input.leadId),
+            "Lead"
+          );
 
           if (lead.contactId) {
             throw new TRPCError({
@@ -1351,7 +1713,8 @@ export const appRouter = router({
             lastName: String(leadData.lastName ?? "Lead"),
             email: typeof leadData.email === "string" ? leadData.email : null,
             phone: typeof leadData.phone === "string" ? leadData.phone : null,
-            whatsappNumber: typeof leadData.phone === "string" ? leadData.phone : null,
+            whatsappNumber:
+              typeof leadData.phone === "string" ? leadData.phone : null,
             type: "buyer",
             status: "active",
             source: lead.source,
@@ -1384,7 +1747,9 @@ export const appRouter = router({
             contactId,
             type: "lead_conversion",
             label: "Lead converted from " + lead.source,
-            description: input.createDeal ? "Initial deal created" : "Contact ingestion",
+            description: input.createDeal
+              ? "Initial deal created"
+              : "Contact ingestion",
             metadata: { leadId: lead.id, dealId: dealId ?? null },
           });
 
@@ -1398,12 +1763,15 @@ export const appRouter = router({
         .input(leadCascadeSchema)
         .mutation(async ({ input }) => {
           const db = await import("./db.js");
-          
+
           let workspaceId: number | undefined;
           let userId: number | undefined;
 
           if (input.propertyId) {
-            const property = await db.getPropertyById({ userId: 0, workspaceId: 0 }, input.propertyId);
+            const property = await db.getPropertyById(
+              { userId: 0, workspaceId: 0 },
+              input.propertyId
+            );
             if (property) {
               workspaceId = property.workspaceId;
               userId = property.userId;
@@ -1411,36 +1779,49 @@ export const appRouter = router({
           }
 
           if (!workspaceId || !userId) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid property or source" });
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid property or source",
+            });
           }
 
           const scope = { userId, workspaceId };
           const workspace = await db.getWorkspaceById(workspaceId);
           if (!workspace) {
-            throw new TRPCError({ code: "NOT_FOUND", message: "Workspace not found" });
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Workspace not found",
+            });
           }
 
           // 1. Enforce active trial or subscription
           const now = new Date();
-          const isTrialActive = workspace.subscriptionStatus === "trial" &&
-            workspace.trialEndsAt && new Date(workspace.trialEndsAt) > now;
-          const isSubscriptionActive = workspace.subscriptionStatus === "active" &&
-            workspace.currentPeriodEndsAt && new Date(workspace.currentPeriodEndsAt) > now;
+          const isTrialActive =
+            workspace.subscriptionStatus === "trial" &&
+            workspace.trialEndsAt &&
+            new Date(workspace.trialEndsAt) > now;
+          const isSubscriptionActive =
+            workspace.subscriptionStatus === "active" &&
+            workspace.currentPeriodEndsAt &&
+            new Date(workspace.currentPeriodEndsAt) > now;
 
           if (!isTrialActive && !isSubscriptionActive) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "This agent's trial or subscription has expired. Lead capture is disabled.",
+              message:
+                "This agent's trial or subscription has expired. Lead capture is disabled.",
             });
           }
 
           // 2. Enforce lead limit
-          const leadLimit = PLAN_LIMITS[workspace.plan as keyof typeof PLAN_LIMITS].leads;
+          const leadLimit =
+            PLAN_LIMITS[workspace.plan as keyof typeof PLAN_LIMITS].leads;
           const currentLeads = await db.getLeadsByScope(scope);
           if (isLimitReached(leadLimit, currentLeads.length)) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "This agent has reached their lead limit. Please contact them directly.",
+              message:
+                "This agent has reached their lead limit. Please contact them directly.",
             });
           }
 
@@ -1462,7 +1843,7 @@ export const appRouter = router({
               phone: input.phone,
               email: input.email,
               notes: input.notes,
-              ...(input.leadData ?? {})
+              ...(input.leadData ?? {}),
             },
             status: "new",
             score,
@@ -1502,7 +1883,7 @@ export const appRouter = router({
           if (input.source === "tracking_link" && input.leadData) {
             const platform = input.leadData.platform as string | undefined;
             const creativeId = input.leadData.creativeId as string | undefined;
-            
+
             await db.createContactEvent({
               userId,
               workspaceId,
@@ -1511,7 +1892,7 @@ export const appRouter = router({
               type: "note",
               label: "Captured via Tracking Link",
               description: `Lead originated from ${platform ? platform : "a tracking link"}${creativeId ? ` via creative #${creativeId}` : ""}.`,
-              metadata: { platform, creativeId, propertyId: input.propertyId }
+              metadata: { platform, creativeId, propertyId: input.propertyId },
             });
           }
 
@@ -1524,7 +1905,7 @@ export const appRouter = router({
               message: `${input.firstName} ${input.lastName} inquired about your listing from ${input.source}. Score: ${score}`,
               entityType: "lead",
               entityId: leadId,
-              preferenceKey: "newLead"
+              preferenceKey: "newLead",
             }
           );
 
@@ -1537,7 +1918,11 @@ export const appRouter = router({
         .query(async ({ input }) => {
           const db = await import("./db.js");
           const property = await db.getPropertyByUniqueId(input.uniqueId);
-          if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Listing not found" });
+          if (!property)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Listing not found",
+            });
           return property;
         }),
     }),
@@ -1546,26 +1931,54 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getBrandKitsByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-        return assertFound(await getBrandKitById(getScope(ctx.user), input), "Brand kit");
-      }),
-      create: mutatingProcedure.input(brandKitInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        const id = await createBrandKit({ userId: ctx.user.id, workspaceId: scope.workspaceId, ...input });
-        return { success: true, id };
-      }),
-      update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: brandKitUpdateSchema }))
+      getById: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getBrandKitById(getScope(ctx.user), input),
+            "Brand kit"
+          );
+        }),
+      create: mutatingProcedure
+        .input(brandKitInputSchema)
         .mutation(async ({ ctx, input }) => {
-          const updated = await updateBrandKit(getScope(ctx.user), input.id, input.data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Brand kit not found" });
+          const scope = getScope(ctx.user);
+          const id = await createBrandKit({
+            userId: ctx.user.id,
+            workspaceId: scope.workspaceId,
+            ...input,
+          });
+          return { success: true, id };
+        }),
+      update: mutatingProcedure
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            data: brandKitUpdateSchema,
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const updated = await updateBrandKit(
+            getScope(ctx.user),
+            input.id,
+            input.data
+          );
+          if (!updated)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Brand kit not found",
+            });
           return { success: true } as const;
         }),
       delete: mutatingProcedure
         .input(z.number().int().positive())
         .mutation(async ({ ctx, input }) => {
           const deleted = await deleteBrandKit(getScope(ctx.user), input);
-          if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Brand kit not found" });
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Brand kit not found",
+            });
           return { success: true } as const;
         }),
     }),
@@ -1574,51 +1987,65 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getDesignsByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-        return assertFound(await getDesignById(getScope(ctx.user), input), "Design");
-      }),
-      create: mutatingProcedure.input(designInputSchema).mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
-        let finalPropertyId = input.propertyId;
+      getById: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getDesignById(getScope(ctx.user), input),
+            "Design"
+          );
+        }),
+      create: mutatingProcedure
+        .input(designInputSchema)
+        .mutation(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          let finalPropertyId = input.propertyId;
 
-        // Circular Ecosystem: Studio -> Inventory
-        if (input.isNewInventory && input.content) {
-          const content = input.content as any;
-          // Extract basic property info from design content if available
-          // In a real app, this would use the AI extractor or specific tagged elements
-          const title = input.name || "New Property from Studio";
-          
-          finalPropertyId = await createProperty({
+          // Circular Ecosystem: Studio -> Inventory
+          if (input.isNewInventory && input.content) {
+            const content = input.content as any;
+            // Extract basic property info from design content if available
+            // In a real app, this would use the AI extractor or specific tagged elements
+            const title = input.name || "New Property from Studio";
+
+            finalPropertyId = await createProperty({
+              userId: ctx.user.id,
+              workspaceId: scope.workspaceId,
+              title,
+              address: "Pending Address",
+              city: "Addis Ababa",
+              status: "available",
+            });
+          } else if (input.propertyId && input.name) {
+            // Update existing property title if it was edited in studio
+            await updateProperty(scope, input.propertyId, {
+              title: input.name,
+            });
+          }
+
+          const id = await createDesign({
             userId: ctx.user.id,
             workspaceId: scope.workspaceId,
-            title,
-            address: "Pending Address",
-            city: "Addis Ababa",
-            status: "available",
+            ...input,
+            propertyId: finalPropertyId,
           });
-        } else if (input.propertyId && input.name) {
-          // Update existing property title if it was edited in studio
-          await updateProperty(scope, input.propertyId, { title: input.name });
-        }
 
-        const id = await createDesign({ 
-          userId: ctx.user.id, 
-          workspaceId: scope.workspaceId, 
-          ...input,
-          propertyId: finalPropertyId 
-        });
-        
-        return { success: true, id, propertyId: finalPropertyId };
-      }),
+          return { success: true, id, propertyId: finalPropertyId };
+        }),
     }),
 
     socialMediaPosts: router({
       list: protectedProcedure.query(async ({ ctx }) => {
         return getSocialMediaPostsByScope(getScope(ctx.user));
       }),
-      getById: protectedProcedure.input(z.number().int().positive()).query(async ({ ctx, input }) => {
-        return assertFound(await getSocialMediaPostById(input, getScope(ctx.user)), "Social post");
-      }),
+      getById: protectedProcedure
+        .input(z.number().int().positive())
+        .query(async ({ ctx, input }) => {
+          return assertFound(
+            await getSocialMediaPostById(input, getScope(ctx.user)),
+            "Social post"
+          );
+        }),
 
       create: mutatingProcedure
         .input(socialMediaPostInputSchema)
@@ -1635,19 +2062,41 @@ export const appRouter = router({
             workspaceId: scope.workspaceId,
             ...input,
             status,
-            platformStatuses: input.platformStatuses ?? buildPlatformStatuses(platforms, status),
+            platformStatuses:
+              input.platformStatuses ??
+              buildPlatformStatuses(platforms, status),
           });
           return { success: true, id } as const;
         }),
       update: mutatingProcedure
-        .input(z.object({ id: z.number().int().positive(), data: socialMediaPostUpdateSchema }))
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            data: socialMediaPostUpdateSchema,
+          })
+        )
         .mutation(async ({ ctx, input }) => {
-          const data = { ...input.data, platformStatuses:
+          const data = {
+            ...input.data,
+            platformStatuses:
               input.data.platformStatuses ??
-              (input.data.platforms ? buildPlatformStatuses(input.data.platforms, input.data.status ?? "scheduled") : undefined),
+              (input.data.platforms
+                ? buildPlatformStatuses(
+                    input.data.platforms,
+                    input.data.status ?? "scheduled"
+                  )
+                : undefined),
           };
-          const updated = await updateSocialMediaPost(getScope(ctx.user), input.id, data);
-          if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Social post not found" });
+          const updated = await updateSocialMediaPost(
+            getScope(ctx.user),
+            input.id,
+            data
+          );
+          if (!updated)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Social post not found",
+            });
           if (data.status === "failed") {
             await createScopedNotification(
               { user: ctx.user },
@@ -1666,8 +2115,15 @@ export const appRouter = router({
       delete: mutatingProcedure
         .input(z.number().int().positive())
         .mutation(async ({ ctx, input }) => {
-          const deleted = await deleteSocialMediaPost(getScope(ctx.user), input);
-          if (!deleted) throw new TRPCError({ code: "NOT_FOUND", message: "Social post not found" });
+          const deleted = await deleteSocialMediaPost(
+            getScope(ctx.user),
+            input
+          );
+          if (!deleted)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Social post not found",
+            });
           return { success: true } as const;
         }),
       engagement: protectedProcedure.query(async ({ ctx }) => {
@@ -1683,7 +2139,10 @@ export const appRouter = router({
         const scope = getScope(ctx.user);
         const db = await import("./db.js");
         const llm = await import("./_core/llm.js");
-        const property = assertFound(await db.getPropertyById(scope, input.propertyId), "Property");
+        const property = assertFound(
+          await db.getPropertyById(scope, input.propertyId),
+          "Property"
+        );
 
         // 1. Enforce active status and AI limit
         await assertPlanCapacity(scope, "aiCaptions", async () => {
@@ -1705,14 +2164,21 @@ The caption MUST be bilingual. Provide the caption first in English, and then fo
         // 3. Invoke LLM
         const result = await llm.invokeLLM({
           messages: [
-            { role: "system", content: "You are a professional real estate marketing assistant in Ethiopia." },
-            { role: "user", content: prompt }
+            {
+              role: "system",
+              content:
+                "You are a professional real estate marketing assistant in Ethiopia.",
+            },
+            { role: "user", content: prompt },
           ],
         });
 
         const caption = result.choices[0].message.content;
         if (typeof caption !== "string") {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to generate caption" });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to generate caption",
+          });
         }
 
         // 4. Increment usage counter atomically
@@ -1725,12 +2191,14 @@ The caption MUST be bilingual. Provide the caption first in English, and then fo
      * Defensive Studio AI Routes
      */
     generateMarketingPack: protectedProProcedure
-      .input(z.object({ 
-        propertyId: z.number().int().positive(), 
-        templateId: z.string().optional(),
-        roomType: z.string().optional(),
-        designStyle: z.string().optional()
-      }))
+      .input(
+        z.object({
+          propertyId: z.number().int().positive(),
+          templateId: z.string().optional(),
+          roomType: z.string().optional(),
+          designStyle: z.string().optional(),
+        })
+      )
       .mutation(async ({ ctx, input }) => {
         const scope = getScope(ctx.user);
         const db = await import("./db.js");
@@ -1738,8 +2206,11 @@ The caption MUST be bilingual. Provide the caption first in English, and then fo
         const { nanoid } = await import("nanoid");
 
         // 1. Fetch Property Context
-        const property = assertFound(await db.getPropertyById(scope, input.propertyId), "Property");
-        
+        const property = assertFound(
+          await db.getPropertyById(scope, input.propertyId),
+          "Property"
+        );
+
         // 2. Increment usage atomically
         await db.incrementWorkspaceAiImagesCount(scope.workspaceId);
 
@@ -1762,8 +2233,12 @@ The canvas reference width is 1000. Margins should be percentages (0.05 = 5%).
 
         const result = await llm.invokeLLM({
           messages: [
-            { role: "system", content: "You are a professional design layout engine for Estate IQ." },
-            { role: "user", content: prompt }
+            {
+              role: "system",
+              content:
+                "You are a professional design layout engine for Estate IQ.",
+            },
+            { role: "user", content: prompt },
           ],
           responseFormat: {
             type: "json_schema",
@@ -1777,17 +2252,41 @@ The canvas reference width is 1000. Margins should be percentages (0.05 = 5%).
                     items: {
                       type: "object",
                       properties: {
-                        type: { type: "string", enum: ["text", "rect", "image"] },
-                        content: { type: "object", properties: { text: { type: "string" }, src: { type: "string" } } },
-                        layer: { type: "string", enum: ["background", "image", "component", "overlay"] },
+                        type: {
+                          type: "string",
+                          enum: ["text", "rect", "image"],
+                        },
+                        content: {
+                          type: "object",
+                          properties: {
+                            text: { type: "string" },
+                            src: { type: "string" },
+                          },
+                        },
+                        layer: {
+                          type: "string",
+                          enum: ["background", "image", "component", "overlay"],
+                        },
                         baseWidth: { type: "number" },
                         baseHeight: { type: "number" },
                         constraints: {
                           type: "object",
                           properties: {
-                            x: { type: "object", properties: { anchor: { type: "string" }, margin: { type: "number" } } },
-                            y: { type: "object", properties: { anchor: { type: "string" }, margin: { type: "number" } } }
-                          }
+                            x: {
+                              type: "object",
+                              properties: {
+                                anchor: { type: "string" },
+                                margin: { type: "number" },
+                              },
+                            },
+                            y: {
+                              type: "object",
+                              properties: {
+                                anchor: { type: "string" },
+                                margin: { type: "number" },
+                              },
+                            },
+                          },
                         },
                         style: {
                           type: "object",
@@ -1796,23 +2295,33 @@ The canvas reference width is 1000. Margins should be percentages (0.05 = 5%).
                             fill: { type: "string" },
                             fontSize: { type: "number" },
                             fontWeight: { type: "string" },
-                            textAlign: { type: "string" }
-                          }
-                        }
+                            textAlign: { type: "string" },
+                          },
+                        },
                       },
-                      required: ["type", "layer", "baseWidth", "baseHeight", "constraints", "content", "style"]
-                    }
-                  }
+                      required: [
+                        "type",
+                        "layer",
+                        "baseWidth",
+                        "baseHeight",
+                        "constraints",
+                        "content",
+                        "style",
+                      ],
+                    },
+                  },
                 },
-                required: ["elements"]
-              }
-            }
-          }
+                required: ["elements"],
+              },
+            },
+          },
         });
 
         let elements = [];
         try {
-          const parsed = JSON.parse(result.choices[0].message.content as string);
+          const parsed = JSON.parse(
+            result.choices[0].message.content as string
+          );
           elements = parsed.elements.map((el: any) => ({
             ...el,
             id: nanoid(),
@@ -1824,8 +2333,6 @@ The canvas reference width is 1000. Margins should be percentages (0.05 = 5%).
 
         return { elements };
       }),
-
-
   }),
 
   /**
@@ -1833,20 +2340,31 @@ The canvas reference width is 1000. Margins should be percentages (0.05 = 5%).
    */
   studio: router({
     upload: protectedProcedure
-      .input(z.object({
-        fileName: z.string(),
-        fileData: z.string(), // base64
-        contentType: z.string().default("image/png"),
-      }))
+      .input(
+        z.object({
+          fileName: z.string(),
+          fileData: z.string(), // base64
+          contentType: z.string().default("image/png"),
+        })
+      )
       .mutation(async ({ input }) => {
         const { storagePut } = await import("./storage.js");
         const buffer = Buffer.from(input.fileData, "base64");
-        const result = await storagePut(`studio/${Date.now()}-${input.fileName}`, buffer, input.contentType);
+        const result = await storagePut(
+          `studio/${Date.now()}-${input.fileName}`,
+          buffer,
+          input.contentType
+        );
         return { url: result.url };
       }),
     extractor: router({
       parseListing: protectedProProcedure
-        .input(z.object({ url: z.string().url().optional(), text: z.string().optional() }))
+        .input(
+          z.object({
+            url: z.string().url().optional(),
+            text: z.string().optional(),
+          })
+        )
         .mutation(async ({ input }) => {
           const llm = await import("./_core/llm.js");
           const prompt = `Extract property details from the following listing snippet or URL:
@@ -1870,12 +2388,12 @@ Use ETB as the default currency for Ethiopia.`;
                     bedrooms: { type: "number" },
                     bathrooms: { type: "number" },
                     address: { type: "string" },
-                    description: { type: "string" }
+                    description: { type: "string" },
                   },
-                  required: ["title", "price", "address"]
-                }
-              }
-            }
+                  required: ["title", "price", "address"],
+                },
+              },
+            },
           });
 
           try {
@@ -1885,28 +2403,36 @@ Use ETB as the default currency for Ethiopia.`;
             return getMock("extractor.parseListing");
           }
         }),
-
     }),
     videoEngine: router({
       render: protectedProProcedure
-        .input(z.object({ 
-          designId: z.number().int().positive(), 
-          format: z.string().optional(),
-          contactId: z.number().optional(),
-          dealId: z.number().optional()
-        }))
+        .input(
+          z.object({
+            designId: z.number().int().positive(),
+            format: z.string().optional(),
+            contactId: z.number().optional(),
+            dealId: z.number().optional(),
+          })
+        )
         .mutation(async ({ ctx, input }) => {
-          const design = await getDesignById({ 
-            workspaceId: ctx.user.workspaceId!, 
-            userId: ctx.user.id 
-          }, input.designId);
-          
-          if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found" });
+          const design = await getDesignById(
+            {
+              workspaceId: ctx.user.workspaceId!,
+              userId: ctx.user.id,
+            },
+            input.designId
+          );
+
+          if (!design)
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Design not found",
+            });
 
           const { renderVideoReel } = await import("./_core/video.js");
           const result = await renderVideoReel({
             design,
-            format: (input.format as "reel" | "post") || "reel"
+            format: (input.format as "reel" | "post") || "reel",
           });
 
           // Videos are high-value, increment 5 AI points
@@ -1923,7 +2449,7 @@ Use ETB as the default currency for Ethiopia.`;
               dealId: input.dealId,
               type: "system",
               label: "Magic Reel Generated",
-              description: `A 15-second cinematic property teaser was rendered for social sharing.`
+              description: `A 15-second cinematic property teaser was rendered for social sharing.`,
             });
           }
 
