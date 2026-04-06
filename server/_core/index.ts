@@ -10,17 +10,29 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { handleExternalLead } from "./leads";
 import { startSocialWorker } from "./social";
+import { runDbMigrations } from "./migrate";
 
 // ── Global Error Catching (Diagnostic for Staging Crashes) ──
-process.on("uncaughtException", (error) => {
+process.on("uncaughtException", error => {
   console.error("FATAL: Uncaught Exception:", error);
   process.exit(1);
 });
 
-process.on("unhandledRejection", (reason) => {
+process.on("unhandledRejection", reason => {
   console.error("FATAL: Unhandled Rejection at:", reason);
   process.exit(1);
 });
+
+// ── Run migrations on startup ──
+(async () => {
+  try {
+    await runDbMigrations();
+    console.log("[DB] Migrations applied successfully");
+  } catch (err) {
+    console.error("[DB] Migration failed:", err);
+    // Don't crash — server can still start, but warn
+  }
+})();
 
 // Extend Express Request to include rawBody for HMAC verification
 declare global {
@@ -56,7 +68,8 @@ async function startServer() {
 
   // ── Dev One-Click Auth Dashboard (Always first, Staging/Dev only) ──
   app.get("/auth-dev", (req, res) => {
-    if (process.env.NODE_ENV === "production") return res.status(403).send("Forbidden");
+    if (process.env.NODE_ENV === "production")
+      return res.status(403).send("Forbidden");
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -91,7 +104,8 @@ async function startServer() {
 
   // ── Dev Login Implementation (Prioritized) ──
   app.get("/api/dev/login", async (req, res) => {
-    if (process.env.NODE_ENV === "production") return res.status(403).send("Forbidden");
+    if (process.env.NODE_ENV === "production")
+      return res.status(403).send("Forbidden");
     const { openId } = req.query;
     const returnTo = (req.query.returnTo as string) || "/";
     if (!openId) return res.status(400).send("Missing openId");
@@ -100,11 +114,16 @@ async function startServer() {
       const { getSessionCookieOptions } = await import("./cookies.js");
       const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
       const sessionToken = await sdk.createSessionToken(openId as string, {
-        name: (openId as string).includes("starter") ? "Starter Agent" : "Pro Agent",
+        name: (openId as string).includes("starter")
+          ? "Starter Agent"
+          : "Pro Agent",
         expiresInMs: ONE_YEAR_MS,
       });
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
       return res.redirect(302, returnTo);
     } catch (e) {
       console.error("[Local Auth] Login failed:", e);
@@ -114,12 +133,14 @@ async function startServer() {
 
   // Configure body parser with larger size limit for file uploads.
   // We use the 'verify' property to capture the raw body for HMAC checks.
-  app.use(express.json({
-    limit: "50mb",
-    verify: (req, _res, buf) => {
-      (req as express.Request).rawBody = buf;
-    }
-  }));
+  app.use(
+    express.json({
+      limit: "50mb",
+      verify: (req, _res, buf) => {
+        (req as express.Request).rawBody = buf;
+      },
+    })
+  );
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // ── Dev Subscription Fix ──
@@ -128,14 +149,20 @@ async function startServer() {
       const db = await import("../db.js");
       const user = await db.getUserByEmail("pro@estateiq.com");
       if (!user || !user.workspaceId) {
-        return res.status(404).json({ error: "Pro user or workspace not found" });
+        return res
+          .status(404)
+          .json({ error: "Pro user or workspace not found" });
       }
       const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       await db.updateWorkspace(user.workspaceId, {
         currentPeriodEndsAt: nextMonth,
-        subscriptionStatus: "active"
+        subscriptionStatus: "active",
       });
-      return res.json({ success: true, message: "PRO subscription updated", endsAt: nextMonth });
+      return res.json({
+        success: true,
+        message: "PRO subscription updated",
+        endsAt: nextMonth,
+      });
     } catch (e) {
       console.error("[Fix Subscription] Error:", e);
       return res.status(500).json({ error: "Failed to fix subscription" });
@@ -156,14 +183,20 @@ async function startServer() {
       const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
       const db = await import("../db.js");
 
-      const { email, password } = req.body as { email?: string; password?: string };
-      if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+      const { email, password } = req.body as {
+        email?: string;
+        password?: string;
+      };
+      if (!email || !password)
+        return res.status(400).json({ error: "Email and password required" });
 
       const user = await db.getUserByEmail(email.toLowerCase().trim());
-      if (!user || !user.passwordHash) return res.status(401).json({ error: "Invalid email or password" });
+      if (!user || !user.passwordHash)
+        return res.status(401).json({ error: "Invalid email or password" });
 
       const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+      if (!valid)
+        return res.status(401).json({ error: "Invalid email or password" });
 
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
 
@@ -172,7 +205,10 @@ async function startServer() {
         expiresInMs: ONE_YEAR_MS,
       });
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
       return res.json({ ok: true });
     } catch (e) {
       console.error("[Auth] Login error:", e);
@@ -189,12 +225,25 @@ async function startServer() {
       const db = await import("../db.js");
       const { nanoid } = await import("nanoid");
 
-      const { name, email, password } = req.body as { name?: string; email?: string; password?: string };
-      if (!email || !password || !name) return res.status(400).json({ error: "Name, email and password required" });
-      if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+      const { name, email, password } = req.body as {
+        name?: string;
+        email?: string;
+        password?: string;
+      };
+      if (!email || !password || !name)
+        return res
+          .status(400)
+          .json({ error: "Name, email and password required" });
+      if (password.length < 8)
+        return res
+          .status(400)
+          .json({ error: "Password must be at least 8 characters" });
 
       const existing = await db.getUserByEmail(email.toLowerCase().trim());
-      if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+      if (existing)
+        return res
+          .status(409)
+          .json({ error: "An account with this email already exists" });
 
       const passwordHash = await bcrypt.hash(password, 12);
       const openId = `email:${nanoid(16)}`;
@@ -220,7 +269,10 @@ async function startServer() {
         expiresInMs: ONE_YEAR_MS,
       });
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
       return res.json({ ok: true });
     } catch (e) {
       console.error("[Auth] Register error:", e);
@@ -235,9 +287,15 @@ async function startServer() {
   app.post("/api/webhooks/social", async (req, res) => {
     const { processSocialInteraction } = await import("./social.js");
     const { postId, platform, userHandle, text, metadata } = req.body;
-    
+
     // Process asynchronously to keep webhook response times low
-    processSocialInteraction(postId, platform, userHandle, text, metadata).catch(err => {
+    processSocialInteraction(
+      postId,
+      platform,
+      userHandle,
+      text,
+      metadata
+    ).catch(err => {
       console.error("[Social Webhook] Failed to process interaction:", err);
     });
 
@@ -252,7 +310,9 @@ async function startServer() {
       const signature = req.headers["x-chapa-signature"];
 
       if (!secret) {
-        console.warn("[Chapa Webhook] CHAPA_SECRET_KEY not set. Signature check skipped for development.");
+        console.warn(
+          "[Chapa Webhook] CHAPA_SECRET_KEY not set. Signature check skipped for development."
+        );
       } else if (!signature || !req.rawBody) {
         console.error("[Chapa Webhook] Missing signature or raw body");
         return res.status(401).json({ error: "Missing signature" });
@@ -294,10 +354,14 @@ async function startServer() {
         return res.status(404).json({ error: "Workspace not found" });
       }
 
-      const billingInterval = (req.body.billingInterval === "yearly" ? "yearly" : "monthly") as "monthly" | "yearly";
+      const billingInterval = (
+        req.body.billingInterval === "yearly" ? "yearly" : "monthly"
+      ) as "monthly" | "yearly";
       const now = new Date();
       const nextPeriodEnd = new Date(now);
-      nextPeriodEnd.setDate(nextPeriodEnd.getDate() + (billingInterval === "yearly" ? 365 : 30));
+      nextPeriodEnd.setDate(
+        nextPeriodEnd.getDate() + (billingInterval === "yearly" ? 365 : 30)
+      );
 
       // Activate subscription
       await db.updateWorkspace(workspaceId, {
@@ -311,7 +375,9 @@ async function startServer() {
         billingInterval,
       });
 
-      console.log(`[Chapa Webhook] Activated subscription for workspace ${workspaceId}, plan: ${plan ?? workspace.plan}`);
+      console.log(
+        `[Chapa Webhook] Activated subscription for workspace ${workspaceId}, plan: ${plan ?? workspace.plan}`
+      );
       return res.json({ success: true });
     } catch (error) {
       console.error("[Chapa Webhook] Error:", error);
@@ -366,7 +432,7 @@ async function startServer() {
           <form id="payForm">
             <button type="submit" class="btn btn-pay">✅ Simulate Successful Payment</button>
           </form>
-          <a href="${return_url || '/billing'}"><button class="btn btn-cancel">Cancel</button></a>
+          <a href="${return_url || "/billing"}"><button class="btn btn-cancel">Cancel</button></a>
         </div>
         <script>
           document.getElementById('payForm').addEventListener('submit', async (e) => {
