@@ -1939,7 +1939,7 @@ export const appRouter = router({
             "Brand kit"
           );
         }),
-      create: mutatingProcedure
+      create: protectedProcedure
         .input(brandKitInputSchema)
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
@@ -2454,6 +2454,153 @@ Use ETB as the default currency for Ethiopia.`;
           }
 
           return result;
+        }),
+    }),
+    aiStudio: router({
+      generateAd: mutatingProcedure
+        .input(
+          z.object({
+            title: z.string().optional(),
+            price: z.string().optional(),
+            city: z.string().optional(),
+            subcity: z.string().optional(),
+            subLocation: z.string().optional(),
+            propertyType: z.string().optional(),
+            bedrooms: z.string().optional(),
+            bathrooms: z.string().optional(),
+            area: z.string().optional(),
+            description: z.string().optional(),
+            nearbyLandmarks: z.string().optional(),
+            utilities: z.string().optional(),
+            finishingLevel: z.string().optional(),
+            negotiable: z.boolean().optional(),
+            propertyUse: z.string().optional(),
+            titleType: z.string().optional(),
+            imageUrl: z.string().optional(),
+            brandKitId: z.number().optional(),
+            style: z.string().default("modern"),
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const { generatePropertyAd, normalizeBrandKit } =
+            await import("./_core/studioEngine.js");
+          const { getBrandKitById } = await import("./db.js");
+
+          let brand: any = {};
+          if (input.brandKitId) {
+            brand = await getBrandKitById(
+              { workspaceId: ctx.user.workspaceId!, userId: ctx.user.id },
+              input.brandKitId
+            );
+          }
+          const brandData = normalizeBrandKit(brand || {});
+
+          const listing = {
+            title: input.title || "",
+            price: input.price || "",
+            city: input.city || "Addis Ababa",
+            subcity: input.subcity || "",
+            subLocation: input.subLocation || "",
+            propertyType: input.propertyType || "",
+            bedrooms: input.bedrooms || "",
+            bathrooms: input.bathrooms || "",
+            area: input.area || "",
+            description: input.description || "",
+            nearbyLandmarks: input.nearbyLandmarks || "",
+            utilities: input.utilities || "",
+            finishingLevel: input.finishingLevel || "",
+            negotiable: input.negotiable || false,
+            propertyUse: input.propertyUse || "",
+            titleType: input.titleType || "",
+            imageUrl: input.imageUrl,
+          };
+
+          const result = await generatePropertyAd(
+            listing,
+            brandData,
+            input.style
+          );
+          return result;
+        }),
+      rebrand: mutatingProcedure
+        .input(
+          z.object({
+            competitorImageUrl: z.string().url(),
+            brandKitId: z.number().optional(),
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const { rebrandCompetitorAd, normalizeBrandKit } =
+            await import("./_core/studioEngine.js");
+          const { getBrandKitById } = await import("./db.js");
+
+          let brand: any = {};
+          if (input.brandKitId) {
+            brand = await getBrandKitById(
+              { workspaceId: ctx.user.workspaceId!, userId: ctx.user.id },
+              input.brandKitId
+            );
+          }
+          const brandData = normalizeBrandKit(brand || {});
+
+          return rebrandCompetitorAd(input.competitorImageUrl, brandData);
+        }),
+      generateCaption: protectedProcedure
+        .input(
+          z.object({
+            title: z.string().optional(),
+            price: z.string().optional(),
+            city: z.string().optional(),
+            subcity: z.string().optional(),
+            subLocation: z.string().optional(),
+            propertyType: z.string().optional(),
+            bedrooms: z.string().optional(),
+            bathrooms: z.string().optional(),
+            area: z.string().optional(),
+            description: z.string().optional(),
+            nearbyLandmarks: z.string().optional(),
+            utilities: z.string().optional(),
+            finishingLevel: z.string().optional(),
+            negotiable: z.boolean().optional(),
+            propertyUse: z.string().optional(),
+            titleType: z.string().optional(),
+            brandKitId: z.number().optional(),
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const { generateCaption, normalizeBrandKit } =
+            await import("./_core/studioEngine.js");
+          const { getBrandKitById } = await import("./db.js");
+
+          let brand: any = {};
+          if (input.brandKitId) {
+            brand = await getBrandKitById(
+              { workspaceId: ctx.user.workspaceId!, userId: ctx.user.id },
+              input.brandKitId
+            );
+          }
+          const brandData = normalizeBrandKit(brand || {});
+
+          const listing = {
+            title: input.title || "",
+            price: input.price || "",
+            city: input.city || "Addis Ababa",
+            subcity: input.subcity || "",
+            subLocation: input.subLocation || "",
+            propertyType: input.propertyType || "",
+            bedrooms: input.bedrooms || "",
+            bathrooms: input.bathrooms || "",
+            area: input.area || "",
+            description: input.description || "",
+            nearbyLandmarks: input.nearbyLandmarks || "",
+            utilities: input.utilities || "",
+            finishingLevel: input.finishingLevel || "",
+            negotiable: input.negotiable || false,
+            propertyUse: input.propertyUse || "",
+            titleType: input.titleType || "",
+          };
+
+          return generateCaption(listing, brandData);
         }),
     }),
   }),
