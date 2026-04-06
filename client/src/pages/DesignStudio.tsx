@@ -1789,21 +1789,22 @@ export default function DesignStudio() {
         id: "listing_creator",
         icon: "🏠",
         label: "Listing Creator",
-        tagline: "Upload photos, fill details, pick a template, publish.",
+        tagline:
+          "Upload a property photo, fill in details, choose a template style, and publish to social media.",
       },
       {
         id: "image_rebrander",
         icon: "🎨",
         label: "Image Rebrander",
         tagline:
-          "Upload a competitor ad — AI strips the watermark and applies your brand.",
+          "Upload a competitor ad, mask their watermark by drawing a box, and overlay your brand logo and colours.",
       },
       {
         id: "advert_creator",
         icon: "✨",
         label: "Advert Creator",
         tagline:
-          "AI generates a complete ad from your Brand Kit. No photo needed.",
+          "Describe your property in words — AI generates a complete ad using your Brand Kit colours, logo, and fonts.",
         badge: "AI",
       },
       {
@@ -1811,14 +1812,14 @@ export default function DesignStudio() {
         icon: "🎬",
         label: "Video Tour",
         tagline:
-          "Upload walkthrough footage, add overlays, export as Reel or Story.",
+          "Upload your property walkthrough footage (vertical preferred). We add branded overlays with price, location, and contact info.",
       },
       {
         id: "video_ad",
         icon: "📱",
         label: "Video Ad",
         tagline:
-          "Landscape or vertical — brand intro, listing highlights, and a strong CTA.",
+          "Create a polished ad video with your brand intro, property highlights, and a call-to-action ending. Works with any aspect ratio.",
         badge: "New",
       },
     ];
@@ -1902,86 +1903,303 @@ export default function DesignStudio() {
                 Image Rebrander
               </h1>
               <p className="text-muted-foreground text-sm">
-                Upload a competitor ad to get started — our AI replaces their
-                brand with yours.
+                Upload a competitor ad, mask their watermark, and overlay your
+                brand.
               </p>
             </div>
           </div>
-          <div className="max-w-xl space-y-4">
-            <div className="border-2 border-dashed border-border rounded-3xl p-12 flex flex-col items-center gap-6 hover:border-accent/60 transition-colors bg-card">
-              <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center text-4xl">
-                🎨
-              </div>
-              <div className="text-center">
-                <p className="font-semibold">Upload Competitor Ad</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  PNG, JPG or WebP. Apply your brand colours and logo.
-                </p>
-              </div>
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const url = URL.createObjectURL(file);
-                    const bgEl: StudioElement = {
-                      id: uid(),
-                      type: "rect",
-                      layer: "background",
-                      baseWidth: 1000,
-                      baseHeight: 1000,
-                      constraints: {
-                        x: { anchor: "left", margin: 0, priority: 0 },
-                        y: { anchor: "top", margin: 0, priority: 0 },
-                      },
-                      content: {},
-                      style: { fill: "#ffffff", borderRadius: 0 },
-                    };
-                    const imgEl: StudioElement = {
-                      id: uid(),
-                      type: "image",
-                      layer: "image",
-                      baseWidth: 1000,
-                      baseHeight: 1000,
-                      constraints: {
-                        x: { anchor: "center", margin: 0, priority: 1 },
-                        y: { anchor: "middle", margin: 0, priority: 1 },
-                      },
-                      content: { src: url },
-                      style: { borderRadius: 0 },
-                    };
-                    updateDesign({
-                      name: "Rebranded Ad",
-                      format: "1:1",
-                      elements: [bgEl, imgEl],
-                    });
-                    setPhase("edit");
-                    toast.success(
-                      "Image loaded — use AI Rebrand in the left panel."
-                    );
-                  }}
-                />
-                <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:bg-accent/90 transition-colors">
-                  <Upload className="w-4 h-4" /> Choose Image
+
+          {/* Step Guide */}
+          <div className="flex items-center gap-4 mb-8">
+            {[
+              "Upload Image",
+              "Mask Watermark",
+              "Apply Brand",
+              "Preview & Download",
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-2 flex-1">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                    (i === 0 && !rebrandImage) ||
+                    (i === 1 && rebrandImage && !rebrandMaskRect) ||
+                    (i === 2 && rebrandMaskRect && !adGenerated)
+                      ? "bg-accent text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {i + 1}
+                </div>
+                <span
+                  className={`text-xs font-semibold ${
+                    (i === 0 && !rebrandImage) ||
+                    (i === 1 && rebrandImage && !rebrandMaskRect) ||
+                    (i === 2 && rebrandMaskRect && !adGenerated)
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {step}
                 </span>
-              </label>
-            </div>
-            {activeBrandKit && (
-              <div className="p-4 rounded-2xl border border-border bg-muted/30 flex items-center gap-3">
-                <Palette className="w-5 h-5 text-accent shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold">Brand Kit Ready</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(activeBrandKit as any).name} will be applied
-                    automatically.
+                {i < 3 && <div className="flex-1 h-px bg-border" />}
+              </div>
+            ))}
+          </div>
+
+          {!rebrandImage ? (
+            /* ── Step 1: Upload ── */
+            <div className="max-w-xl space-y-4">
+              <div className="border-2 border-dashed border-border rounded-3xl p-12 flex flex-col items-center gap-6 hover:border-accent/60 transition-colors bg-card">
+                <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center text-4xl">
+                  🎨
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold">Upload Competitor Ad</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    PNG, JPG or WebP. We'll help you mask their watermark and
+                    apply your brand.
                   </p>
                 </div>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setRebrandImage(URL.createObjectURL(file));
+                      setRebrandMaskRect(null);
+                      setRebrandMasking(false);
+                      toast.success(
+                        "Image loaded — now mask the watermark area"
+                      );
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:bg-accent/90 transition-colors">
+                    <Upload className="w-4 h-4" /> Choose Image
+                  </span>
+                </label>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            /* ── Step 2-4: Preview + Mask + Brand ── */
+            <div className="space-y-6">
+              <div className="flex gap-6">
+                {/* Preview Panel */}
+                <div className="flex-1">
+                  <div
+                    className="relative bg-card border border-border rounded-2xl overflow-hidden"
+                    style={{ aspectRatio: "1/1" }}
+                  >
+                    <img
+                      src={rebrandImage}
+                      className="w-full h-full object-contain"
+                    />
+
+                    {/* Mask overlay */}
+                    {rebrandMaskRect && (
+                      <div
+                        className="absolute border-2 border-red-500 bg-red-500/20"
+                        style={{
+                          left: `${rebrandMaskRect.x}%`,
+                          top: `${rebrandMaskRect.y}%`,
+                          width: `${rebrandMaskRect.w}%`,
+                          height: `${rebrandMaskRect.h}%`,
+                        }}
+                      >
+                        <div className="absolute -top-6 left-0 text-[10px] font-bold text-red-500 bg-white px-2 py-0.5 rounded">
+                          Watermark Area
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Brand overlay preview */}
+                    {rebrandMaskRect && activeBrandKit && (
+                      <div
+                        className="absolute flex items-center justify-center"
+                        style={{
+                          left: `${rebrandMaskRect.x}%`,
+                          top: `${rebrandMaskRect.y}%`,
+                          width: `${rebrandMaskRect.w}%`,
+                          height: `${rebrandMaskRect.h}%`,
+                        }}
+                      >
+                        <div
+                          className="w-full h-full flex flex-col items-center justify-center"
+                          style={{
+                            backgroundColor: `${brandData.primaryColor}CC`,
+                          }}
+                        >
+                          {brandData.logo && (
+                            <img
+                              src={brandData.logo}
+                              className="max-w-[60%] max-h-[60%] object-contain"
+                            />
+                          )}
+                          <span className="text-white font-bold text-lg mt-1">
+                            {brandData.companyName}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Masking mode crosshair */}
+                    {rebrandMasking && (
+                      <div
+                        className="absolute inset-0 cursor-crosshair bg-black/10"
+                        onMouseDown={e => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setRebrandDragStart({
+                            x: ((e.clientX - rect.left) / rect.width) * 100,
+                            y: ((e.clientY - rect.top) / rect.height) * 100,
+                          });
+                          setRebrandDragging(true);
+                        }}
+                        onMouseMove={e => {
+                          if (!rebrandDragging || !rebrandDragStart) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const cx =
+                            ((e.clientX - rect.left) / rect.width) * 100;
+                          const cy =
+                            ((e.clientY - rect.top) / rect.height) * 100;
+                          setRebrandMaskRect({
+                            x: Math.min(rebrandDragStart.x, cx),
+                            y: Math.min(rebrandDragStart.y, cy),
+                            w: Math.abs(cx - rebrandDragStart.x),
+                            h: Math.abs(cy - rebrandDragStart.y),
+                          });
+                        }}
+                        onMouseUp={() => {
+                          setRebrandDragging(false);
+                          setRebrandMasking(false);
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Controls Panel */}
+                <div className="w-72 space-y-4">
+                  <div className="p-4 rounded-xl bg-card border border-border">
+                    <h3 className="text-sm font-bold mb-3">Actions</h3>
+                    <div className="space-y-2">
+                      {!rebrandMaskRect ? (
+                        <Button
+                          className={`w-full ${rebrandMasking ? "bg-red-500 hover:bg-red-600" : "bg-accent hover:bg-accent/90"}`}
+                          onClick={() => {
+                            if (rebrandMasking) {
+                              setRebrandMasking(false);
+                              setRebrandMaskRect(null);
+                            } else {
+                              setRebrandMasking(true);
+                              toast.info(
+                                "Click and drag on the image to mask the watermark area"
+                              );
+                            }
+                          }}
+                        >
+                          {rebrandMasking
+                            ? "Cancel Masking"
+                            : "Draw Watermark Mask"}
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            className="w-full bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => {
+                              setAdGenerated(true);
+                              toast.success("Brand overlay applied!");
+                            }}
+                          >
+                            <Palette className="w-4 h-4 mr-2" /> Apply My Brand
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                              setRebrandMaskRect(null);
+                              setRebrandMasking(true);
+                            }}
+                          >
+                            Redraw Mask
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setRebrandImage(null);
+                          setRebrandMaskRect(null);
+                          setAdGenerated(false);
+                        }}
+                      >
+                        <Upload className="w-4 h-4 mr-2" /> New Image
+                      </Button>
+                    </div>
+                  </div>
+
+                  {activeBrandKit && (
+                    <div className="p-4 rounded-xl bg-muted/30 border border-border">
+                      <p className="text-xs font-bold uppercase text-muted-foreground mb-2">
+                        Your Brand
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {brandData.logo && (
+                          <img
+                            src={brandData.logo}
+                            className="w-8 h-8 object-contain"
+                          />
+                        )}
+                        <span className="text-sm font-semibold">
+                          {brandData.companyName}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <div
+                          className="w-6 h-6 rounded-full border"
+                          style={{ backgroundColor: brandData.primaryColor }}
+                        />
+                        <div
+                          className="w-6 h-6 rounded-full border"
+                          style={{ backgroundColor: brandData.secondaryColor }}
+                        />
+                        <div
+                          className="w-6 h-6 rounded-full border"
+                          style={{ backgroundColor: brandData.backgroundColor }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {adGenerated && (
+                    <Button
+                      className="w-full bg-accent text-white"
+                      onClick={async () => {
+                        const el = document.querySelector(
+                          "[data-rebrand-preview]"
+                        ) as HTMLElement;
+                        if (el) {
+                          try {
+                            const dataUrl = await toPng(el);
+                            const a = document.createElement("a");
+                            a.href = dataUrl;
+                            a.download = "rebranded.png";
+                            a.click();
+                            toast.success("Downloaded!");
+                          } catch {
+                            toast.error("Download failed");
+                          }
+                        }
+                      }}
+                    >
+                      <Download className="w-4 h-4 mr-2" /> Download Result
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </DashboardLayout>
       );
 
@@ -2001,116 +2219,244 @@ export default function DesignStudio() {
               </p>
             </div>
           </div>
-          <div className="max-w-lg space-y-6">
-            <div className="p-6 rounded-3xl border border-border bg-card space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-accent" />
+
+          {/* Step Guide */}
+          <div className="flex items-center gap-4 mb-8">
+            {[
+              "Describe Property",
+              "Choose Style",
+              "Generate Ad",
+              "Edit & Publish",
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-2 flex-1">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                    (!adGenerated && i === 0) || (adGenerated && i >= 2)
+                      ? "bg-accent text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {i + 1}
                 </div>
-                <div>
-                  <p className="font-semibold">AI Ad Generator</p>
-                  <p className="text-xs text-muted-foreground">
-                    Brand Kit auto-applied
-                  </p>
-                </div>
-                {activeBrandKit && (
-                  <span className="ml-auto text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
-                    ✓ {(activeBrandKit as any).name}
-                  </span>
-                )}
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">
-                  Property Description
-                </label>
-                <textarea
-                  id="advert-desc"
-                  className="w-full h-28 bg-background border border-border rounded-xl p-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
-                  placeholder="e.g. 3-bedroom villa in Bole. Modern kitchen, rooftop terrace. ETB 8.5M..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">
-                    Format
-                  </label>
-                  <select
-                    id="advert-format"
-                    className="w-full h-9 bg-background border border-border rounded-lg px-3 text-sm mt-1"
-                  >
-                    <option value="1:1">Square (1:1)</option>
-                    <option value="4:5">Portrait (4:5)</option>
-                    <option value="9:16">Story (9:16)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">
-                    Style
-                  </label>
-                  <select className="w-full h-9 bg-background border border-border rounded-lg px-3 text-sm mt-1">
-                    <option>Luxury Gold/Black</option>
-                    <option>Minimalist Clean</option>
-                    <option>Bold Commercial</option>
-                  </select>
-                </div>
-              </div>
-              <Button
-                className="w-full bg-accent text-white hover:bg-accent/90 h-11 gap-2 font-semibold"
-                onClick={() => {
-                  const desc =
-                    (
-                      document.getElementById(
-                        "advert-desc"
-                      ) as HTMLTextAreaElement
-                    )?.value || "Luxury property";
-                  const fmt = ((
-                    document.getElementById(
-                      "advert-format"
-                    ) as HTMLSelectElement
-                  )?.value || "1:1") as AspectRatio;
-                  const tpl =
-                    TEMPLATES.find(t => t.id === "luxury-gold-listing") ||
-                    TEMPLATES[0];
-                  updateDesign({
-                    id: tpl.id,
-                    name: `Ad — ${desc.slice(0, 30)}`,
-                    format: fmt,
-                    elements: makeElements(tpl),
-                  });
-                  if (activeBrandKit) {
-                    const colors = (activeBrandKit.colors as any) || {};
-                    updateDesign(prev =>
-                      applyBrandTheme(prev, {
-                        primary: colors.primary || "#1e3a5f",
-                        secondary: colors.secondary || "#f5f0eb",
-                        accent: colors.accent || "#d4af37",
-                        fonts: (activeBrandKit.fonts as any) || {
-                          heading: "Poppins, sans-serif",
-                          body: "Poppins, sans-serif",
-                        },
-                      })
-                    );
-                  }
-                  setPhase("edit");
-                  toast.success("AI Ad generated — Brand Kit applied!");
-                }}
-              >
-                <Sparkles className="w-4 h-4" /> Generate Advert
-              </Button>
-            </div>
-            {!activeBrandKit && (
-              <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
-                <Palette className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>
-                  No Brand Kit found.{" "}
-                  <a href="/settings" className="font-semibold underline">
-                    Create one in Settings → Brand Identity
-                  </a>{" "}
-                  to auto-apply your logo, colours and fonts.
+                <span
+                  className={`text-xs font-semibold ${
+                    (!adGenerated && i === 0) || (adGenerated && i >= 2)
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {step}
                 </span>
+                {i < 3 && <div className="flex-1 h-px bg-border" />}
               </div>
-            )}
+            ))}
           </div>
+
+          {!adGenerated ? (
+            /* ── Steps 1-2: Form ── */
+            <div className="max-w-2xl mx-auto">
+              <div className="p-8 rounded-3xl border border-border bg-card space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">AI Ad Generator</p>
+                    <p className="text-xs text-muted-foreground">
+                      Brand Kit auto-applied
+                    </p>
+                  </div>
+                  {activeBrandKit && (
+                    <span className="ml-auto text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                      ✓ {activeBrandKit.name}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                    Property Description
+                  </Label>
+                  <textarea
+                    value={adDesc}
+                    onChange={e => setAdDesc(e.target.value)}
+                    rows={4}
+                    className="w-full bg-background border border-border rounded-xl p-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+                    placeholder="e.g. 3-bedroom villa in Bole Atlas. Modern kitchen, rooftop terrace, backup generator. ETB 8.5M..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                      Format
+                    </Label>
+                    <div className="flex gap-2">
+                      {(["1:1", "4:5", "9:16"] as AspectRatio[]).map(fmt => (
+                        <button
+                          key={fmt}
+                          onClick={() => setAdFormat(fmt)}
+                          className={`flex-1 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                            adFormat === fmt
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-border text-muted-foreground hover:border-accent/40"
+                          }`}
+                        >
+                          {fmt === "1:1"
+                            ? "Square"
+                            : fmt === "4:5"
+                              ? "Portrait"
+                              : "Story"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                      Style
+                    </Label>
+                    <div className="flex gap-2">
+                      {[
+                        "Luxury Gold/Black",
+                        "Minimalist Clean",
+                        "Bold Commercial",
+                      ].map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setAdStyle(s)}
+                          className={`flex-1 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                            adStyle === s
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-border text-muted-foreground hover:border-accent/40"
+                          }`}
+                        >
+                          {s.split(" ")[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                      Property Type
+                    </Label>
+                    <select
+                      value={formData.propertyType}
+                      onChange={e =>
+                        setFormData(prev => ({
+                          ...prev,
+                          propertyType: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm"
+                    >
+                      <option value="Villa">Villa</option>
+                      <option value="Apartment">Apartment</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Land">Land</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                      Tone
+                    </Label>
+                    <select className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm">
+                      <option>Luxury</option>
+                      <option>Affordable</option>
+                      <option>Urgent</option>
+                    </select>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full bg-accent text-white hover:bg-accent/90 h-12 gap-2 font-semibold text-base"
+                  disabled={!adDesc.trim()}
+                  onClick={() => {
+                    const tplId = adStyle.includes("Luxury")
+                      ? "luxury-gold-listing"
+                      : adStyle.includes("Minimal")
+                        ? "minimal"
+                        : "property-poster";
+                    const tpl =
+                      TEMPLATES.find(t => t.id === tplId) || TEMPLATES[0];
+                    updateDesign({
+                      id: tpl.id,
+                      name: `Ad — ${adDesc.slice(0, 30)}`,
+                      format: adFormat,
+                      elements: makeElements(tpl),
+                    });
+                    if (activeBrandKit) {
+                      const colors = (activeBrandKit.colors as any) || {};
+                      updateDesign(prev =>
+                        applyBrandTheme(prev, {
+                          primary: colors.primary || "#1e3a5f",
+                          secondary: colors.secondary || "#f5f0eb",
+                          accent: colors.accent || "#d4af37",
+                          fonts: (activeBrandKit.fonts as any) || {
+                            heading: "Poppins, sans-serif",
+                            body: "Poppins, sans-serif",
+                          },
+                        })
+                      );
+                    }
+                    setPhase("edit");
+                    setAdGenerated(true);
+                    toast.success("AI Ad generated — Brand Kit applied!");
+                  }}
+                >
+                  <Sparkles className="w-5 h-5" /> Generate Advert
+                </Button>
+              </div>
+
+              {!activeBrandKit && (
+                <div className="mt-4 p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
+                  <Palette className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    No Brand Kit found.{" "}
+                    <a href="/settings" className="font-semibold underline">
+                      Create one in Settings → Brand Identity
+                    </a>{" "}
+                    to auto-apply your logo, colours and fonts.
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── Steps 3-4: Generated Ad ── */
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAdGenerated(false);
+                    setPhase("pick");
+                  }}
+                >
+                  ← Back to Form
+                </Button>
+                <Button
+                  className="bg-accent text-white"
+                  onClick={async () => {
+                    if (!canvasRef.current) return;
+                    try {
+                      const dataUrl = await toPng(canvasRef.current);
+                      const a = document.createElement("a");
+                      a.href = dataUrl;
+                      a.download = `${design.name || "advert"}.png`;
+                      a.click();
+                      toast.success("Ad downloaded!");
+                    } catch {
+                      toast.error("Download failed");
+                    }
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" /> Download Ad
+                </Button>
+              </div>
+            </div>
+          )}
         </DashboardLayout>
       );
 
@@ -2123,12 +2469,45 @@ export default function DesignStudio() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Video Tour</h1>
               <p className="text-muted-foreground text-sm">
-                Upload walkthrough footage, add overlays, export as Reel or
-                Story.
+                Upload your property walkthrough footage. We'll add your
+                branding, price, and location as overlays.
               </p>
             </div>
           </div>
-          <div className="max-w-xl space-y-4">
+
+          {/* Step Guide */}
+          <div className="flex items-center gap-4 mb-8">
+            {[
+              { num: 1, label: "Upload Video" },
+              { num: 2, label: "Add Details" },
+              { num: 3, label: "Choose Overlay" },
+              { num: 4, label: "Preview & Download" },
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-2 flex-1">
+                <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0">
+                  {step.num}
+                </div>
+                <span className="text-xs font-semibold text-foreground">
+                  {step.label}
+                </span>
+                {i < 3 && <div className="flex-1 h-px bg-border" />}
+              </div>
+            ))}
+          </div>
+
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Guideline */}
+            <div className="p-4 rounded-2xl bg-accent/5 border border-accent/10">
+              <p className="text-sm font-semibold text-accent mb-1">
+                What to upload
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Upload a video you recorded walking through the property. We'll
+                add your branding, price, and location as overlays. Vertical
+                video (9:16) is preferred for Instagram Reels and TikTok.
+              </p>
+            </div>
+
             <div className="border-2 border-dashed border-border rounded-3xl p-12 flex flex-col items-center gap-6 hover:border-accent/60 transition-colors bg-card">
               <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center text-4xl">
                 🎬
@@ -2136,7 +2515,7 @@ export default function DesignStudio() {
               <div className="text-center">
                 <p className="font-semibold">Upload Walkthrough Footage</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  MP4, MOV or WebM. Formatted to 9:16 for Reels and TikTok.
+                  MP4, MOV or WebM. Vertical (9:16) recommended.
                 </p>
               </div>
               <label className="cursor-pointer">
@@ -2165,26 +2544,28 @@ export default function DesignStudio() {
                       format: "9:16",
                       elements,
                     });
+                    if (activeBrandKit) {
+                      const colors = (activeBrandKit.colors as any) || {};
+                      updateDesign(prev =>
+                        applyBrandTheme(prev, {
+                          primary: colors.primary || "#1e3a5f",
+                          secondary: colors.secondary || "#f5f0eb",
+                          accent: colors.accent || "#d4af37",
+                          fonts: (activeBrandKit.fonts as any) || {
+                            heading: "Poppins, sans-serif",
+                            body: "Poppins, sans-serif",
+                          },
+                        })
+                      );
+                    }
                     setPhase("edit");
-                    toast.success(
-                      "Video loaded — add overlays in the left panel."
-                    );
+                    toast.success("Video loaded — add overlays in the editor.");
                   }}
                 />
                 <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:bg-accent/90 transition-colors">
                   <Video className="w-4 h-4" /> Upload Footage
                 </span>
               </label>
-            </div>
-            <div className="p-4 rounded-2xl border border-border bg-muted/30">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                Available in the editor:
-              </p>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>✓ Text overlays (price, location, contact)</li>
-                <li>✓ Branded lower-third panels</li>
-                <li>✓ Export as 9:16 for Reels & TikTok</li>
-              </ul>
             </div>
           </div>
         </DashboardLayout>
@@ -2199,11 +2580,47 @@ export default function DesignStudio() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Video Ad</h1>
               <p className="text-muted-foreground text-sm">
-                Brand intro + highlights + CTA. Vertical or landscape.
+                Create a property advertisement video with brand intro,
+                highlights, and CTA ending.
               </p>
             </div>
           </div>
-          <div className="max-w-xl space-y-5">
+
+          {/* Step Guide */}
+          <div className="flex items-center gap-4 mb-8">
+            {[
+              { num: 1, label: "Upload Video" },
+              { num: 2, label: "Add Details" },
+              { num: 3, label: "Choose Style" },
+              { num: 4, label: "Preview & Download" },
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-2 flex-1">
+                <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0">
+                  {step.num}
+                </div>
+                <span className="text-xs font-semibold text-foreground">
+                  {step.label}
+                </span>
+                {i < 3 && <div className="flex-1 h-px bg-border" />}
+              </div>
+            ))}
+          </div>
+
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Guideline */}
+            <div className="p-4 rounded-2xl bg-accent/5 border border-accent/10">
+              <p className="text-sm font-semibold text-accent mb-1">
+                What to upload
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Upload landscape or vertical footage. We'll create a
+                professional ad with your brand intro, property highlights, and
+                a call-to-action ending. Works with both 16:9 (YouTube/Facebook)
+                and 9:16 (Reels/TikTok).
+              </p>
+            </div>
+
+            {/* Format Selector */}
             <div className="grid grid-cols-2 gap-3">
               {(["9:16", "16:9"] as const).map(fmt => (
                 <button
@@ -2221,14 +2638,13 @@ export default function DesignStudio() {
                       {fmt === "9:16" ? "Vertical" : "Landscape"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {fmt === "9:16"
-                        ? "Reels & Stories"
-                        : "YouTube & Facebook"}
+                      {fmt === "9:16" ? "Reels & TikTok" : "YouTube & Facebook"}
                     </p>
                   </div>
                 </button>
               ))}
             </div>
+
             <div className="border-2 border-dashed border-border rounded-3xl p-10 flex flex-col items-center gap-5 hover:border-accent/60 transition-colors bg-card">
               <div className="text-4xl">📱</div>
               <div className="text-center">
@@ -3433,6 +3849,29 @@ export default function DesignStudio() {
                         <Zap className="w-3.5 h-3.5" /> Generate Magic Reel
                       </span>
                     )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full text-xs rounded-xl py-5 mt-2"
+                    onClick={() => {
+                      const videoEl = document.querySelector(
+                        "video[src]"
+                      ) as HTMLVideoElement;
+                      if (videoEl && videoEl.src) {
+                        const a = document.createElement("a");
+                        a.href = videoEl.src;
+                        a.download = `${design.name || "video"}.mp4`;
+                        a.click();
+                        toast.success("Video downloaded!");
+                      } else {
+                        toast.error(
+                          "No video to download. Generate one first."
+                        );
+                      }
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5 mr-2" /> Download Video
                   </Button>
                 </div>
 
