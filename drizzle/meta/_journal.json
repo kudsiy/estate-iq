@@ -50,6 +50,13 @@
       "when": 1774884857707,
       "tag": "0006_cloudy_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1775513537568,
+      "tag": "0007_easy_blue_blade",
+      "breakpoints": true
     }
   ]
 }
