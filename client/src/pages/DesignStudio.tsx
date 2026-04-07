@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { generateAdImage } from "@/lib/studio/CanvasAdGenerator";
 
 type StudioMode = "create-ad" | "create-video" | "create-agency";
 type AdStyle =
@@ -139,13 +140,33 @@ export default function DesignStudio() {
     }
     setIsGenerating(true);
     try {
-      const result = await generateAdMutation.mutateAsync({
-        ...listing,
-        brandKitId: brandData.id,
-        style: adStyle,
-      });
-      setGeneratedImageUrl(result.imageUrl);
-      toast.success("Ad generated successfully!");
+      const dataUrl = await generateAdImage(
+        {
+          title: listing.title,
+          price: listing.price,
+          subcity: listing.subcity,
+          subLocation: listing.subLocation,
+          propertyType: listing.propertyType,
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          area: listing.area,
+          description: listing.description,
+          imageUrl: listing.imageUrl || undefined,
+        },
+        {
+          primaryColor: brandData.primaryColor,
+          secondaryColor: brandData.secondaryColor,
+          backgroundColor: brandData.backgroundColor,
+          textColor: "#ffffff",
+          logoUrl: brandData.logoUrl || undefined,
+          phoneNumber: brandData.phoneNumber || undefined,
+          companyName: brandData.name,
+          tagline: brandData.tagline || undefined,
+        },
+        adStyle
+      );
+      setGeneratedImageUrl(dataUrl);
+      toast.success("Ad generated!");
     } catch (e: any) {
       toast.error(e.message || "Generation failed");
     } finally {
@@ -184,12 +205,33 @@ export default function DesignStudio() {
     }
     setIsRebranding(true);
     try {
-      const result = await rebrandMutation.mutateAsync({
-        competitorImageUrl: rebrandImage,
-        brandKitId: brandData.id,
-      });
-      setGeneratedImageUrl(result.imageUrl);
-      toast.success("Rebranding complete!");
+      const dataUrl = await generateAdImage(
+        {
+          title: "Rebranded Property",
+          price: "",
+          subcity: "",
+          subLocation: "",
+          propertyType: "",
+          bedrooms: "",
+          bathrooms: "",
+          area: "",
+          description: "",
+          imageUrl: rebrandImage,
+        },
+        {
+          primaryColor: brandData.primaryColor,
+          secondaryColor: brandData.secondaryColor,
+          backgroundColor: brandData.backgroundColor,
+          textColor: "#ffffff",
+          logoUrl: brandData.logoUrl || undefined,
+          phoneNumber: brandData.phoneNumber || undefined,
+          companyName: brandData.name,
+          tagline: brandData.tagline || undefined,
+        },
+        "modern"
+      );
+      setGeneratedImageUrl(dataUrl);
+      toast.success("Rebranded!");
     } catch (e: any) {
       toast.error(e.message || "Rebranding failed");
     } finally {
@@ -218,14 +260,22 @@ export default function DesignStudio() {
   const downloadImage = async () => {
     if (!generatedImageUrl) return;
     try {
-      const response = await fetch(generatedImageUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${listing.title || "property-ad"}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // If it's a data URL (canvas-generated), download directly
+      if (generatedImageUrl.startsWith("data:")) {
+        const a = document.createElement("a");
+        a.href = generatedImageUrl;
+        a.download = `${listing.title || "property-ad"}.png`;
+        a.click();
+      } else {
+        const response = await fetch(generatedImageUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${listing.title || "property-ad"}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
       toast.success("Image downloaded!");
     } catch {
       toast.error("Download failed");

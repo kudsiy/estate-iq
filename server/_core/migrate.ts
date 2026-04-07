@@ -24,6 +24,9 @@ const MIGRATIONS: string[] = [
 ];
 
 export async function runDbMigrations() {
+  console.log("[DB] Migration runner starting...");
+  console.log("[DB] DATABASE_URL present:", !!ENV.databaseUrl);
+
   if (!ENV.databaseUrl) {
     console.warn("[DB] No DATABASE_URL — skipping migrations");
     return;
