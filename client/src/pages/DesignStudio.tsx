@@ -23,7 +23,12 @@ import {
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { generateAdImage } from "@/lib/studio/CanvasAdGenerator";
+import {
+  generateAdImage,
+  generateRebrand,
+  generateVideo,
+  generateCaption,
+} from "@/lib/studio/CanvasAdGenerator";
 
 type StudioMode = "create-ad" | "create-video" | "create-agency";
 type AdStyle =
@@ -127,7 +132,7 @@ export default function DesignStudio() {
       }
     : null;
 
-  // AI mutations
+  // AI mutations (kept for potential server-side fallback)
   const generateAdMutation = trpc.studio.aiStudio.generateAd.useMutation();
   const rebrandMutation = trpc.studio.aiStudio.rebrand.useMutation();
   const generateCaptionMutation =
@@ -151,6 +156,10 @@ export default function DesignStudio() {
           bathrooms: listing.bathrooms,
           area: listing.area,
           description: listing.description,
+          nearbyLandmarks: listing.nearbyLandmarks,
+          utilities: listing.utilities,
+          finishingLevel: listing.finishingLevel,
+          negotiable: listing.negotiable,
           imageUrl: listing.imageUrl || undefined,
         },
         {
@@ -160,8 +169,13 @@ export default function DesignStudio() {
           textColor: "#ffffff",
           logoUrl: brandData.logoUrl || undefined,
           phoneNumber: brandData.phoneNumber || undefined,
+          whatsappNumber: brandData.whatsappNumber || undefined,
+          telegramChannel: brandData.telegramChannel || undefined,
+          instagramHandle: brandData.instagramHandle || undefined,
+          tiktokHandle: brandData.tiktokHandle || undefined,
           companyName: brandData.name,
           tagline: brandData.tagline || undefined,
+          languagePreference: brandData.languagePreference || "both",
         },
         adStyle
       );
@@ -181,10 +195,35 @@ export default function DesignStudio() {
     }
     setIsCaptionLoading(true);
     try {
-      const result = await generateCaptionMutation.mutateAsync({
-        ...listing,
-        brandKitId: brandData.id,
-      });
+      const result = generateCaption(
+        {
+          title: listing.title,
+          price: listing.price,
+          subcity: listing.subcity,
+          subLocation: listing.subLocation,
+          propertyType: listing.propertyType,
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          area: listing.area,
+          description: listing.description,
+          nearbyLandmarks: listing.nearbyLandmarks,
+          utilities: listing.utilities,
+          finishingLevel: listing.finishingLevel,
+          negotiable: listing.negotiable,
+        },
+        {
+          primaryColor: brandData.primaryColor,
+          secondaryColor: brandData.secondaryColor,
+          backgroundColor: brandData.backgroundColor,
+          textColor: "#ffffff",
+          phoneNumber: brandData.phoneNumber || undefined,
+          whatsappNumber: brandData.whatsappNumber || undefined,
+          telegramChannel: brandData.telegramChannel || undefined,
+          companyName: brandData.name,
+          tagline: brandData.tagline || undefined,
+          languagePreference: brandData.languagePreference || "both",
+        }
+      );
       setCaption(result);
       toast.success("Captions generated!");
     } catch (e: any) {
@@ -205,18 +244,49 @@ export default function DesignStudio() {
     }
     setIsRebranding(true);
     try {
-      const dataUrl = await generateAdImage(
+      const dataUrl = await generateRebrand(rebrandImage, {
+        primaryColor: brandData.primaryColor,
+        secondaryColor: brandData.secondaryColor,
+        backgroundColor: brandData.backgroundColor,
+        textColor: "#ffffff",
+        logoUrl: brandData.logoUrl || undefined,
+        phoneNumber: brandData.phoneNumber || undefined,
+        whatsappNumber: brandData.whatsappNumber || undefined,
+        telegramChannel: brandData.telegramChannel || undefined,
+        instagramHandle: brandData.instagramHandle || undefined,
+        tiktokHandle: brandData.tiktokHandle || undefined,
+        companyName: brandData.name,
+        tagline: brandData.tagline || undefined,
+        languagePreference: brandData.languagePreference || "both",
+      });
+      setGeneratedImageUrl(dataUrl);
+      toast.success("Rebranded!");
+    } catch (e: any) {
+      toast.error(e.message || "Rebranding failed");
+    } finally {
+      setIsRebranding(false);
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    if (!brandData) {
+      toast.error("Create a Brand Kit first");
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const videoUrl = await generateVideo(
         {
-          title: "Rebranded Property",
-          price: "",
-          subcity: "",
-          subLocation: "",
-          propertyType: "",
-          bedrooms: "",
-          bathrooms: "",
-          area: "",
-          description: "",
-          imageUrl: rebrandImage,
+          title: listing.title,
+          price: listing.price,
+          subcity: listing.subcity,
+          subLocation: listing.subLocation,
+          propertyType: listing.propertyType,
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          area: listing.area,
+          description: listing.description,
+          imageUrl: listing.imageUrl || undefined,
         },
         {
           primaryColor: brandData.primaryColor,
@@ -225,17 +295,20 @@ export default function DesignStudio() {
           textColor: "#ffffff",
           logoUrl: brandData.logoUrl || undefined,
           phoneNumber: brandData.phoneNumber || undefined,
+          whatsappNumber: brandData.whatsappNumber || undefined,
+          telegramChannel: brandData.telegramChannel || undefined,
           companyName: brandData.name,
           tagline: brandData.tagline || undefined,
+          languagePreference: brandData.languagePreference || "both",
         },
-        "modern"
+        adStyle
       );
-      setGeneratedImageUrl(dataUrl);
-      toast.success("Rebranded!");
+      setGeneratedImageUrl(videoUrl);
+      toast.success("Video generated!");
     } catch (e: any) {
-      toast.error(e.message || "Rebranding failed");
+      toast.error(e.message || "Video generation failed");
     } finally {
-      setIsRebranding(false);
+      setIsGenerating(false);
     }
   };
 
@@ -1117,13 +1190,13 @@ export default function DesignStudio() {
               {listing.imageUrl && (
                 <Button
                   className="w-full h-12 text-base font-bold bg-accent text-white"
-                  onClick={handleGenerateAd}
+                  onClick={handleGenerateVideo}
                   disabled={isGenerating}
                 >
                   {isGenerating ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />{" "}
-                      Generating...
+                      Generating Video...
                     </>
                   ) : (
                     <>
@@ -1138,19 +1211,30 @@ export default function DesignStudio() {
               {generatedImageUrl ? (
                 <>
                   <div className="rounded-2xl overflow-hidden border border-border bg-card">
-                    <img
+                    <video
                       src={generatedImageUrl}
-                      alt="Video frame"
+                      controls
+                      autoPlay
+                      loop
                       className="w-full"
                     />
                   </div>
                   <div className="flex gap-3">
-                    <Button className="flex-1" onClick={downloadImage}>
-                      <Download className="w-4 h-4 mr-2" /> Download
+                    <Button
+                      className="flex-1"
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = generatedImageUrl;
+                        a.download = `${listing.title || "property-video"}.webm`;
+                        a.click();
+                        toast.success("Video downloaded!");
+                      }}
+                    >
+                      <Download className="w-4 h-4 mr-2" /> Download Video
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={handleGenerateAd}
+                      onClick={handleGenerateVideo}
                       disabled={isGenerating}
                     >
                       <Wand2 className="w-4 h-4 mr-2" /> Regenerate
