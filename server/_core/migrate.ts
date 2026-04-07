@@ -1,26 +1,25 @@
 /**
- * Auto-migration runner — executes raw SQL on server startup.
- * No external migration files needed — all SQL is inline.
+ * Auto-migration runner — uses raw mysql2 connection for DDL.
  */
-import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { ENV } from "./env";
 
 const MIGRATIONS: string[] = [
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`phoneNumber\` varchar(32)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`whatsappNumber\` varchar(32)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`facebookUrl\` varchar(500)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`instagramHandle\` varchar(100)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`tiktokHandle\` varchar(100)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`telegramChannel\` varchar(100)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`agentPortrait\` varchar(500)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`tagline\` varchar(255)`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`targetAreas\` json`,
-  `ALTER TABLE \`brandKits\` ADD COLUMN \`languagePreference\` ENUM('amharic','english','both') DEFAULT 'both'`,
-  `ALTER TABLE \`designs\` ADD COLUMN \`propertyId\` int`,
-  `ALTER TABLE \`properties\` ADD COLUMN \`woreda\` varchar(100)`,
-  `ALTER TABLE \`socialMediaPosts\` ADD COLUMN \`mediaUrl\` text`,
-  `ALTER TABLE \`socialMediaPosts\` ADD COLUMN \`mediaType\` ENUM('image','video')`,
-  `ALTER TABLE \`users\` ADD COLUMN \`passwordHash\` varchar(255)`,
+  "ALTER TABLE brandKits ADD COLUMN phoneNumber varchar(32) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN whatsappNumber varchar(32) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN facebookUrl varchar(500) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN instagramHandle varchar(100) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN tiktokHandle varchar(100) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN telegramChannel varchar(100) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN agentPortrait varchar(500) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN tagline varchar(255) DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN targetAreas json DEFAULT NULL",
+  "ALTER TABLE brandKits ADD COLUMN languagePreference ENUM('amharic','english','both') DEFAULT 'both'",
+  "ALTER TABLE designs ADD COLUMN propertyId int DEFAULT NULL",
+  "ALTER TABLE properties ADD COLUMN woreda varchar(100) DEFAULT NULL",
+  "ALTER TABLE socialMediaPosts ADD COLUMN mediaUrl text DEFAULT NULL",
+  "ALTER TABLE socialMediaPosts ADD COLUMN mediaType ENUM('image','video') DEFAULT NULL",
+  "ALTER TABLE users ADD COLUMN passwordHash varchar(255) DEFAULT NULL",
 ];
 
 export async function runDbMigrations() {
@@ -32,23 +31,32 @@ export async function runDbMigrations() {
     return;
   }
 
-  const db = drizzle(ENV.databaseUrl, { mode: "default" });
+  let conn: mysql.Connection | null = null;
+  try {
+    conn = await mysql.createConnection(ENV.databaseUrl);
+    console.log("[DB] Connected to MySQL");
 
-  console.log("[DB] Running migrations...");
-
-  for (const sql of MIGRATIONS) {
-    try {
-      await db.execute(sql);
-      console.log(`[DB] ✓ ${sql.slice(0, 80)}...`);
-    } catch (err: any) {
-      const msg = err?.message || String(err);
-      if (msg.includes("Duplicate column")) {
-        console.log(`[DB] ⊘ Already exists: ${sql.slice(0, 60)}...`);
-      } else {
-        console.warn(`[DB] ⚠ ${msg}`);
+    for (const sql of MIGRATIONS) {
+      try {
+        await conn.execute(sql);
+        console.log(`[DB] ✓ ${sql.slice(0, 70)}...`);
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        if (
+          msg.includes("Duplicate column") ||
+          msg.includes("ER_DUP_FIELDNAME")
+        ) {
+          console.log(`[DB] ⊘ Already exists: ${sql.slice(0, 50)}...`);
+        } else {
+          console.warn(`[DB] ⚠ ${msg}`);
+        }
       }
     }
-  }
 
-  console.log("[DB] Migrations complete");
+    console.log("[DB] Migrations complete");
+  } catch (err: any) {
+    console.error("[DB] Migration connection failed:", err?.message || err);
+  } finally {
+    if (conn) await conn.end();
+  }
 }
