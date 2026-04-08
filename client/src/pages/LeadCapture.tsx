@@ -623,7 +623,7 @@ export default function LeadCapture() {
 
                     {/* Status */}
                     <Select value={lead.status ?? "new"}
-                      onValueChange={(v) => updateMutation.mutate({ id: lead.id, data: { status: v as any } })}>
+                      onValueChange={(v) => updateMutation.mutate({ id: lead.id, data: { status: v as "new" | "contacted" | "qualified" | "converted" | "lost" } })}>
                       <SelectTrigger className={`h-7 text-xs border-0 px-2 rounded-full w-28 ${sts?.bg} ${sts?.color} font-medium`}>
                         <SelectValue />
                       </SelectTrigger>

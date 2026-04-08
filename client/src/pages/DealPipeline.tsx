@@ -225,7 +225,7 @@ export default function DealPipeline() {
     if (deal && deal.stage !== newStage) {
       updateMutation.mutate({
         id: dealId,
-        data: { stage: newStage as any },
+        data: { stage: newStage as "lead" | "contacted" | "viewing" | "offer" | "closed" },
       });
     }
   };
@@ -634,7 +634,7 @@ export default function DealPipeline() {
                     <p className="text-xs text-muted-foreground mb-1">Stage</p>
                     <Select
                       value={deal.stage ?? "lead"}
-                      onValueChange={(v) => updateMutation.mutate({ id: deal.id, data: { stage: v as any } })}
+                      onValueChange={(v) => updateMutation.mutate({ id: deal.id, data: { stage: v as "lead" | "contacted" | "viewing" | "offer" | "closed" } })}
                     >
                       <SelectTrigger className="h-8 text-sm border-0 bg-transparent p-0 font-medium">
                         <SelectValue />

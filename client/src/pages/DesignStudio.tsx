@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,17 @@ import {
   X,
   Loader2,
   ExternalLink,
+  Smartphone,
+  Eye,
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { toPng } from "html-to-image";
+import {
+  LISTING_TEMPLATES,
+  ListingFormData,
+  BrandData as StudioBrandData,
+} from "@/components/studio/ListingTemplates";
 import {
   generateAdImage,
   generateRebrand,
@@ -66,10 +74,12 @@ export default function DesignStudio() {
   const [, navigate] = useLocation();
 
   const [mode, setMode] = useState<StudioMode | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("modern");
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
     null
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const templateRef = useRef<HTMLDivElement>(null);
 
   // Brand Kit
   const { data: brandKits = [] } = trpc.crm.brandKits.list.useQuery();
@@ -143,46 +153,25 @@ export default function DesignStudio() {
       toast.error("Create a Brand Kit first in Settings → Brand Identity");
       return;
     }
+    if (!templateRef.current) {
+      toast.error("Template renderer not ready");
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const dataUrl = await generateAdImage(
-        {
-          title: listing.title,
-          price: listing.price,
-          subcity: listing.subcity,
-          subLocation: listing.subLocation,
-          propertyType: listing.propertyType,
-          bedrooms: listing.bedrooms,
-          bathrooms: listing.bathrooms,
-          area: listing.area,
-          description: listing.description,
-          nearbyLandmarks: listing.nearbyLandmarks,
-          utilities: listing.utilities,
-          finishingLevel: listing.finishingLevel,
-          negotiable: listing.negotiable,
-          imageUrl: listing.imageUrl || undefined,
-        },
-        {
-          primaryColor: brandData.primaryColor,
-          secondaryColor: brandData.secondaryColor,
-          backgroundColor: brandData.backgroundColor,
-          textColor: "#ffffff",
-          logoUrl: brandData.logoUrl || undefined,
-          phoneNumber: brandData.phoneNumber || undefined,
-          whatsappNumber: brandData.whatsappNumber || undefined,
-          telegramChannel: brandData.telegramChannel || undefined,
-          instagramHandle: brandData.instagramHandle || undefined,
-          tiktokHandle: brandData.tiktokHandle || undefined,
-          companyName: brandData.name,
-          tagline: brandData.tagline || undefined,
-          languagePreference: brandData.languagePreference || "both",
-        },
-        adStyle
-      );
+      // Use html-to-image for high-quality PNG export of the React template
+      const dataUrl = await toPng(templateRef.current, {
+        quality: 1.0,
+        pixelRatio: 2, // Double resolution for Retina/High-DPI
+        skipFonts: false,
+      });
+
       setGeneratedImageUrl(dataUrl);
-      toast.success("Ad generated!");
+      toast.success("Ad generated from premium template!");
     } catch (e: any) {
-      toast.error(e.message || "Generation failed");
+      console.error("Export error:", e);
+      toast.error("Failed to export template as image. Try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -748,36 +737,175 @@ export default function DesignStudio() {
             </div>
 
             {/* RIGHT: Preview + Captions + Publish */}
+            {/* RIGHT: Preview + Captions + Publish */}
             <div className="space-y-6">
-              {generatedImageUrl ? (
-                <>
-                  {/* Generated Image */}
-                  <div className="rounded-2xl overflow-hidden border border-border bg-card">
-                    <img
-                      src={generatedImageUrl}
-                      alt="Generated ad"
-                      className="w-full"
-                    />
+              {/* Template Picker Strip */}
+              <div className="p-4 rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Select Template
+                  </Label>
+                  <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">
+                    8 PREMIUM THEMES
+                  </span>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                  {LISTING_TEMPLATES.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setSelectedTemplateId(t.id);
+                        setGeneratedImageUrl(null); // Clear previous capture to show live
+                      }}
+                      className={`flex-shrink-0 px-4 py-2 rounded-lg border text-xs font-bold transition-all ${
+                        selectedTemplateId === t.id
+                          ? "border-accent bg-accent text-white shadow-md shadow-accent/20"
+                          : "border-border bg-background text-muted-foreground hover:border-accent/40"
+                      }`}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Preview / Generated Result */}
+              <div className="relative group">
+                <div
+                  className={`rounded-2xl overflow-hidden border border-border bg-card shadow-2xl transition-all ${isGenerating ? "opacity-50" : ""}`}
+                >
+                  {/* The actual React Template that html-to-image will capture */}
+                  <div
+                    ref={templateRef}
+                    className="aspect-[4/5] w-full origin-top transform"
+                    style={{
+                      // This ensures the capture is 1080x1350 for Insta/FB
+                      width: "100%",
+                      maxWidth: "1080px",
+                      height: "auto",
+                      aspectRatio: "4/5",
+                    }}
+                  >
+                    {(() => {
+                      const SelectedTemplate =
+                        LISTING_TEMPLATES.find(
+                          t => t.id === selectedTemplateId
+                        )?.component || LISTING_TEMPLATES[0].component;
+
+                      const templateData: ListingFormData = {
+                        title: listing.title,
+                        price: listing.price,
+                        location: listing.subcity || "Addis Ababa",
+                        subLocation: listing.subLocation,
+                        propertyType: listing.propertyType,
+                        bedrooms: listing.bedrooms,
+                        bathrooms: listing.bathrooms,
+                        area: listing.area,
+                        description: listing.description,
+                        ctaText: "Contact Agent",
+                        image: listing.imageUrl,
+                      };
+
+                      const studioBrand: StudioBrandData = {
+                        logo: brandData?.logoUrl || null,
+                        companyName: brandData?.name || "Your Agency",
+                        primaryColor: brandData?.primaryColor || "#1e3a5f",
+                        secondaryColor: brandData?.secondaryColor || "#d4af37",
+                        textColor: "#ffffff",
+                        backgroundColor:
+                          brandData?.backgroundColor || "#0a0a0f",
+                        fontHeading: "Poppins, sans-serif",
+                        fontBody: "Poppins, sans-serif",
+                        phoneNumber: brandData?.phoneNumber || "",
+                        whatsappNumber: brandData?.whatsappNumber || "",
+                        facebookUrl: brandData?.facebookUrl || "",
+                        instagramHandle: brandData?.instagramHandle || "",
+                        tiktokHandle: brandData?.tiktokHandle || "",
+                        telegramChannel: brandData?.telegramChannel || "",
+                        agentPortrait: null,
+                        tagline: brandData?.tagline || "",
+                        targetAreas: brandData?.targetAreas || [],
+                        languagePreference:
+                          brandData?.languagePreference || "both",
+                      };
+
+                      return (
+                        <SelectedTemplate
+                          data={templateData}
+                          brand={studioBrand}
+                        />
+                      );
+                    })()}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-3">
-                    <Button
-                      className="flex-1 bg-accent text-white"
-                      onClick={downloadImage}
-                    >
-                      <Download className="w-4 h-4 mr-2" /> Download Image
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleGenerateAd}
-                      disabled={isGenerating}
-                    >
-                      <Wand2 className="w-4 h-4 mr-2" /> Regenerate
-                    </Button>
-                  </div>
+                  {/* Generation Overlay */}
+                  {isGenerating && (
+                    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+                      <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
+                      <p className="text-sm font-bold animate-pulse">
+                        CAPTURING PREMIUM HI-RES EXPORT...
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-                  {/* Caption Generator */}
+                {/* Overlays for UX */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-white text-[10px] font-bold border border-white/10 shadow-lg">
+                    <Eye className="w-3 h-3 text-green-400" /> LIVE PREVIEW
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-white text-[10px] font-bold border border-white/10 shadow-lg">
+                    <Smartphone className="w-3 h-3 text-blue-400" /> 4:5 FORMAT
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1 h-12 text-base font-bold bg-accent text-white shadow-lg shadow-accent/20 hover:bg-accent/90"
+                  onClick={handleGenerateAd}
+                  disabled={isGenerating}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {generatedImageUrl ? "Regenerate & Save" : "Generate Export"}
+                </Button>
+                {generatedImageUrl && (
+                  <Button
+                    variant="outline"
+                    className="h-12 px-6 border-accent text-accent hover:bg-accent/5"
+                    onClick={downloadImage}
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Success Result / Download Prompt */}
+              {generatedImageUrl && (
+                <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0">
+                    <Check className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-green-700">
+                      Image Ready for Social Media!
+                    </p>
+                    <p className="text-xs text-green-600/80">
+                      High-resolution PNG generated. Click below to save.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="ml-auto bg-green-600 hover:bg-green-700 text-white"
+                    onClick={downloadImage}
+                  >
+                    Save to Device
+                  </Button>
+                </div>
+              )}
+
+              {/* Caption Generator */}
                   <div className="p-4 rounded-xl border border-border bg-card space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-bold">AI Captions</h3>
@@ -939,18 +1067,6 @@ export default function DesignStudio() {
                       </p>
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-96 rounded-2xl border-2 border-dashed border-border bg-card">
-                  <ImageIcon className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    Fill in property details and click Generate
-                  </p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">
-                    Your brand kit will be applied automatically
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </div>
