@@ -119,7 +119,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const { data: current } = trpc.subscription.current.useQuery();
-  const { data: notifData } = trpc.notifications.list.useQuery({ limit: 1 });
+  const { data: notifData } = trpc.notifications.list.useQuery({ limit: 1 }) as any;
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);

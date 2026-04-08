@@ -104,14 +104,14 @@ function ComposerModal({
       ? new Date(`${form.date}T${form.time}:00`)
       : undefined;
 
-    const data: any = {
+    const data = {
       content: form.content,
-      platforms: form.platforms,
+      platforms: form.platforms as ("telegram" | "facebook" | "instagram" | "tiktok")[],
       status: form.status,
       scheduledTime,
     };
 
-    if (isEdit) updateMutation.mutate({ id: initial.id, data });
+    if (isEdit) updateMutation.mutate({ id: initial.id, data: data as any });
     else createMutation.mutate(data);
   };
 

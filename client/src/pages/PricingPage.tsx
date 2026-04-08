@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { Check, X, Star, TrendingUp, Zap } from "lucide-react";
+import { motion } from "framer-motion";
 
 const FEATURES = [
   { label: "Active listings", starter: "10", pro: "Unlimited", agency: "Unlimited" },

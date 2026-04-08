@@ -185,12 +185,12 @@ const propertyInputSchema = z.object({
   address: z.string().trim().min(1),
   city: z.string().trim().min(1),
   subcity: z.string().trim().min(1).optional(),
-  latitude: z.union([z.number(), z.string()]).optional(),
-  longitude: z.union([z.number(), z.string()]).optional(),
-  price: z.union([z.number(), z.string()]).optional(),
+  latitude: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
+  longitude: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
+  price: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
-  squareFeet: z.union([z.number(), z.string()]).optional(),
+  squareFeet: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
   photos: z.array(z.string()).optional(),
   status: z.enum(["available", "sold", "rented", "pending"]).optional(),
 });
@@ -201,12 +201,12 @@ const propertyUpdateSchema = atLeastOne({
   address: z.string().trim().min(1),
   city: z.string().trim().min(1),
   subcity: z.string().trim().min(1).nullable(),
-  latitude: z.union([z.number(), z.string()]).nullable(),
-  longitude: z.union([z.number(), z.string()]).nullable(),
-  price: z.union([z.number(), z.string()]).nullable(),
+  latitude: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
+  longitude: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
+  price: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
   bedrooms: z.number().int().nonnegative().nullable(),
   bathrooms: z.number().int().nonnegative().nullable(),
-  squareFeet: z.union([z.number(), z.string()]).nullable(),
+  squareFeet: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
   photos: z.array(z.string()),
   status: z.enum(["available", "sold", "rented", "pending"]),
 });
@@ -415,8 +415,8 @@ const buyerProfileInputSchema = z.object({
   name: z.string().trim().min(1),
   city: z.string().trim().min(1).optional(),
   subcity: z.string().trim().min(1).optional(),
-  budgetMin: z.number().nonnegative().optional(),
-  budgetMax: z.number().nonnegative().optional(),
+  budgetMin: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
+  budgetMax: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
   notes: z.string().optional(),
@@ -427,8 +427,8 @@ const buyerProfileUpdateSchema = atLeastOne({
   name: z.string().trim().min(1),
   city: z.string().trim().min(1).nullable(),
   subcity: z.string().trim().min(1).nullable(),
-  budgetMin: z.number().nonnegative().nullable(),
-  budgetMax: z.number().nonnegative().nullable(),
+  budgetMin: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
+  budgetMax: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
   bedrooms: z.number().int().nonnegative().nullable(),
   bathrooms: z.number().int().nonnegative().nullable(),
   notes: z.string().nullable(),
@@ -1766,9 +1766,10 @@ export const appRouter = router({
 
           let workspaceId: number | undefined;
           let userId: number | undefined;
+          let property: any = null;
 
           if (input.propertyId) {
-            const property = await db.getPropertyById(
+            property = await db.getPropertyById(
               { userId: 0, workspaceId: 0 },
               input.propertyId
             );
@@ -2200,7 +2201,7 @@ The caption MUST be bilingual. Provide the caption first in English, and then fo
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const scope = getScope(ctx.user);
+        const scope = getScope(ctx.user!);
         const db = await import("./db.js");
         const llm = await import("./_core/llm.js");
         const { nanoid } = await import("nanoid");
@@ -2417,8 +2418,8 @@ Use ETB as the default currency for Ethiopia.`;
         .mutation(async ({ ctx, input }) => {
           const design = await getDesignById(
             {
-              workspaceId: ctx.user.workspaceId!,
-              userId: ctx.user.id,
+              workspaceId: ctx.user!.workspaceId!,
+              userId: ctx.user!.id,
             },
             input.designId
           );
@@ -2437,14 +2438,14 @@ Use ETB as the default currency for Ethiopia.`;
 
           // Videos are high-value, increment 5 AI points
           for (let i = 0; i < 5; i++) {
-            await incrementWorkspaceAiImagesCount(ctx.user.workspaceId!);
+            await incrementWorkspaceAiImagesCount(ctx.user!.workspaceId!);
           }
 
           // Phase 5: Automated Activity Logging
           if (input.contactId) {
             await createContactEvent({
-              userId: ctx.user.id,
-              workspaceId: ctx.user.workspaceId!,
+              userId: ctx.user!.id,
+              workspaceId: ctx.user!.workspaceId!,
               contactId: input.contactId,
               dealId: input.dealId,
               type: "system",

@@ -31,37 +31,11 @@ import {
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-interface BrandColor {
-  hex: string;
-  name: string;
-}
-interface BrandFont {
-  family: string;
-  label: string;
-}
-interface BrandLogo {
-  src: string;
-  name: string;
-}
-
-interface KitData {
-  name: string;
-  logos: BrandLogo[];
-  colors: BrandColor[];
-  fonts: BrandFont[];
-  phoneNumber: string;
-  whatsappNumber: string;
-  facebookUrl: string;
-  instagramHandle: string;
-  tiktokHandle: string;
-  telegramChannel: string;
-  agentPortrait: string;
-  tagline: string;
-  targetAreas: string[];
-  languagePreference: "amharic" | "english" | "both";
-}
-
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const DEFAULT_COLORS: BrandColor[] = [
+  { hex: "#1e3a5f", name: "Deep Blue" },
+  { hex: "#d4af37", name: "Gold" },
+  { hex: "#ffffff", name: "White" },
+];
 
 const FONT_OPTIONS: BrandFont[] = [
   { family: "Poppins, sans-serif", label: "Poppins" },
@@ -77,12 +51,6 @@ const FONT_OPTIONS: BrandFont[] = [
   { family: "Noto Sans Ethiopic, sans-serif", label: "Noto Sans Ethiopic" },
   { family: "Noto Serif Ethiopic, serif", label: "Noto Serif Ethiopic" },
   { family: "Courier New, monospace", label: "Courier New" },
-];
-
-const DEFAULT_COLORS: BrandColor[] = [
-  { hex: "#1e3a5f", name: "Deep Blue" },
-  { hex: "#d4af37", name: "Gold" },
-  { hex: "#ffffff", name: "White" },
 ];
 
 const ETHIOPIAN_SUBCITIES = [
@@ -115,6 +83,36 @@ const EMPTY_KIT: KitData = {
   targetAreas: [],
   languagePreference: "both",
 };
+
+interface BrandColor {
+  hex: string;
+  name: string;
+}
+interface BrandFont {
+  family: string;
+  label: string;
+}
+interface BrandLogo {
+  src: string;
+  name: string;
+}
+
+interface KitData {
+  name: string;
+  logos: BrandLogo[];
+  colors: BrandColor[];
+  fonts: BrandFont[];
+  phoneNumber: string;
+  whatsappNumber: string;
+  facebookUrl: string;
+  instagramHandle: string;
+  tiktokHandle: string;
+  telegramChannel: string;
+  agentPortrait: string;
+  tagline: string;
+  targetAreas: string[];
+  languagePreference: "amharic" | "english" | "both";
+}
 
 // ─── COLOR SWATCH ─────────────────────────────────────────────────────────────
 
