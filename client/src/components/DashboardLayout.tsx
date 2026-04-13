@@ -1,4 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
@@ -17,37 +19,33 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard,
-  Rss,
-  Wand2,
-  Building2,
-  Users,
-  BarChart2,
-  Bell,
-  Settings,
-  CreditCard,
-  PanelLeft,
-  Shield,
-  AlertTriangle,
+  User, Bell, Link2, Shield, Building2, Facebook,
+  Instagram, MessageCircle, Mail, ExternalLink, Phone,
+  Share2, Code2, Key, RefreshCw, Copy, Check, Palette, LogOut,
+  Target, Zap, Activity, Globe, ShieldAlert, Cpu, Plus, Send,
+  Rss, Wand2, Users, BarChart2, Settings, CreditCard, PanelLeft,
+  AlertTriangle, Sun, Moon, Sparkles, ChevronRight
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 
-const baseMenuItems = [
-  { icon: LayoutDashboard, label: "Dashboard",    path: "/dashboard" },
-  { icon: Rss,             label: "Supply Feed",  path: "/supplier-feed" },
-  { icon: Wand2,           label: "Studio",       path: "/studio" },
-  { icon: Building2,       label: "My Properties",path: "/properties" },
-  { icon: Users,           label: "CRM",          path: "/crm" },
-  { icon: BarChart2,       label: "Analytics",    path: "/analytics" },
-];
+// ── Shared Styling ────────────────────────────────────────────────────────────
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.8)",
+  backdropFilter: "blur(32px)",
+  borderRight: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
+});
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
-const DEFAULT_WIDTH = 240;
-const MIN_WIDTH = 200;
-const MAX_WIDTH = 320;
+const DEFAULT_WIDTH = 260;
+const MIN_WIDTH = 220;
+const MAX_WIDTH = 340;
 
 export default function DashboardLayout({
   children,
@@ -59,6 +57,7 @@ export default function DashboardLayout({
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  const { theme } = useTheme();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -70,25 +69,23 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-accent flex items-center justify-center">
-              <Building2 className="w-7 h-7 text-white" />
+      <div className={`flex items-center justify-center min-h-screen ${theme === 'dark' ? 'bg-[#0a0a0c]' : 'bg-slate-50'}`}>
+        <div className="flex flex-col items-center gap-10 p-12 max-w-md w-full relative">
+          <div className="absolute inset-0 bg-accent/5 blur-[100px] rounded-full" />
+          <div className="flex flex-col items-center gap-6 relative z-10">
+            <div className="w-20 h-20 rounded-[2rem] bg-accent flex items-center justify-center shadow-2xl shadow-accent/40 animate-pulse">
+              <Building2 className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to Estate IQ
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Ethiopia's first integrated real estate growth platform.
-            </p>
+            <div className="text-center space-y-2">
+               <h1 className="text-4xl font-black tracking-tighter uppercase italic text-foreground">Estate IQ</h1>
+               <p className="text-sm text-muted-foreground font-medium uppercase tracking-[0.2em] opacity-60">Identity Verification Required</p>
+            </div>
           </div>
           <Button
             onClick={() => { window.location.href = getLoginUrl(); }}
-            size="lg"
-            className="w-full"
+            className="w-full h-14 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/30 relative z-10"
           >
-            Sign in
+            Authorize Access
           </Button>
         </div>
       </div>
@@ -110,42 +107,34 @@ export default function DashboardLayout({
   );
 }
 
-type DashboardLayoutContentProps = {
-  children: React.ReactNode;
-  setSidebarWidth: (width: number) => void;
-};
-
-function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutContentProps) {
+function DashboardLayoutContent({ children, setSidebarWidth }: { children: React.ReactNode, setSidebarWidth: (w: number) => void }) {
   const { user, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
   const { data: current } = trpc.subscription.current.useQuery();
-  const { data: notifData } = trpc.notifications.list.useQuery({ limit: 1 }) as any;
+  const { data: notifData } = trpc.notifications.list.useQuery() as any;
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  const menuItems = user?.role === "admin"
-    ? [...baseMenuItems, { icon: Shield, label: "Admin", path: "/admin" }]
-    : baseMenuItems;
-
-  const activeMenuItem = menuItems.find(
-    (item) =>
-      location === item.path ||
-      (item.path !== "/dashboard" && location.startsWith(item.path))
-  );
+  const menuItems = [
+    { icon: LayoutDashboard, label: t("nav.dashboard"),    path: "/dashboard" },
+    { icon: Rss,             label: t("nav.supplyFeed"),  path: "/supplier-feed" },
+    { icon: Wand2,           label: t("nav.studio"),       path: "/studio" },
+    { icon: Building2,       label: t("nav.properties"),   path: "/properties" },
+    { icon: Users,           label: t("nav.crm"),          path: "/crm" },
+    { icon: BarChart2,       label: t("nav.analytics"),    path: "/analytics" },
+    ...(user?.role === "admin" ? [{ icon: Shield, label: t("nav.admin"), path: "/admin" }] : []),
+  ];
 
   const unreadCount = (notifData as any)?.unreadCount ?? 0;
+  const initials = user?.name ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "EQ";
+  const glassSidebarStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
-  const initials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "EQ";
-
-  useEffect(() => {
-    if (isCollapsed) setIsResizing(false);
-  }, [isCollapsed]);
-
+  // Handle resizing logic
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
@@ -154,315 +143,170 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) setSidebarWidth(newWidth);
     };
     const handleMouseUp = () => setIsResizing(false);
-
     if (isResizing) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
     }
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "";
-      document.body.style.userSelect = "";
     };
   }, [isResizing, setSidebarWidth]);
 
   return (
     <>
-      <div className="relative" ref={sidebarRef}>
-        <Sidebar collapsible="icon" className="border-r border-border" disableTransition={isResizing}>
-
-          {/* Sidebar header — Estate IQ brand + notification bell */}
-          <SidebarHeader className="h-14 border-b border-border">
-            <div className="flex items-center gap-2 px-3 h-full">
-              <button
-                onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
-                aria-label="Toggle navigation"
-              >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
-              </button>
-
-              <div className="flex items-center justify-between flex-1 min-w-0">
-                {!isCollapsed && (
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
-                      <Building2 className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="font-semibold text-foreground tracking-tight truncate">
-                      Estate IQ
-                    </span>
-                  </div>
-                )}
-                
-                {/* Notification Bell — Always visible */}
-                <button
-                  onClick={() => setLocation("/notifications")}
-                  className={`relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors shrink-0 ${isCollapsed ? 'ml-auto' : ''}`}
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-4 w-4 text-muted-foreground" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center leading-none border-2 border-background">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Collapsed bell */}
-              {isCollapsed && (
-                <button
-                  onClick={() => setLocation("/notifications")}
-                  className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors shrink-0"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-4 w-4 text-muted-foreground" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-500 border border-background" />
-                  )}
-                </button>
-              )}
-            </div>
+      <div className="relative flex min-h-screen" ref={sidebarRef}>
+        <Sidebar collapsible="icon" className="border-none shadow-none" style={glassSidebarStyle} disableTransition={isResizing}>
+          
+          <SidebarHeader className="h-20 border-b border-white/5 flex items-center justify-between px-6 bg-white/2">
+             {!isCollapsed ? (
+                <div className="flex items-center gap-3">
+                   <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shadow-lg shadow-accent/20">
+                      <Building2 className="w-5 h-5 text-white" />
+                   </div>
+                   <div className="flex flex-col">
+                      <span className="text-lg font-black tracking-tighter uppercase italic leading-none">Estate IQ</span>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-accent mt-1">Intelligence Hub</span>
+                   </div>
+                </div>
+             ) : (
+                <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shadow-lg shadow-accent/20 mx-auto">
+                   <Building2 className="w-5 h-5 text-white" />
+                </div>
+             )}
           </SidebarHeader>
 
-          {/* Nav items */}
-          <SidebarContent className="gap-0 py-2">
-            <SidebarMenu className="px-2 gap-0.5">
-              {menuItems.map((item) => {
-                const isActive =
-                  location === item.path ||
-                  (item.path !== "/dashboard" && location.startsWith(item.path));
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className="h-9 font-normal transition-all"
-                    >
-                      <item.icon
-                        className={`h-4 w-4 shrink-0 ${
-                          isActive ? "text-accent" : "text-muted-foreground"
-                        }`}
-                      />
-                      <span className={isActive ? "text-accent font-medium" : ""}>
-                        {item.label}
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+          <SidebarContent className="px-3 py-6 uppercase tracking-widest gap-1">
+             <SidebarMenu className="gap-2">
+                {menuItems.map((item) => {
+                  const isActive = location === item.path || (item.path !== "/dashboard" && location.startsWith(item.path));
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => setLocation(item.path)}
+                        tooltip={item.label}
+                        className={`h-11 rounded-1.5xl px-3 transition-all duration-300 ${isActive ? 'bg-accent/10 border border-accent/20 text-accent' : 'hover:bg-white/5 text-muted-foreground'}`}
+                      >
+                        <item.icon className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" />
+                        {!isCollapsed && <span className="text-[10px] font-black tracking-[0.1em]">{item.label}</span>}
+                        {isActive && !isCollapsed && <div className="ml-auto w-1 h-1 bg-accent rounded-full shadow-[0_0_8px_rgba(249,115,22,1)]" />}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+             </SidebarMenu>
           </SidebarContent>
 
-          {/* Footer — agent name + always-visible Billing & Settings */}
-          <SidebarFooter className="p-2 border-t border-border space-y-1">
-            {/* Agent identity */}
-            <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 group-data-[collapsible=icon]:justify-center">
-              <Avatar className="h-8 w-8 border shrink-0">
-                <AvatarFallback className="text-xs font-medium bg-accent/10 text-accent">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              {!isCollapsed && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate leading-none">{user?.name || "—"}</p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{user?.email || "—"}</p>
-                </div>
-              )}
-            </div>
+          <SidebarFooter className="p-4 border-t border-white/5 bg-white/1 flex flex-col gap-2">
+             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5 mb-2 group cursor-pointer hover:bg-white/10 transition-all">
+                <Avatar className="h-9 w-9 rounded-xl border-2 border-white/5">
+                   <AvatarFallback className="bg-accent/10 text-accent font-black text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                   <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black uppercase tracking-tighter text-foreground truncate">{user?.name}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground truncate uppercase opacity-40">{user?.role}</p>
+                   </div>
+                )}
+             </div>
 
-            {/* Billing */}
-            <button
-              onClick={() => setLocation("/billing")}
-              className={`flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 hover:bg-accent/10 transition-colors text-left ${
-                location === "/billing" ? "bg-accent/10 text-accent" : "text-muted-foreground"
-              }`}
-              title="Billing"
-            >
-              <CreditCard className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span className="text-sm font-normal">Billing</span>}
-            </button>
-
-            {/* Settings */}
-            <button
-              onClick={() => setLocation("/settings")}
-              className={`flex items-center gap-2.5 w-full rounded-lg px-2 py-1.5 hover:bg-accent/10 transition-colors text-left ${
-                location === "/settings" ? "bg-accent/10 text-accent" : "text-muted-foreground"
-              }`}
-              title="Settings"
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span className="text-sm font-normal">Settings</span>}
-            </button>
+             <div className="space-y-1">
+                <button onClick={() => setLanguage(language === "en" ? "am" : "en")} className="w-full flex items-center gap-3 h-10 px-3 rounded-1.5xl hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground">
+                   <Globe className="w-4 h-4 shrink-0" />
+                   {!isCollapsed && <span className="text-[9px] font-black uppercase tracking-widest">{t("side.language")} — {language === 'en' ? 'AMH' : 'ENG'}</span>}
+                </button>
+                <button onClick={toggleTheme} className="w-full flex items-center gap-3 h-10 px-3 rounded-1.5xl hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground">
+                   {theme === 'light' ? <Moon className="w-4 h-4 shrink-0" /> : <Sun className="w-4 h-4 shrink-0" />}
+                   {!isCollapsed && <span className="text-[9px] font-black uppercase tracking-widest">{t("side.theme")}</span>}
+                </button>
+                <button onClick={() => setLocation("/settings")} className={`w-full flex items-center gap-3 h-10 px-3 rounded-1.5xl transition-all ${location === '/settings' ? 'text-accent' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}>
+                   <Settings className="w-4 h-4 shrink-0" />
+                   {!isCollapsed && <span className="text-[9px] font-black uppercase tracking-widest">{t("nav.settings")}</span>}
+                </button>
+                <button onClick={logout} className="w-full flex items-center gap-3 h-10 px-3 rounded-1.5xl hover:bg-red-500/10 transition-all text-muted-foreground hover:text-red-500">
+                   <LogOut className="w-4 h-4 shrink-0" />
+                   {!isCollapsed && <span className="text-[9px] font-black uppercase tracking-widest">{t("side.logout")}</span>}
+                </button>
+             </div>
           </SidebarFooter>
         </Sidebar>
 
-        {/* Resize handle */}
-        <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/20 transition-colors ${
-            isCollapsed ? "hidden" : ""
-          }`}
-          onMouseDown={() => { if (!isCollapsed) setIsResizing(true); }}
-          style={{ zIndex: 50 }}
-        />
+        <SidebarInset className={`flex flex-col flex-1 bg-transparent transition-all duration-300`}>
+          {/* Main Top Header */}
+          <header className={`h-16 flex items-center justify-between px-8 border-b border-white/5 bg-background/50 backdrop-blur-xl sticky top-0 z-40`}>
+             <div className="flex items-center gap-4">
+                {!isMobile && (
+                  <button onClick={toggleSidebar} className="h-9 w-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
+                    <PanelLeft className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                )}
+                {isMobile && <SidebarTrigger className="h-9 w-9 rounded-xl bg-accent text-white" />}
+             </div>
+
+             <div className="flex items-center gap-4">
+                <button onClick={() => setLocation("/notifications")} className="h-10 px-4 rounded-xl bg-white/5 border border-white/5 flex items-center gap-3 hover:bg-white/10 transition-all relative group">
+                   <Bell className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
+                   {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent text-[9px] font-black text-white flex items-center justify-center shadow-lg shadow-accent/20">{unreadCount}</span>}
+                </button>
+                <Button onClick={() => setLocation("/billing")} className="h-10 px-6 rounded-xl bg-accent text-white font-black text-[9px] uppercase tracking-[0.1em] shadow-xl shadow-accent/20">
+                   <Zap className="w-3.5 h-3.5 mr-2" /> Upgrade
+                </Button>
+             </div>
+          </header>
+
+          {/* Premium Banners Container */}
+          <AnimatePresence>
+            {current && (() => {
+              const days = current.daysRemaining ?? 0;
+              const isActive = current.isActive;
+              const isGrace = current.isGracePeriod;
+              const isTrial = current.workspace?.subscriptionStatus === "trial";
+
+              if (!isActive && !isGrace) {
+                return (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="p-4 bg-red-500/10 border-b border-red-500/20 backdrop-blur-xl">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-6 px-4">
+                      <div className="flex items-center gap-4">
+                         <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-red-500" /></div>
+                         <div>
+                            <p className="text-xs font-black uppercase text-red-500 italic tracking-tighter">{isTrial ? "Trial protocol terminated" : "Sovereignty expired"}</p>
+                            <p className="text-[10px] font-bold text-red-500/60 uppercase tracking-widest">Workspace Lockdown Active — Reactivate to continue growth</p>
+                         </div>
+                      </div>
+                      <Button onClick={() => setLocation("/billing")} className="h-9 px-6 rounded-xl bg-red-500 text-white font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all">Restore Pipeline</Button>
+                    </div>
+                  </motion.div>
+                );
+              }
+
+              if (isTrial && days <= 7 && days > 0) {
+                 return (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-3 bg-accent/10 border-b border-accent/20 backdrop-blur-xl">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4">
+                      <div className="flex items-center gap-4">
+                         <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center"><Sparkles className="w-4 h-4 text-accent" /></div>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-accent italic">Maintenance protocol: {days} days of trial remaining • Secure your legacy now.</p>
+                      </div>
+                      <Button onClick={() => setLocation("/billing")} className="h-8 px-5 rounded-lg bg-accent text-white font-black uppercase text-[8px] tracking-[0.2em] shadow-xl shadow-accent/20">Upgrade Now</Button>
+                    </div>
+                  </motion.div>
+                 );
+              }
+              return null;
+            })()}
+          </AnimatePresence>
+
+          <main className={`flex-1 p-10 bg-transparent min-h-screen ${language === 'am' ? 'font-ethiopic' : 'font-sans'}`}>
+             {children}
+          </main>
+        </SidebarInset>
       </div>
 
-      <SidebarInset>
-        {/* Mobile top bar */}
-        {isMobile && (
-          <div className="flex border-b h-14 items-center gap-3 bg-card px-4 sticky top-0 z-40">
-            <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-accent flex items-center justify-center">
-                <Building2 className="w-3.5 h-3.5 text-white" />
-              </div>
-              <span className="font-semibold text-foreground">
-                {activeMenuItem?.label ?? "Estate IQ"}
-              </span>
-            </div>
-            <div className="ml-auto">
-              <button
-                onClick={() => setLocation("/notifications")}
-                className="relative h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent/10 transition-colors"
-              >
-                <Bell className="h-4 w-4 text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Trial / Subscription Lifecycle Banners ── */}
-        {current && (() => {
-          const days = current.daysRemaining ?? 0;
-          const isActive = current.isActive;
-          const isGrace = current.isGracePeriod;
-          const isTrial = current.workspace?.subscriptionStatus === "trial";
-
-          if (!isActive && !isGrace) {
-            return (
-              <>
-                <div className="bg-destructive/5 border-b-2 border-destructive/30 px-6 py-5">
-                  <div className="max-w-2xl mx-auto flex flex-col items-center gap-4 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
-                      <AlertTriangle className="h-6 w-6 text-destructive" />
-                    </div>
-                    <div>
-                      <p className="text-base font-bold text-destructive">
-                        {isTrial ? "Your 14-day trial has ended" : "Your subscription has expired"}
-                      </p>
-                      <p className="text-sm text-destructive/70 mt-1">
-                        Your {current.usage?.leads ?? 0} leads and {current.usage?.properties ?? 0} listings are locked.
-                        Upgrade now to keep everything and continue growing your pipeline.
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-9 px-6 rounded-lg shadow-sm font-semibold"
-                      onClick={() => setLocation("/billing")}
-                    >
-                      Unlock Now — From ETB 499/mo
-                    </Button>
-                  </div>
-                </div>
-              </>
-            );
-          }
-
-          if (isGrace) {
-            return (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border-b-2 border-amber-400/50 px-6 py-3 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                      ⏳ Grace period — Your {isTrial ? "trial" : "subscription"} expired
-                    </p>
-                    <p className="text-xs text-amber-700/80 dark:text-amber-400/70">
-                      You have {current.gracePeriodDays} days to upgrade before your account is fully locked.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="h-8 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-semibold"
-                  onClick={() => setLocation("/billing")}
-                >
-                  Upgrade Now
-                </Button>
-              </div>
-            );
-          }
-
-          if (isTrial && days <= 7 && days > 0) {
-            const isUrgent = days <= 3;
-            return (
-              <div className={`border-b-2 px-6 py-2.5 flex items-center justify-between gap-4 ${
-                isUrgent
-                  ? "bg-red-50 dark:bg-red-950/30 border-red-400/50"
-                  : "bg-amber-50 dark:bg-amber-950/20 border-amber-300/50"
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                    isUrgent ? "bg-red-100 dark:bg-red-900/50" : "bg-amber-100 dark:bg-amber-900/50"
-                  }`}>
-                    <AlertTriangle className={`h-3.5 w-3.5 ${isUrgent ? "text-red-600" : "text-amber-600"}`} />
-                  </div>
-                  <p className={`text-sm font-semibold ${isUrgent ? "text-red-800 dark:text-red-300" : "text-amber-800 dark:text-amber-300"}`}>
-                    {isUrgent
-                      ? `🔥 ${days} day${days === 1 ? "" : "s"} left — Your ${current.usage?.leads ?? 0} leads will be locked!`
-                      : `${days} days left in your trial`}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className={`h-7 px-4 rounded-lg shadow-sm text-xs font-bold ${
-                    isUrgent
-                      ? "bg-red-600 hover:bg-red-700 text-white"
-                      : "bg-amber-600 hover:bg-amber-700 text-white"
-                  }`}
-                  onClick={() => setLocation("/billing")}
-                >
-                  {isUrgent ? "Upgrade Now" : "See Plans"}
-                </Button>
-              </div>
-            );
-          }
-
-          if (isTrial && days > 7) {
-            return (
-              <div className="bg-accent/5 border-b border-accent/15 px-6 py-2 flex items-center justify-between gap-4">
-                <p className="text-xs text-accent font-medium">
-                  ✨ Full access trial — {days} days remaining
-                </p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-3 text-xs text-accent hover:text-accent"
-                  onClick={() => setLocation("/billing")}
-                >
-                  See Plans
-                </Button>
-              </div>
-            );
-          }
-
-          return null;
-        })()}
-
-        <main className="flex-1 p-6 bg-background min-h-screen">{children}</main>
-      </SidebarInset>
+      {/* Resize Handle Overlay */}
+      {!isCollapsed && isResizing && <div className="fixed inset-0 z-50 pointer-events-none bg-accent/5" />}
     </>
   );
 }

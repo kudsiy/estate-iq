@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,545 +15,258 @@ import {
   Plus, Trash2, Edit2, Calendar, Clock, Share2,
   Facebook, Instagram, CheckSquare, Square, ChevronLeft,
   ChevronRight, Send, FileText, XCircle, Zap, RefreshCw,
+  Video, Globe, MessageCircle
 } from "lucide-react";
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// ── Shared Styling ────────────────────────────────────────────────────────────
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
 
 type PostStatus = "draft" | "scheduled" | "queued" | "publishing" | "published" | "failed";
 
 const PLATFORMS = [
-  { id: "telegram",  label: "Telegram",  Icon: Send,       color: "#229ED9", bg: "bg-blue-50",   text: "text-blue-600"  },
-  { id: "facebook",  label: "Facebook",  Icon: Facebook,   color: "#1877F2", bg: "bg-blue-50",   text: "text-blue-700"  },
-  { id: "instagram", label: "Instagram", Icon: Instagram,  color: "#E1306C", bg: "bg-pink-50",   text: "text-pink-700"  },
-  { id: "tiktok",    label: "TikTok",    Icon: Share2,     color: "#010101", bg: "bg-gray-100",  text: "text-gray-800"  },
+  { id: "telegram",  label: "Telegram",  Icon: Send,       color: "#229ED9", bg: "bg-blue-500/10",   text: "text-blue-500"  },
+  { id: "facebook",  label: "Facebook",  Icon: Facebook,   color: "#1877F2", bg: "bg-blue-600/10",   text: "text-blue-600"  },
+  { id: "instagram", label: "Instagram", Icon: Instagram,  color: "#E1306C", bg: "bg-pink-500/10",   text: "text-pink-500"  },
+  { id: "tiktok",    label: "TikTok",    Icon: Video,      color: "#010101", bg: "bg-gray-500/10",   text: "text-gray-500"  },
 ] as const;
 
-const STATUS_META: Record<PostStatus, { label: string; Icon: any; bg: string; text: string }> = {
-  draft:      { label: "Draft",      Icon: FileText,   bg: "bg-gray-100",   text: "text-gray-600"   },
-  scheduled:  { label: "Scheduled",  Icon: Clock,      bg: "bg-blue-50",    text: "text-blue-700"   },
-  queued:     { label: "Queued",     Icon: Zap,        bg: "bg-amber-50",   text: "text-amber-700"  },
-  publishing: { label: "Publishing", Icon: RefreshCw,  bg: "bg-indigo-50",  text: "text-indigo-700" },
-  published:  { label: "Published",  Icon: CheckSquare,bg: "bg-green-50",   text: "text-green-700"  },
-  failed:     { label: "Failed",     Icon: XCircle,    bg: "bg-red-50",     text: "text-red-600"    },
-};
-
-const BLANK = {
-  content: "", platforms: [] as string[], date: "", time: "09:00", status: "queued" as PostStatus,
-};
-
-// ─── PLATFORM PILL ───────────────────────────────────────────────────────────
-
-function PlatformPills({ platforms }: { platforms: string[] }) {
+function StatCard({ icon: Icon, label, value, color, glassStyle }: any) {
   return (
-    <div className="flex gap-1 flex-wrap">
-      {platforms.map((pid) => {
-        const p = PLATFORMS.find((x) => x.id === pid);
-        if (!p) return null;
-        const Icon = p.Icon;
-        return (
-          <span key={pid} className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${p.bg} ${p.text}`}>
-            <Icon className="w-3 h-3" />{p.label}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── POST COMPOSER MODAL ─────────────────────────────────────────────────────
-
-function ComposerModal({
-  open, initial, onClose, onSaved,
-}: { open: boolean; initial: any | null; onClose: () => void; onSaved: () => void }) {
-  const isEdit = !!initial;
-
-  const initForm = () => {
-    if (!initial) return { ...BLANK };
-    const dt = initial.scheduledTime ? new Date(initial.scheduledTime) : null;
-    return {
-      content:   initial.content ?? "",
-      platforms: (initial.platforms as string[]) ?? [],
-      date: dt ? dt.toISOString().slice(0, 10) : "",
-      time: dt ? dt.toTimeString().slice(0, 5) : "09:00",
-      status: (initial.status ?? "queued") as PostStatus,
-    };
-  };
-
-  const [form, setForm] = useState(initForm);
-
-  const togglePlatform = (pid: string) =>
-    setForm((f) => ({
-      ...f,
-      platforms: f.platforms.includes(pid)
-        ? f.platforms.filter((x) => x !== pid)
-        : [...f.platforms, pid],
-    }));
-
-  const createMutation = trpc.crm.socialMediaPosts.create.useMutation({
-    onSuccess: () => { toast.success("Post saved!"); onSaved(); onClose(); },
-    onError: () => toast.error("Failed to save"),
-  });
-  const updateMutation = trpc.crm.socialMediaPosts.update.useMutation({
-    onSuccess: () => { toast.success("Post updated!"); onSaved(); onClose(); },
-    onError: () => toast.error("Failed to update"),
-  });
-
-  const handleSubmit = () => {
-    if (!form.content.trim()) { toast.error("Post content is required"); return; }
-    if (form.platforms.length === 0) { toast.error("Select at least one platform"); return; }
-
-    const scheduledTime = form.date
-      ? new Date(`${form.date}T${form.time}:00`)
-      : undefined;
-
-    const data = {
-      content: form.content,
-      platforms: form.platforms as ("telegram" | "facebook" | "instagram" | "tiktok")[],
-      status: form.status,
-      scheduledTime,
-    };
-
-    if (isEdit) updateMutation.mutate({ id: initial.id, data: data as any });
-    else createMutation.mutate(data);
-  };
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit post" : "Compose post"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-1">
-
-          {/* Content */}
-          <div>
-            <Label className="text-xs">Post content *</Label>
-            <Textarea
-              className="mt-1 text-sm min-h-[120px]"
-              placeholder="Write your property post here… Include price, location, key features and a call to action."
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground mt-1 text-right">
-              {form.content.length} characters
-            </p>
-          </div>
-
-          {/* Platforms */}
-          <div>
-            <Label className="text-xs mb-2 block">Publish to *</Label>
-            <div className="flex gap-2">
-              {PLATFORMS.map((p) => {
-                const active = form.platforms.includes(p.id);
-                const Icon = p.Icon;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => togglePlatform(p.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all flex-1 justify-center ${
-                      active
-                        ? "border-accent bg-accent/5 text-accent"
-                        : "border-border text-muted-foreground hover:border-accent/40"
-                    }`}
-                  >
-                    {active
-                      ? <CheckSquare className="w-3.5 h-3.5" />
-                      : <Square className="w-3.5 h-3.5" />}
-                    <Icon className="w-3.5 h-3.5" />
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Schedule */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Date</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                min={new Date().toISOString().slice(0, 10)}
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Time</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                type="time"
-                value={form.time}
-                onChange={(e) => setForm({ ...form, time: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <Label className="text-xs">Status</Label>
-            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as PostStatus })}>
-              <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(STATUS_META).map(([v, m]) => (
-                  <SelectItem key={v} value={v} className="text-sm">{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex gap-2 pt-1">
-            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-            <Button
-              className="flex-1 bg-accent hover:bg-accent/90 text-white"
-              onClick={handleSubmit}
-              disabled={isPending}
-            >
-              {isPending ? "Saving…" : isEdit ? "Save changes" : "Schedule post"}
-            </Button>
-          </div>
+    <div style={glassStyle} className="p-5 border-0 flex flex-col justify-between">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${color.replace('text-', 'bg-')} bg-opacity-20`}>
+           <Icon className={`w-4 h-4 ${color}`} />
         </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── WEEK CALENDAR ────────────────────────────────────────────────────────────
-
-function WeekCalendar({
-  posts, onEdit, onCreate,
-}: { posts: any[]; onEdit: (p: any) => void; onCreate: (date: string) => void }) {
-  const [weekOffset, setWeekOffset] = useState(0);
-
-  const weekDays = useMemo(() => {
-    const now = new Date();
-    const monday = new Date(now);
-    const day = now.getDay();
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + weekOffset * 7);
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      return d;
-    });
-  }, [weekOffset]);
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  const postsForDay = (date: Date) => {
-    const ds = date.toISOString().slice(0, 10);
-    return posts.filter((p) => {
-      if (!p.scheduledTime) return false;
-      return new Date(p.scheduledTime).toISOString().slice(0, 10) === ds;
-    });
-  };
-
-  const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  return (
-    <div>
-      {/* Week nav */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setWeekOffset((w) => w - 1)}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <span className="text-sm font-medium text-foreground">
-          {weekDays[0].toLocaleDateString("en-ET", { month: "long", day: "numeric" })}
-          {" — "}
-          {weekDays[6].toLocaleDateString("en-ET", { month: "long", day: "numeric", year: "numeric" })}
-        </span>
-        <button onClick={() => setWeekOffset((w) => w + 1)}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-          <ChevronRight className="w-4 h-4" />
-        </button>
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
       </div>
-
-      {/* Day columns */}
-      <div className="grid grid-cols-7 gap-2">
-        {weekDays.map((day, i) => {
-          const ds = day.toISOString().slice(0, 10);
-          const isToday = ds === todayStr;
-          const dayPosts = postsForDay(day);
-
-          return (
-            <div key={i} className={`min-h-[160px] rounded-xl border p-2 ${isToday ? "border-accent bg-accent/5" : "border-border bg-card"}`}>
-              {/* Header */}
-              <div className={`flex flex-col items-center mb-2 ${isToday ? "text-accent" : "text-muted-foreground"}`}>
-                <span className="text-xs font-medium">{DAY_LABELS[i]}</span>
-                <span className={`text-sm font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-accent text-white" : ""}`}>
-                  {day.getDate()}
-                </span>
-              </div>
-
-              {/* Posts */}
-              <div className="space-y-1.5">
-                {dayPosts.map((p) => {
-                  const platforms = (p.platforms as string[]) ?? [];
-                  const time = new Date(p.scheduledTime).toTimeString().slice(0, 5);
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => onEdit(p)}
-                      className="w-full text-left p-1.5 rounded-lg bg-accent/10 hover:bg-accent/20 transition-colors group"
-                    >
-                      <p className="text-xs font-medium text-accent leading-tight line-clamp-2">
-                        {p.content ?? "Untitled"}
-                      </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">{time}</span>
-                        <div className="flex gap-0.5">
-                          {platforms.slice(0, 2).map((pid) => {
-                            const pl = PLATFORMS.find((x) => x.id === pid);
-                            if (!pl) return null;
-                            const Icon = pl.Icon;
-                            return <Icon key={pid} className="w-2.5 h-2.5 text-muted-foreground" />;
-                          })}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-
-                {/* Add button */}
-                <button
-                  onClick={() => onCreate(ds)}
-                  className="w-full p-1 rounded-lg border border-dashed border-border hover:border-accent/50 flex items-center justify-center text-muted-foreground hover:text-accent transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <p className="text-2xl font-black text-foreground tracking-tight">{value}</p>
     </div>
   );
 }
-
-// ─── QUEUE LIST ───────────────────────────────────────────────────────────────
-
-function QueueList({
-  posts, statusFilter, onEdit, onDelete,
-}: {
-  posts: any[]; statusFilter: PostStatus | "all";
-  onEdit: (p: any) => void; onDelete: (id: number) => void;
-}) {
-  const filtered = statusFilter === "all" ? posts : posts.filter((p) => p.status === statusFilter);
-
-  if (filtered.length === 0)
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <Send className="w-8 h-8 text-muted-foreground opacity-30 mb-3" />
-        <p className="text-sm text-muted-foreground">No posts in this queue</p>
-      </div>
-    );
-
-  return (
-    <div className="rounded-xl border border-border overflow-hidden">
-      {filtered.map((post, i) => {
-        const platforms = (post.platforms as string[]) ?? [];
-        const st = STATUS_META[(post.status ?? "draft") as PostStatus];
-        const StIcon = st.Icon;
-        const dt = post.scheduledTime ? new Date(post.scheduledTime) : null;
-
-        return (
-          <div
-            key={post.id}
-            className={`flex items-start gap-4 px-4 py-3 hover:bg-muted/30 transition-colors ${i < filtered.length - 1 ? "border-b border-border" : ""}`}
-          >
-            {/* Status icon */}
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${st.bg}`}>
-              <StIcon className={`w-4 h-4 ${st.text}`} />
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-foreground line-clamp-2 mb-1.5">
-                {post.content ?? "No content"}
-              </p>
-              <div className="flex items-center gap-3 flex-wrap">
-                <PlatformPills platforms={platforms} />
-                {dt && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {dt.toLocaleDateString("en-ET", { day: "2-digit", month: "short" })}
-                    {" at "}
-                    {dt.toTimeString().slice(0, 5)}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-1 shrink-0">
-              <button onClick={() => onEdit(post)}
-                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-                <Edit2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => { if (confirm("Delete this post?")) onDelete(post.id); }}
-                className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function SocialMediaPage() {
+  const { t } = useLanguage();
+  const { theme } = useTheme();
   const [tab, setTab] = useState<"calendar" | "queue">("calendar");
-  const [queueFilter, setQueueFilter] = useState<PostStatus | "all">("all");
   const [composerOpen, setComposerOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [prefillDate, setPrefillDate] = useState<string>("");
+  const [editing, setEditing] = useState<any>(null);
 
   const { data: posts = [], refetch } = trpc.crm.socialMediaPosts.list.useQuery();
-
-  const deleteMutation = trpc.crm.socialMediaPosts.delete.useMutation({
-    onSuccess: () => { toast.success("Post deleted"); refetch(); },
-    onError: () => toast.error("Delete failed"),
-  });
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   const stats = useMemo(() => ({
-    total:     posts.length,
-    scheduled: posts.filter((p) => p.status === "scheduled").length,
-    published: posts.filter((p) => p.status === "published").length,
-    draft:     posts.filter((p) => p.status === "draft").length,
+    total: posts.length,
+    scheduled: posts.filter(p => p.status === "scheduled").length,
+    published: posts.filter(p => p.status === "published").length,
+    draft: posts.filter(p => p.status === "draft").length,
   }), [posts]);
-
-  const openComposer = (post?: any, date?: string) => {
-    setEditing(post ?? null);
-    setPrefillDate(date ?? "");
-    setComposerOpen(true);
-  };
 
   return (
     <DashboardLayout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Social Media</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Schedule and manage posts across Facebook, Instagram and TikTok
-          </p>
+          <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">{t("social.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">{t("social.sub")}</p>
         </div>
-        <Button className="bg-accent hover:bg-accent/90 text-white" onClick={() => openComposer()}>
-          <Plus className="w-4 h-4 mr-2" /> Compose post
+        <Button onClick={() => setComposerOpen(true)} className="h-12 px-8 rounded-2xl bg-accent hover:bg-accent/90 text-white font-black text-xs uppercase tracking-widest gap-2 shadow-xl shadow-accent/20">
+          <Plus className="w-4 h-4" /> {t("social.compose")}
         </Button>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: "Total posts",  value: stats.total,     Icon: Send,         color: "text-accent"      },
-          { label: "Scheduled",    value: stats.scheduled, Icon: Clock,        color: "text-blue-600"    },
-          { label: "Published",    value: stats.published, Icon: CheckSquare,  color: "text-green-600"   },
-          { label: "Drafts",       value: stats.draft,     Icon: FileText,     color: "text-amber-600"   },
-        ].map((k) => (
-          <div key={k.label} className="bg-card border border-border rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <k.Icon className={`w-3.5 h-3.5 ${k.color}`} />
-              <span className="text-xs text-muted-foreground">{k.label}</span>
-            </div>
-            <p className="text-2xl font-semibold text-foreground">{k.value}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        <StatCard icon={Send} label="Live Channels" value="4" color="text-accent" glassStyle={glassStyle} />
+        <StatCard icon={Clock} label={t("social.scheduled")} value={stats.scheduled} color="text-blue-500" glassStyle={glassStyle} />
+        <StatCard icon={CheckSquare} label={t("social.published")} value={stats.published} color="text-green-500" glassStyle={glassStyle} />
+        <StatCard icon={FileText} label={t("social.draft")} value={stats.draft} color="text-amber-500" glassStyle={glassStyle} />
       </div>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList className="mb-5 h-9">
-          <TabsTrigger value="calendar" className="text-xs">
-            <Calendar className="w-3.5 h-3.5 mr-1.5" /> Calendar
+      <Tabs value={tab} onValueChange={(v: any) => setTab(v)}>
+        <TabsList className="bg-muted/20 p-1.5 rounded-2xl h-12 mb-8 border border-border/10">
+          <TabsTrigger value="calendar" className="rounded-xl px-6 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-accent data-[state=active]:text-white transition-all h-full">
+            <Calendar className="w-3.5 h-3.5 mr-2" /> {t("social.calendar")}
           </TabsTrigger>
-          <TabsTrigger value="queue" className="text-xs">
-            <Send className="w-3.5 h-3.5 mr-1.5" /> Queue
-            {stats.total > 0 && (
-              <span className="ml-1.5 bg-accent text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                {stats.total}
-              </span>
-            )}
+          <TabsTrigger value="queue" className="rounded-xl px-6 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-accent data-[state=active]:text-white transition-all h-full">
+            <Zap className="w-3.5 h-3.5 mr-2" /> {t("social.queue")}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="calendar" className="mt-0">
-          {posts.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card p-12 flex flex-col items-center text-center">
-              <Calendar className="w-10 h-10 text-muted-foreground opacity-30 mb-4" />
-              <p className="text-sm font-medium text-foreground mb-1">No posts scheduled yet</p>
-              <p className="text-xs text-muted-foreground mb-4 max-w-xs">
-                Compose your first post and pick a date and time to schedule it.
-              </p>
-              <Button size="sm" className="bg-accent hover:bg-accent/90 text-white"
-                onClick={() => openComposer()}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Compose first post
-              </Button>
-            </div>
-          ) : (
-            <WeekCalendar
-              posts={posts}
-              onEdit={(p) => openComposer(p)}
-              onCreate={(date) => openComposer(undefined, date)}
-            />
-          )}
+        <TabsContent value="calendar">
+           <WeekCalendar posts={posts} t={t} theme={theme} glassStyle={glassStyle} onEdit={(p:any) => {setEditing(p); setComposerOpen(true);}} />
         </TabsContent>
 
-        <TabsContent value="queue" className="mt-0">
-          {/* Status filter tabs */}
-          <div className="flex gap-1 mb-4 flex-wrap">
-            {([["all", "All"], ["scheduled", "Scheduled"], ["draft", "Drafts"],
-               ["published", "Published"], ["failed", "Failed"]] as const).map(([v, label]) => (
-              <button
-                key={v}
-                onClick={() => setQueueFilter(v)}
-                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                  queueFilter === v
-                    ? "bg-accent text-white border-accent"
-                    : "border-border text-muted-foreground hover:border-accent/40"
-                }`}
-              >
-                {label}
-                {v !== "all" && (
-                  <span className="ml-1.5 opacity-70">
-                    {posts.filter((p) => p.status === v).length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <QueueList
-            posts={posts}
-            statusFilter={queueFilter}
-            onEdit={(p) => openComposer(p)}
-            onDelete={(id) => deleteMutation.mutate(id)}
-          />
+        <TabsContent value="queue">
+           <div style={glassStyle} className="border-0 overflow-hidden">
+              <div className="p-8 border-b border-border/40">
+                 <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-accent" /> {t("social.queue")}
+                 </h3>
+              </div>
+              <div className="divide-y divide-border/20">
+                 {posts.map(p => {
+                    const platforms = (p.platforms as string[]) ?? [];
+                    return (
+                      <div key={p.id} className="p-6 flex items-start justify-between group hover:bg-muted/10 transition-all">
+                         <div className="flex gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center text-accent">
+                               <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                               <p className="text-sm font-bold text-foreground line-clamp-1 max-w-md">{p.content || "Branded Media Content"}</p>
+                               <div className="flex items-center gap-3 mt-2">
+                                  {platforms.map(pid => {
+                                     const pMeta = PLATFORMS.find(x => x.id === pid);
+                                     const PIcon = pMeta?.Icon || Globe;
+                                     return <PIcon key={pid} className={`w-3.5 h-3.5 ${pMeta?.text || 'text-muted-foreground'}`} />
+                                  })}
+                                  <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground ml-2">
+                                     {p.scheduledTime ? new Date(p.scheduledTime).toLocaleDateString() : "Draft"}
+                                  </span>
+                               </div>
+                            </div>
+                         </div>
+                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                            <button onClick={() => {setEditing(p); setComposerOpen(true);}} className="w-8 h-8 rounded-xl bg-muted/50 flex items-center justify-center hover:bg-accent hover:text-white transition-all"><Edit2 className="w-3.5 h-3.5"/></button>
+                            <button className="w-8 h-8 rounded-xl bg-muted/50 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-3.5 h-3.5"/></button>
+                         </div>
+                      </div>
+                    )
+                 })}
+                 {posts.length === 0 && (
+                   <div className="p-20 text-center text-xs font-bold italic text-muted-foreground/30 uppercase tracking-widest tracking-widest">The queue is currently empty</div>
+                 )}
+              </div>
+           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Platform info banner */}
-      <div className="mt-6 rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-start gap-3">
-        <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          <span className="font-medium text-foreground">Platform integrations coming in v2 —</span>{" "}
-          Facebook, Instagram and TikTok direct publishing requires connecting API keys in Settings.
-          Posts scheduled here are stored and ready to publish once integrations are configured.
-        </p>
-      </div>
-
-      <ComposerModal
-        open={composerOpen}
-        initial={editing}
-        onClose={() => { setComposerOpen(false); setEditing(null); setPrefillDate(""); }}
-        onSaved={refetch}
-      />
+      <ComposerModal open={composerOpen || !!editing} theme={theme} glassStyle={glassStyle} t={t} 
+        onClose={() => {setComposerOpen(false); setEditing(null);}} initial={editing} />
     </DashboardLayout>
   );
+}
+
+function WeekCalendar({ posts, t, theme, glassStyle, onEdit }: any) {
+  const [offset, setOffset] = useState(0);
+  const week = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay() + (offset * 7));
+    return Array.from({length: 7}, (_, i) => {
+       const x = new Date(d);
+       x.setDate(d.getDate() + i);
+       return x;
+    });
+  }, [offset]);
+
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  return (
+    <div className="space-y-4">
+       <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-2">
+             <Button variant="outline" size="sm" onClick={() => setOffset(o => o - 1)} className="rounded-xl h-9 w-9 p-0"><ChevronLeft className="w-4 h-4"/></Button>
+             <Button variant="outline" size="sm" onClick={() => setOffset(o => o + 1)} className="rounded-xl h-9 w-9 p-0"><ChevronRight className="w-4 h-4"/></Button>
+          </div>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+             {week[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — {week[6].toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+       </div>
+       <div className="grid grid-cols-7 gap-4">
+          {week.map((d, i) => {
+             const ds = d.toISOString().slice(0, 10);
+             const active = ds === new Date().toISOString().slice(0, 10);
+             const dayPosts = posts.filter((p:any) => p.scheduledTime && new Date(p.scheduledTime).toISOString().slice(0,10) === ds);
+             return (
+               <div key={i} style={glassStyle} className={`p-4 min-h-[300px] border-0 relative flex flex-col ${active ? 'ring-2 ring-accent ring-inset' : ''}`}>
+                  <div className="text-center mb-6">
+                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{DAY_LABELS[i]}</p>
+                     <p className={`text-sm font-black ${active ? 'text-accent' : 'text-foreground'}`}>{d.getDate()}</p>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                     {dayPosts.map((p:any) => (
+                       <button key={p.id} onClick={() => onEdit(p)} className="w-full p-2.5 rounded-xl bg-accent/10 border border-accent/20 text-left group hover:bg-accent/20 transition-all">
+                          <p className="text-[10px] font-bold text-accent line-clamp-2 leading-tight uppercase tracking-tighter">{p.content || "Branded Content"}</p>
+                          <div className="flex items-center gap-1.5 mt-2 opacity-60">
+                             <Clock className="w-2.5 h-2.5" />
+                             <span className="text-[8px] font-black">{new Date(p.scheduledTime).toTimeString().slice(0,5)}</span>
+                          </div>
+                       </button>
+                     ))}
+                  </div>
+               </div>
+             )
+          })}
+       </div>
+    </div>
+  )
+}
+
+function ComposerModal({ open, onClose, initial, theme, glassStyle, t }: any) {
+  const [content, setContent] = useState(initial?.content || "");
+  const [platforms, setPlatforms] = useState<string[]>(initial?.platforms || []);
+
+  const toggleP = (id: string) => setPlatforms(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+       <DialogContent className="sm:max-w-xl rounded-[32px] p-0 border-0 bg-transparent shadow-none">
+          <div style={glassStyle} className="p-10">
+             <DialogHeader className="mb-8">
+                <DialogTitle className="text-2xl font-black tracking-tighter uppercase">{t("social.compose")}</DialogTitle>
+             </DialogHeader>
+
+             <div className="space-y-6">
+                <div>
+                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">{t("social.postContent")}</Label>
+                   <Textarea className="min-h-[150px] rounded-2xl bg-background/30 border-white/5 p-5 text-sm font-medium" 
+                             placeholder="Compose your high-luxury property announcement..." value={content} onChange={e => setContent(e.target.value)} />
+                </div>
+
+                <div>
+                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 block">{t("social.platforms")}</Label>
+                   <div className="grid grid-cols-4 gap-3">
+                      {PLATFORMS.map(p => {
+                         const has = platforms.includes(p.id);
+                         const PIcon = p.Icon;
+                         return (
+                           <button key={p.id} onClick={() => toggleP(p.id)} className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${has ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-background/20 border-border/40 text-muted-foreground'}`}>
+                              <PIcon className="w-5 h-5 mb-2" />
+                              <span className="text-[8px] font-black uppercase tracking-widest">{p.label}</span>
+                           </button>
+                         )
+                      })}
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">{t("social.scheduleTime")}</Label>
+                      <Input type="datetime-local" className="h-11 rounded-2xl bg-background/20 border-white/5" />
+                   </div>
+                </div>
+             </div>
+
+             <div className="flex gap-4 mt-12">
+                <Button variant="outline" className="flex-1 h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg" onClick={onClose}>Dismiss</Button>
+                <Button className="flex-1 h-12 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-accent/40">
+                   {initial ? "Re-Schedule" : "Launch Production"}
+                </Button>
+             </div>
+          </div>
+       </DialogContent>
+    </Dialog>
+  )
+}
+
+function Activity(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+  )
 }

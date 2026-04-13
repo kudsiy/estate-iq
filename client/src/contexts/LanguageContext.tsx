@@ -1,0 +1,767 @@
+import React, { createContext, useContext, useState, useEffect } from "react";
+
+export type Language = "en" | "am";
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+// ─── TRANSLATION REGISTRY ───────────────────────────────────────────────────
+// We'll expand this as we refine each page. 
+// Using "Pure Amharic" as requested.
+const translations: Record<Language, Record<string, string>> = {
+  en: {
+    // Navigation
+    "nav.dashboard": "Dashboard",
+    "nav.supplyFeed": "Supply Feed",
+    "nav.studio": "Studio",
+    "nav.properties": "My Properties",
+    "nav.crm": "CRM",
+    "nav.analytics": "Analytics",
+    "nav.settings": "Settings",
+    "nav.billing": "Billing",
+    "nav.notifications": "Notifications",
+    "nav.admin": "Admin",
+    
+    // Sidebar/Footer
+    "side.language": "Language",
+    "side.theme": "Theme",
+    "side.logout": "Sign out",
+    
+    // Dashboard Core
+    "dash.welcome": "Welcome back",
+    "dash.subtitle": "Here is what's happening with your real estate business today.",
+    "dash.activeLeads": "Active Leads",
+    "dash.closedDeals": "Closed Deals",
+    "dash.pendingTasks": "Pending Tasks",
+    "dash.revenue": "Total Revenue",
+    "dash.command": "Command Your Market.",
+    "dash.commandSubtitle": "The complete dashboard for real estate agents in Addis Ababa.",
+    "dash.leadVelocity": "Lead Velocity",
+    "dash.convRate": "Conversion Rate",
+    "dash.pipeValue": "Pipeline Value",
+    "dash.marketing": "Marketing ROI",
+    "dash.captured": "captured",
+    "dash.efficiency": "Lead-to-Close efficiency",
+    "dash.activeAssets": "Active assets",
+    "dash.aiImpact": "AI-Content impact",
+    "dash.trendTitle": "Conversion Trend",
+    "dash.trendSub": "Verified Conversion Performance — last 6 months",
+    "dash.pipeTitle": "Sales Process",
+    "dash.pipeSub": "Distribution by Deal Lifecycle",
+    "dash.socialTitle": "Social Media Engagement",
+    "dash.socialSub": "Likes + comments + shares per platform",
+    "dash.recentContacts": "Recent Contacts",
+    "dash.viewAll": "View all",
+    "dash.ops": "Operations",
+    "dash.notifications": "Notifications",
+    "dash.unread": "unread",
+    "dash.supplierReview": "Supplier listings to review",
+    "dash.buyerProfiles": "Buyer profiles saved",
+    "dash.ctaTitle": "Dominate the Addis Market",
+    "dash.ctaSub": "Join 500+ top-tier agencies using Estate IQ to close deals 3× faster.",
+    "dash.ctaButton": "Enter Studio",
+    "track.narrative": "Property Narrative",
+    "track.context": "Location Context",
+    "track.vibe": "Vibe",
+    "crm.rationale": "Match Rationale",
+    "studio.dispatch": "Dispatch",
+    "studio.tiktokHook": "TikTok Hook",
+    "studio.trendingTags": "Trending Tags",
+    "studio.queueTikTok": "Queue for TikTok",
+
+    // CRM & Details
+    "crm.back": "Back to contacts",
+    "crm.edit": "Edit contact",
+    "crm.delete": "Delete contact",
+    "crm.notes": "Notes",
+    "crm.notesPlaceholder": "Add notes about this contact...",
+    "crm.saveNotes": "Save notes",
+    "crm.saving": "Saving...",
+    "crm.leads": "Linked Leads",
+    "crm.deals": "Deals",
+    "crm.activity": "Activity Timeline",
+    "crm.noActivity": "No activity recorded",
+    "crm.totalValue": "Total deal value",
+    "crm.propertyInterest": "Property Interest",
+    "crm.location": "Location & Context",
+    "crm.inbox": "Leads Inbox",
+    "crm.conversations": "Conversations",
+    "crm.closed": "Closed Deals",
+    "crm.addContact": "Add Contact",
+    "crm.search": "Search conversations...",
+    "crm.noLeads": "No leads yet",
+    "crm.noLeadsSub": "Leads captured from your social tracking links will appear here automatically.",
+    
+    // Statuses
+    "status.active": "Active",
+    "status.inactive": "Inactive",
+    "status.converted": "Converted",
+    "status.lost": "Lost",
+
+    // Properties
+    "prop.total": "Total Listings",
+    "prop.available": "Available",
+    "prop.pending": "Pending",
+    "prop.sold": "Sold",
+    "prop.bedrooms": "Bedrooms",
+    "prop.bathrooms": "Bathrooms",
+    "prop.area": "Area",
+    "prop.add": "Add Property",
+    "prop.search": "Search by title, address, sub-city...",
+    "prop.specs": "Property Specs",
+    "prop.price": "Price",
+    "prop.address": "Street Address",
+    "prop.description": "Description",
+    "prop.photos": "Photos",
+    "prop.grid": "Grid View",
+    "prop.map": "Map View",
+
+    // Sub-cities
+    "subcity.bole": "Bole",
+    "subcity.yeka": "Yeka",
+    "subcity.arada": "Arada",
+    "subcity.kirkos": "Kirkos",
+    "subcity.lideta": "Lideta",
+    "subcity.gullele": "Gullele",
+    "subcity.akaky": "Akaky Kaliti",
+    "subcity.addis_ketema": "Addis Ketema",
+    "subcity.kolfe": "Kolfe Keranio",
+    "subcity.nifas_silk": "Nifas Silk-Lafto",
+    "subcity.lemi_kura": "Lemi Kura",
+
+    // Studio
+    "studio.title": "Design Studio",
+    "studio.subtitle": "Modern marketing tools for Ethiopian real estate",
+    "studio.createAd": "Create Property Ad",
+    "studio.createAdSub": "Generate professional property ads for social media",
+    "studio.rebrand": "Rebrand Competitor",
+    "studio.rebrandSub": "Turn any competitor ad into your own brand style",
+    "studio.video": "Create Video",
+    "studio.videoSub": "Branded property walkthroughs and short-form videos",
+    "studio.generate": "Generate AI Material",
+    "studio.download": "Download PNG",
+    "studio.style": "Template Style",
+    "studio.form": "Property Details",
+
+    // Analytics
+    "analz.title": "Performance Intelligence",
+    "analz.sub": "In-depth insights into your real estate growth",
+    "analz.social": "Social Media Impact",
+    "analz.conversion": "Lead Conversion Funnel",
+    "analz.pipeline": "Pipeline Dynamics",
+    "analz.trend": "Activity Trend",
+    "analz.topPosts": "Top Content",
+    "analz.platforms": "Platform Reach",
+    "analz.imp": "Impressions",
+    "analz.clicks": "Ad Clicks",
+    "analz.er": "Engagement Rate",
+    "analz.velocity": "Sales Velocity",
+    "analz.revenue": "Expected Revenue",
+    "analz.commission": "Estimated Commission",
+
+    // Brand Kit
+    "brand.title": "Brand Identity",
+    "brand.sub": "Manage your luxury brand assets and presence",
+    "brand.add": "Create Brand Kit",
+    "brand.kitName": "Brand Kit Name",
+    "brand.palette": "Colour Palette",
+    "brand.fonts": "Typography",
+    "brand.logos": "Logos & Assets",
+    "brand.social": "Social Handles",
+    "brand.contact": "Default Contact",
+    "brand.areas": "Target Areas",
+    "brand.language": "Caption Language",
+    "brand.portrait": "Agent Portrait",
+    "brand.tagline": "Brand Tagline",
+
+    // Lead Capture
+    "lead.title": "Lead Intelligence",
+    "lead.sub": "Capture and qualify potential buyers and renters",
+    "lead.add": "Add Lead",
+    "lead.total": "Total Leads",
+    "lead.conv": "Conversion Rate",
+    "lead.source": "Lead Source",
+    "lead.builder": "Form Builder",
+    "lead.embed": "Embed & Channels",
+    "lead.fields": "Form Fields",
+    "lead.preview": "Public Preview",
+    "lead.submit": "Submit Enquiry",
+    "lead.thanks": "Success Message",
+    "lead.formName": "Contact Form Name",
+
+    // Social Media
+    "social.title": "Social Production",
+    "social.sub": "Schedule and manage your brand presence across platforms",
+    "social.compose": "Compose Post",
+    "social.calendar": "Content Calendar",
+    "social.queue": "Production Queue",
+    "social.published": "Published",
+    "social.draft": "Draft",
+    "social.scheduled": "Scheduled",
+    "social.platforms": "Platforms",
+    "social.postContent": "Post Content",
+    "social.scheduleTime": "Schedule Date & Time",
+
+    // Supplier Feed
+    "sup.title": "Supply Intelligence",
+    "sup.sub": "Review manual entries, flag duplicates, and secure inventory from the supplier network.",
+    "sup.add": "Register Supplier Entry",
+    "sup.source": "Source Identity",
+    "sup.contact": "Supplier Liaison",
+    "sup.titleLabel": "Listing Title",
+    "sup.review": "Review Queue",
+    "sup.markReviewed": "Verify Entry",
+    "sup.market": "Market Asset",
+    "sup.duplicate": "Possible Duplicate System Conflict",
+
+    // Matching Engine
+    "match.title": "Asset Dynamics",
+    "match.sub": "Architectural matching between buyer requirements and available inventory.",
+    "match.add": "Register Buyer Requirement",
+    "match.profiles": "Requirement Portfolios",
+    "match.results": "Match Intelligence",
+    "match.score": "Synergy Score",
+    "match.reasons": "Matching logic",
+    "match.delete": "Purge Portfolio",
+
+    // Billing
+    "bill.title": "Subscription Sovereignty",
+    "bill.sub": "Architectural control over your workspace membership and usage.",
+    "bill.status": "Deployment Status",
+    "bill.active": "Active & Verified",
+    "bill.renew": "Auto-Renewal Sequence",
+    "bill.consumption": "Resource Consumption",
+    "bill.roi": "Revenue Intelligence & ROI",
+    "bill.roiDesc": "One mid-range deal (ETB 60k+) covers 5 years of Pro membership. Your platform is paid for within the first conversion.",
+    "bill.tiers": "Available Tiers",
+    "bill.help": "Financial Assistance",
+    "bill.helpDesc": "We accept Telebirr, CBE Birr, and Visa via Chapa. For manual activation, contact dedicated support.",
+
+    // Notifications
+    "notif.title": "Operational Manifest",
+    "notif.sub": "High-fidelity alerts for leads, deals, and networking events.",
+    "notif.unread": "Unread Manifests",
+    "notif.total": "Aggregate Alerts",
+    "notif.latest": "Recent Intelligence",
+    "notif.markAll": "Acknowledge All",
+    "notif.read": "Mark as Read",
+    "notif.unreadBtn": "Mark as Unread",
+    "notif.type.lead": "Lead Intelligence",
+    "notif.type.deal": "Sales Process",
+    "notif.type.supplier": "Inventory Alert",
+    "notif.type.match": "Match Synergy",
+    "notif.type.engagement": "Public Engagement",
+    "notif.type.system": "Platform Sequence",
+
+    // Onboarding
+    "on.title": "Workspace Initialization",
+    "on.sub": "Set up your intelligence hub to reflect your agency's architectural workflow.",
+    "on.cardTitle": "Deployment Configuration",
+    "on.cardSub": "Required to calibrate your dashboard and CRM context.",
+    "on.agency": "Agency / Workspace Identity",
+    "on.role": "Your Professional Role",
+    "on.market": "Strategic Target Market",
+    "on.platforms": "Engagement Platforms",
+    "on.complete": "Finalize Initialization",
+    "on.skip": "Skip for now",
+    "on.enableTitle": "Deployment Impact",
+    "on.enable1": "Establishes your high-fidelity personal workspace.",
+    "on.enable2": "Calibrates branding across the Design Studio.",
+    "on.enable3": "Initializes lead and property intelligence pipelines.",
+
+    // Auth & Identity
+    "auth.welcome": "Welcome back, Intelligence",
+    "auth.loginTitle": "Identity Verification",
+    "auth.loginSub": "Enter your secure credentials to access your premium workspace.",
+    "auth.registerTitle": "Establish Workspace",
+    "auth.registerSub": "Initialize your Estate IQ identity and market reach.",
+    "auth.email": "Secure Email Address",
+    "auth.password": "Sovereign Passphrase",
+    "auth.fullName": "Professional Full Name",
+    "auth.signIn": "Authorize Access",
+    "auth.signUp": "Initialize Identity",
+    "auth.noAccount": "New to the intelligence network?",
+    "auth.hasAccount": "Identity already established?",
+    "auth.forgot": "Recover Access",
+
+    // Admin
+    "adm.title": "Sovereign Power Console",
+    "adm.sub": "Architectural oversight for users, workspaces, and system-wide feature flags.",
+    "adm.users": "Total Identities",
+    "adm.admins": "System Architects",
+    "adm.workspaces": "Global Workspaces",
+    "adm.subs": "Active Revenue Streams",
+    "adm.flags": "Feature Calibration Flags",
+    "adm.saveFlag": "Commit Calibration",
+    "adm.plans": "Workspace Deployment Plans",
+
+    // Coming Soon / Roadmap
+    "soon.title": "Module Calibration",
+    "soon.sub": "Architectural development in progress. Calibrating feature for deployment.",
+    "soon.status": "Sequence Incomplete",
+    "soon.back": "Return to HQ",
+    "soon.prop": "Listings, media assets, and management tools.",
+    "soon.leads": "Capture pipelines and CRM automation integration.",
+    "soon.design": "High-fidelity canvas editor for property marketing.",
+    "soon.social": "Multi-platform scheduling and visual dispatch hub.",
+    "soon.analytics": "Performance metrics and engagement intelligence.",
+    "soon.brand": "Centralized identity and aesthetic management.",
+
+    // Not Found
+    "not.title": "Protocol Termination",
+    "not.sub": "The requested node does not exist in the current workspace architecture.",
+    "not.error": "Coordinate Error 404",
+    "not.back": "Redirect to Main Hub",
+
+    // Landing / Home
+    "home.tag": "Ethiopia's Premium Real Estate Intelligence",
+    "home.heroTitle": "Market Listings Smarter.",
+    "home.heroSub": "The ultimate high-fidelity toolkit for the region's elite agents. Find properties, automate social dispatch, and close deals with architectural precision.",
+    "home.start": "Start Free Trial",
+    "home.pricing": "View Pricing",
+    "home.agents": "Participating Elite Agents",
+    "home.agentsSub": "Dominating the local market infrastructure.",
+    "home.featTitle": "Platform Sovereignty",
+    "home.featSub": "A unified intelligence suite built exclusively for the modern real estate professional.",
+    "home.ctaTitle": "Ready to Dominate the Market?",
+    "home.ctaSub": "Join the high-performance network already using Estate IQ to seize every architectural opportunity.",
+    "home.beta": "Beta Access: April 2026",
+
+    // Settings
+    "set.title": "Workspace Settings",
+    "set.sub": "Manage your premium workspace, integrations and account",
+    "set.profile": "User Profile",
+    "set.itg": "Integrations",
+    "set.notif": "Notifications",
+    "set.dev": "Developer Suite",
+    "set.brand": "Brand Identity",
+    "set.acc": "Security & Account",
+    "set.upgrade": "Upgrade to Pro",
+    "set.plans": "Subscription Plans",
+    "set.api": "API Access Suite",
+    "set.itgSub": "Connect your social and messaging reach",
+
+    // Billing & Pro Features
+    "pro.feature1": "Unlimited AI Virtual Staging",
+    "pro.feature2": "Dual-Language SEO (Amharic/English)",
+    "pro.feature3": "Cinematic Magic Reel Exports",
+    "pro.feature4": "Priority Social Hub Scheduling",
+    "pro.feature5": "Multi-Seat Agency Collaboration",
+    "pro.upgrade": "Upgrade for ETB 999/mo",
+    "pro.secure": "Secure Payment via Chapa",
+
+    // Public Tracking Page
+    "track.secure": "Secure this Listing",
+    "track.consult": "Initiate Consultation",
+    "track.identity": "Identity",
+    "track.connectivity": "Connectivity",
+    "track.needs": "Specific Needs",
+    "track.whatsapp": "Inquire via WhatsApp",
+    "track.received": "Request Received",
+    "track.success": "Your private inquiry has been secured. Our lead agent will contact you shortly.",
+    "track.expired": "Listing Expired",
+    "track.expiredSub": "This property is no longer active or the link has expired.",
+
+    "stage.lead": "Lead",
+    "stage.contacted": "Contacted",
+    "stage.viewing": "Property Viewing",
+    "stage.offer": "Offer",
+    "stage.closed": "Closed Deal",
+  },
+  am: {
+    // Navigation
+    "nav.dashboard": "ዳሽቦርድ",
+    "nav.supplyFeed": "የአቅርቦት መረጃ",
+    "nav.studio": "የንድፍ ስቱዲዮ",
+    "nav.properties": "የኔ ንብረቶች",
+    "nav.crm": "የደንበኞች ግንኙነት አስተዳደር",
+    "nav.analytics": "የመረጃ ትንተና",
+    "nav.settings": "ቅንብሮች",
+    "nav.billing": "ክፍያ",
+    "nav.notifications": "ማሳወቂያዎች",
+    "nav.admin": "አስተዳዳሪ",
+    
+    // Sidebar/Footer
+    "side.language": "ቋንቋ",
+    "side.theme": "ገጽታ",
+    "side.logout": "ይውጡ",
+
+    // Dashboard Core
+    "dash.welcome": "እንኳን ደህና መጡ",
+    "dash.subtitle": "ዛሬ በሪል እስቴት ስራዎ ላይ ምን እየተከናወነ እንዳለ ይመልከቱ።",
+    "dash.activeLeads": "ንቁ ደንበኞች",
+    "dash.closedDeals": "የተጠናቀቁ ሽያጮች",
+    "dash.pendingTasks": "በመጠባበቅ ላይ ያሉ ስራዎች",
+    "dash.revenue": "ጠቅላላ ገቢ",
+    "dash.command": "ገበያዎን ይቆጣጠሩ",
+    "dash.commandSubtitle": "ለአዲስ አበባ የሪል እስቴት ወኪሎች የተሟላ ዳሽቦርድ።",
+    "dash.leadVelocity": "የደንበኞች ፍጥነት",
+    "dash.convRate": "የሽያጭ ስኬት መጠን",
+    "dash.pipeValue": "የሽያጭ ሂደት ዋጋ",
+    "dash.marketing": "የግብይት ውጤታማነት",
+    "dash.captured": "የተመዘገቡ",
+    "dash.efficiency": "ደንበኞችን ወደ ሽያጭ የመቀየር ውጤታማነት",
+    "dash.activeAssets": "ንቁ ንብረቶች",
+    "dash.aiImpact": "የአርቴፊሻል ኢንተለጀንስ ተፅእኖ",
+    "dash.trendTitle": "የልወጣ አዝማሚያ",
+    "dash.trendSub": "የተረጋገጠ የሽያጭ አፈጻጸም — ባለፉት 6 ወራት",
+    "dash.pipeTitle": "የሽያጭ ሂደት",
+    "dash.pipeSub": "በሽያጭ ዑደት ስርጭት",
+    "dash.socialTitle": "የማህበራዊ ሚዲያ ተሳትፎ",
+    "dash.socialSub": "በእያንዳንዱ መድረክ ላይ የተገኙ መውደዶች፣ አስተያየቶች እና ተከታዮች",
+    "dash.recentContacts": "የቅርብ ጊዜ ደንበኞች",
+    "dash.viewAll": "ሁሉንም ይመልከቱ",
+    "dash.ops": "ተግባራት",
+    "dash.notifications": "ማሳወቂያዎች",
+    "dash.unread": "ያልተነበቡ",
+    "dash.supplierReview": "ሊገመገሙ የሚገባቸው የአቅራቢ ዝርዝሮች",
+    "dash.buyerProfiles": "የተቀመጡ የገዢ መገለጫዎች",
+    "dash.ctaTitle": "በአዲስ አበባ ገበያ ውስጥ ቀዳሚ ይሁኑ",
+    "dash.ctaSub": "ሽያጮችን 3 እጥፍ በፍጥነት ለመጨረስ ከ500 በላይ ከፍተኛ ኤጀንሲዎችን ይቀላቀሉ።",
+    "dash.ctaButton": "ወደ ስቱዲዮ ይመለሱ",
+    "track.narrative": "የንብረት ታሪክ",
+    "track.context": "የአካባቢ ሁኔታ",
+    "track.vibe": "ድባብ",
+    "crm.rationale": "የተዛማጅነት ምክንያት",
+    "studio.dispatch": "ማሰራጨት",
+    "studio.tiktokHook": "ቲክቶክ መንጠቆ (Hook)",
+    "studio.trendingTags": "ወቅታዊ ታጎች (Tags)",
+    "studio.queueTikTok": "ወደ ቲክቶክ ላክ",
+
+    // CRM & Details
+    "crm.back": "ወደ ደንበኞች ተመለስ",
+    "crm.edit": "ደንበኛን ያሻሽሉ",
+    "crm.delete": "ደንበኛን ይሰርዙ",
+    "crm.notes": "ማስታወሻዎች",
+    "crm.notesPlaceholder": "ስለዚህ ደንበኛ ማስታወሻ ይጨምሩ...",
+    "crm.saveNotes": "ማስታወሻ አስቀምጥ",
+    "crm.saving": "በማስቀመጥ ላይ...",
+    "crm.leads": "የተገናኙ ደንበኞች",
+    "crm.deals": "ሽያጮች",
+    "crm.activity": "የተግባራት ሂደት",
+    "crm.noActivity": "ምንም የተመዘገበ ተግባር የለም",
+    "crm.totalValue": "ጠቅላላ የሽያጭ ዋጋ",
+    "crm.propertyInterest": "የንብረት ፍላጎት",
+    "crm.location": "አካባቢ እና ሁኔታ",
+    "crm.inbox": "ሊድ ሳጥን",
+    "crm.conversations": "ውይይቶች",
+    "crm.closed": "የተጠናቀቁ ሽያጮች",
+    "crm.addContact": "ደንበኛ ይጨምሩ",
+    "crm.search": "ውይይቶችን ይፈልጉ...",
+    "crm.noLeads": "ምንም ሊድ የለም",
+    "crm.noLeadsSub": "ከማህበራዊ ሚዲያ የተገኙ ደንበኞች እዚህ ይታያሉ።",
+
+    // Statuses
+    "status.active": "ንቁ",
+    "status.inactive": "ንቁ ያልሆነ",
+    "status.converted": "የተለወጠ",
+    "status.lost": "የተሰረዘ",
+
+    // Properties
+    "prop.total": "ጠቅላላ ንብረቶች",
+    "prop.available": "ዝግጁ",
+    "prop.pending": "በሂደት ላይ",
+    "prop.sold": "የተሸጠ",
+    "prop.bedrooms": "መኝታ ቤቶች",
+    "prop.bathrooms": "መታጠቢያ ቤቶች",
+    "prop.area": "ስፋት",
+    "prop.add": "ንብረት ይጨምሩ",
+    "prop.search": "በርዕስ፣ በአድራሻ ወይም በክፍለ ከተማ ይፈልጉ...",
+    "prop.specs": "የንብረት ዝርዝሮች",
+    "prop.price": "ዋጋ",
+    "prop.address": "የጎዳና አድራሻ",
+    "prop.description": "ዝርዝር መግለጫ",
+    "prop.photos": "ፎቶዎች",
+    "prop.grid": "የዝርዝር እይታ",
+    "prop.map": "የካርታ እይታ",
+
+    // Sub-cities
+    "subcity.bole": "ቦሌ",
+    "subcity.yeka": "የካ",
+    "subcity.arada": "አራዳ",
+    "subcity.kirkos": "ቂርቆስ",
+    "subcity.lideta": "ልደታ",
+    "subcity.gullele": "ጉለሌ",
+    "subcity.akaky": "አቃቂ ቃሊቲ",
+    "subcity.addis_ketema": "አዲስ ከተማ",
+    "subcity.kolfe": "ኮልፌ ቀራኒዮ",
+    "subcity.nifas_silk": "ንፋስ ስልክ ላፍቶ",
+    "subcity.lemi_kura": "ለሚ ኩራ",
+
+    // Studio
+    "studio.title": "የዲዛይን ስቱዲዮ",
+    "studio.subtitle": "ለኢትዮጵያ የሪል እስቴት ገበያ ዘመናዊ የግብይት መሣሪያዎች",
+    "studio.createAd": "የንብረት ማስታወቂያ ይፍጠሩ",
+    "studio.createAdSub": "ለማህበራዊ ሚዲያ የሚሆኑ የንብረት ማስታወቂያዎችን ይስሩ",
+    "studio.rebrand": "የሌሎችን ማስታወቂያ ይቀይሩ",
+    "studio.rebrandSub": "ማንኛውንም ማስታወቂያ ወደ እርስዎ ብራንድ ይቀይሩ",
+    "studio.video": "ቪዲዮ ይፍጠሩ",
+    "studio.videoSub": "የታወቁ የቪዲዮ ማስታወቂያዎችን እና አጫጭር ቪዲዮዎችን ይስሩ",
+    "studio.generate": "በአርቴፊሻል ኢንተለጀንስ ይፍጠሩ",
+    "studio.download": "ማስታወቂያውን ያውርዱ (PNG)",
+    "studio.style": "የማስታወቂያ ዓይነት",
+    "studio.form": "የንብረት ዝርዝሮች",
+
+    // Analytics
+    "analz.title": "የአፈጻጸም መረጃ",
+    "analz.sub": "ስለ ሪል እስቴት እድገትዎ ጥልቅ ግንዛቤዎች",
+    "analz.social": "የማህበራዊ ሚዲያ ተፅእኖ",
+    "analz.conversion": "የደንበኞች ለውጥ ሂደት",
+    "analz.pipeline": "የሽያጭ ሂደት ሁኔታ",
+    "analz.trend": "የእንቅስቃሴ አዝማሚያ",
+    "analz.topPosts": "ምርጥ ውጤት ያስመዘገቡ ስራዎች",
+    "analz.platforms": "የማህበራዊ ሚዲያ ስርጭት",
+    "analz.imp": "የታዩት ብዛት",
+    "analz.clicks": "ጠቅታዎች",
+    "analz.er": "የተሳትፎ መጠን",
+    "analz.velocity": "የሽያጭ ፍጥነት",
+    "analz.revenue": "የሚጠበቅ ገቢ",
+    "analz.commission": "የሚጠበቅ ኮሚሽን",
+
+    // Brand Kit
+    "brand.title": "የብራንድ ማንነት",
+    "brand.sub": "የእርስዎን የብራንድ ንብረቶች እና ገጽታ ያስተዳድሩ",
+    "brand.add": "አዲስ ብራንድ ይፍጠሩ",
+    "brand.kitName": "የብራንድ ስም",
+    "brand.palette": "የብራንድ ቀለሞች",
+    "brand.fonts": "የጽሕፈት ስልቶች",
+    "brand.logos": "ሎጎዎች እና ንብረቶች",
+    "brand.social": "የማህበራዊ ሚዲያ አድራሻዎች",
+    "brand.contact": "መደበኛ የመገናኛ አድራሻ",
+    "brand.areas": "የሚሰሩባቸው አካባቢዎች",
+    "brand.language": "የማብራሪያ ቋንቋ",
+    "brand.portrait": "የባለሙያው ፎቶ",
+    "brand.tagline": "የብራንድ መሪ ቃል",
+
+    // Lead Capture
+    "lead.title": "የደንበኞች መረጃ",
+    "lead.sub": "ሊሆኑ የሚችሉ ገዢዎችን እና ተከራዮችን መረጃ ይያዙ",
+    "lead.add": "አዲስ ደንበኛ መዝግብ",
+    "lead.total": "ጠቅላላ ደንበኞች",
+    "lead.conv": "ለውጥ መጠን",
+    "lead.source": "የመረጃ ምንጭ",
+    "lead.builder": "የቅጽ ግንባታ",
+    "lead.embed": "ስርጭት እና ቻናሎች",
+    "lead.fields": "የቅጹ ክፍሎች",
+    "lead.preview": "የደንበኛ እይታ",
+    "lead.submit": "ጥያቄ ላክ",
+    "lead.thanks": "የስኬት መልዕክት",
+    "lead.formName": "የቅጹ ስም",
+
+    // Social Media
+    "social.title": "የማህበራዊ ሚዲያ ዝግጅት",
+    "social.sub": "በተለያዩ ማህበራዊ ሚዲያዎች ላይ የእርስዎን ገጽታ ያቅዱ እና ያስተዳድሩ",
+    "social.compose": "አዲስ ፖስት አዘጋጅ",
+    "social.calendar": "የይዘት መቁጠሪያ",
+    "social.queue": "የዝግጅት ቅደም ተከተል",
+    "social.published": "የተለቀቀ",
+    "social.draft": "ረቂቅ",
+    "social.scheduled": "ቀጠሮ የተያዘለት",
+    "social.platforms": "ማህበራዊ ሚዲያዎች",
+    "social.postContent": "የፖስቱ ይዘት",
+    "social.scheduleTime": "የመልቀቂያ ቀን እና ሰዓት",
+
+    // Supplier Feed
+    "sup.title": "የአቅርቦት መረጃ",
+    "sup.sub": "የአቅራቢዎችን መረጃ ይገምግሙ፣ ተደጋጋሚነትን ይፈትሹ እና ከአጋሮች የሚመጡ ንብረቶችን ይያዙ።",
+    "sup.add": "አዲስ የአቅራቢ መረጃ መዝግብ",
+    "sup.source": "የመረጃው ምንጭ",
+    "sup.contact": "የአቅራቢው አድራሻ",
+    "sup.titleLabel": "የንብረቱ መጠሪያ",
+    "sup.review": "የግምገማ ቅደም ተከተል",
+    "sup.markReviewed": "ግምገማን አረጋግጥ",
+    "sup.market": "ወደ ማስታወቂያ ቀይር",
+    "sup.duplicate": "ተመሳሳይ መረጃ ሊሆን ይችላል",
+
+    // Matching Engine
+    "match.title": "የንብረት እና የደንበኛ ተዛማጅ",
+    "match.sub": "በደንበኞች ፍላጎት እና ባሉ ንብረቶች መካከል ያለውን ተዛማጅነት በዝርዝር ይመልከቱ።",
+    "match.add": "አዲስ የደንበኛ ፍላጎት መዝግብ",
+    "match.profiles": "የፍላጎት ዝርዝሮች",
+    "match.results": "የተዛማጅነት ውጤቶች",
+    "match.score": "የተዛማጅነት ነጥብ",
+    "match.reasons": "የተዛማጅነት ምክንያቶች",
+    "match.delete": "የደንበኛ ፍላጎትን ሰርዝ",
+
+    // Billing
+    "bill.title": "የደንበኝነት ምዝገባ",
+    "bill.sub": "የስራ ቦታዎን አባልነት እና አጠቃቀም በዝርዝር ያስተዳድሩ።",
+    "bill.status": "የአገልግሎቱ ሁኔታ",
+    "bill.active": "ገባሪ እና የተረጋገጠ",
+    "bill.renew": "ራስ-ሰር እድሳት",
+    "bill.consumption": "የሃብት አጠቃቀም",
+    "bill.roi": "የገቢ ማሳደጊያ እድሎች",
+    "bill.roiDesc": "አንድ መካከለኛ ሽያጭ (60ሺህ+) የ5 ዓመት የፕሮ አባልነት ክፍያን ይሸፍናል። የመጀመሪያው ሽያጭ እንደተከናወነ ፕላትፎርሙ ራሱን በራሱ ይከፍላል።",
+    "bill.help": "የክፍያ ድጋፍ",
+    "bill.helpDesc": "በቴሌብር፣ በሲቢኢ ብር (CBE Birr) እና በቪዛ በቻፓ አማካኝነት ክፍያዎችን እንቀበላለን። ለተጨማሪ ድጋፍ የደንበኞች አገልግሎታችንን ያግኙ።",
+
+    // Notifications
+    "notif.title": "ማሳወቂያዎች",
+    "notif.sub": "ስለ ደንበኞች፣ ሽያጮች እና ሌሎች ተግባራት የሚመጡ ማሳወቂያዎች።",
+    "notif.unread": "ያልተነበቡ ማሳወቂያዎች",
+    "notif.total": "ጠቅላላ ማሳወቂያዎች",
+    "notif.latest": "የቅርብ ጊዜ ክስተት",
+    "notif.markAll": "ሁሉንም እንደተነበቡ አድርግ",
+    "notif.read": "እንደተነበበ አድርግ",
+    "notif.unreadBtn": "እንደገና አልተነበበም አድርግ",
+    "notif.type.lead": "የደንበኛ መረጃ",
+    "notif.type.deal": "የሽያጭ ሂደት",
+    "notif.type.supplier": "የአቅራቢ መረጃ",
+    "notif.type.match": "የንብረት ተዛማጅነት",
+    "notif.type.engagement": "የማህበራዊ ሚዲያ ተሳትፎ",
+    "notif.type.system": "የሲስተም ማሳወቂያ",
+
+    // Onboarding
+    "on.title": "የስራ ቦታ ዝግጅት",
+    "on.sub": "የእርስዎን ድርጅት አሰራር የሚገልጽ የመረጃ ማዕከል ያዘጋጁ።",
+    "on.cardTitle": "የዝግጅት ቅንብሮች",
+    "on.cardSub": "ዳሽቦርድዎን እና ደንበኞችን ለማስተዳደር የሚረዱ መረጃዎች።",
+    "on.agency": "የድርጅቱ/የስራ ቦታው መጠሪያ",
+    "on.role": "የእርስዎ የስራ ድርሻ",
+    "on.market": "ዋና የትኩረት ገበያ",
+    "on.platforms": "የሚጠቀሙባቸው ማህበራዊ ሚዲያዎች",
+    "on.complete": "ዝግጅቱን አጠናቅቅ",
+    "on.skip": "ለጊዜው ይለፍ",
+    "on.enableTitle": "ዝግጅቱ ምን ይጠቅማል?",
+    "on.enable1": "የእርስዎን የግል የስራ ቦታ በራስ-ሰር ይፈጥራል።",
+    "on.enable2": "በዲዛይን ስቱዲዮ ውስጥ ያሉ ማስታወቂያዎችን ያዘጋጃል።",
+    "on.enable3": "የደንበኞች እና የንብረት መረጃ መቀበያ መንገዶችን ያመቻቻል።",
+
+    // Auth & Identity
+    "auth.welcome": "እንኳን ደህና መጡ",
+    "auth.loginTitle": "የመለያ ማረጋገጫ",
+    "auth.loginSub": "ወደ ስራ ቦታዎ ለመግባት መለያዎን ያረጋግጡ።",
+    "auth.registerTitle": "አዲስ መለያ ይፍጠሩ",
+    "auth.registerSub": "የእርስዎን የኢስቴት አይኪው (Estate IQ) መለያ እዚህ ያዘጋጁ።",
+    "auth.email": "የኢሜል አድራሻ",
+    "auth.password": "የይለፍ ቃል",
+    "auth.fullName": "ሙሉ ስም",
+    "auth.signIn": "ወደ መለያ ግባ",
+    "auth.signUp": "መለያ ፍጠር",
+    "auth.noAccount": "አዲስ ተጠቃሚ ነዎት?",
+    "auth.hasAccount": "ተመዝግበው ነበር?",
+    "auth.forgot": "የይለፍ ቃል ረስተዋል?",
+
+    // Admin
+    "adm.title": "የአስተዳዳሪ ማዘዣ ጣቢያ",
+    "adm.sub": "ተጠቃሚዎችን፣ የስራ ቦታዎችን እና የሲስተም ቅንብሮችን በጠቅላላ የሚቆጣጠሩበት ቦታ።",
+    "adm.users": "ጠቅላላ ተጠቃሚዎች",
+    "adm.admins": "አስተዳዳሪዎች",
+    "adm.workspaces": "የስራ ቦታዎች",
+    "adm.subs": "ገባሪ ክፍያዎች",
+    "adm.flags": "የሲስተም ባህሪያት መቆጣጠሪያ",
+    "adm.saveFlag": "ለውጡን አረጋግጥ",
+    "adm.plans": "የስራ ቦታ የክፍያ ደረጃዎች",
+
+    // Coming Soon / Roadmap
+    "soon.title": "የባህሪ ዝግጅት",
+    "soon.sub": "ይህ የሲስተም አካል በአሁኑ ሰዓት በመዘጋጀት ላይ ይገኛል።",
+    "soon.status": "ዝግጅቱ አልተጠናቀቀም",
+    "soon.back": "ወደ ማዘዣ ጣቢያ ተመለስ",
+    "soon.prop": "የንብረት ዝርዝር፣ ምስሎች እና የአስተዳደር መሳሪያዎች።",
+    "soon.leads": "የደንበኞች መረጃ መቀበያ እና የሲአርኤም (CRM) አሰራር።",
+    "soon.design": "ለማስታወቂያ ስራ የሚሆኑ ዘመናዊ የዲዛይን መሳሪያዎች።",
+    "soon.social": "ለተለያዩ ማህበራዊ ሚዲያዎች ማስታወቂያ መስቀያ እና ማስተዳደሪያ።",
+    "soon.analytics": "የተሳትፎ እና የውጤታማነት መረጃ መመልከቻ።",
+    "soon.brand": "የድርጅቱን መታወቂያ እና ዲዛይን መቆጣጠሪያ።",
+
+    // Not Found
+    "not.title": "ገጹ አልተገኘም",
+    "not.sub": "የፈለጉት ገጽ በሲስተሙ ውስጥ አልተገኘም። ምናልባት ተሰርዞ ወይም ተቀይሮ ሊሆን ይችላል።",
+    "not.error": "የስህተት ኮድ 404",
+    "not.back": "ወደ ማዘዣ ጣቢያ ተመለስ",
+
+    // Landing / Home
+    "home.tag": "የኢትዮጵያ ቀዳሚ የሪል እስቴት መረጃ ማዕከል",
+    "home.heroTitle": "የሪል እስቴት ስራዎን ያዘምኑ።",
+    "home.heroSub": "ለተመረጡ ወኪሎች ተብሎ የተዘጋጀ ዘመናዊ የዲዝይን፣ የደንበኞች እና የሪአል እስቴት መረጃ ማስተዳደሪያ ፕላትፎርም።",
+    "home.start": "በነጻ ይጀምሩ",
+    "home.pricing": "ዋጋዎችን ይመልከቱ",
+    "home.agents": "የተመዘገቡ ወኪሎች",
+    "home.agentsSub": "በአዲስ አበባ ገበያ ውስጥ ትልቁን ድርሻ የያዙ።",
+    "home.featTitle": "የፕላትፎርሙ ባህሪያት",
+    "home.featSub": "ለዘመናዊ የሪል እስቴት ባለሙያዎች ተብለው የተዘጋጁ ልዩ መሳሪያዎች።",
+    "home.ctaTitle": "ገበያውን ለመቆጣጠር ዝግጁ ነዎት?",
+    "home.ctaSub": "በEstate IQ አማካኝነት ሽያጭዎን እያሳደጉ ያሉ ባለሙያዎችን ዛሬውኑ ይቀላቀሉ።",
+    "home.beta": "የቤታ ዝግጅት፦ ሚያዝያ 2018 ዓ.ም",
+
+    // Settings
+    "set.title": "የስራ ቦታ ቅንብሮች",
+    "set.sub": "የእርስዎን ፕሪሚየም የስራ ቦታ፣ ግንኙነቶች እና መለያ ያስተዳድሩ",
+    "set.profile": "የተጠቃሚ መገለጫ",
+    "set.itg": "ግንኙነቶች",
+    "set.notif": "ማሳወቂያዎች",
+    "set.dev": "የገንቢዎች ክፍል",
+    "set.brand": "የብራንድ ማንነት",
+    "set.acc": "ደህንነት እና መለያ",
+    "set.upgrade": "ወደ ፕሮ ያሳድጉ",
+    "set.plans": "የደንበኝነት ምዝገባ ዕቅዶች",
+    "set.api": "የኤፒአይ (API) አገልግሎት",
+    "set.itgSub": "ማህበራዊ ሚዲያዎችን እና የመልእክት መላኪያዎችን ያገናኙ",
+
+    // Billing & Pro Features
+    "pro.feature1": "ገደብ የለሽ ሰው ሰራሽ አስተዋይ (AI) የቤት እቃዎች ማስተካከያ",
+    "pro.feature2": "ባለሁለት ቋንቋ የፍለጋ ሞተር ማመቻቸት (Amharic/English)",
+    "pro.feature3": "ጥራት ያላቸው የሲኒማቲክ ቪዲዮ ውጤቶች",
+    "pro.feature4": "ቀዳሚ የማህበራዊ ሚዲያ ስርጭት አገልግሎት",
+    "pro.feature5": "የበርካታ ሰራተኞች የትብብር ስራ ቦታ",
+    "pro.upgrade": "በወር 999 ብር ይመዝገቡ",
+    "pro.secure": "ደህንነቱ የተጠበቀ ክፍያ በቻፓ (Chapa)",
+
+    // Public Tracking Page
+    "track.secure": "ይህንን ዝርዝር ይያዙ",
+    "track.consult": "ምክክር ይጀምሩ",
+    "track.identity": "የግል መረጃ",
+    "track.connectivity": "አድራሻ",
+    "track.needs": "ልዩ ፍላጎቶች",
+    "track.whatsapp": "በዋትስአፕ (WhatsApp) ይጠይቁ",
+    "track.received": "ጥያቄዎ ደርሶናል",
+    "track.success": "የንብረት ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል። የሽያጭ ባለሙያችን በአጭር ጊዜ ውስጥ ያገኝዎታል።",
+    "track.expired": "ንብረቱ ተነስቷል",
+    "track.expiredSub": "ይህ ንብረት በአሁኑ ጊዜ ዝግጁ አይደለም ወይም ሊንኩ ጊዜው አልፎበታል።",
+
+    "stage.lead": "ሊድ (እጩ ደንበኛ)",
+    "stage.contacted": "የተገናኘ",
+    "stage.viewing": "ንብረት ጉብኝት",
+    "stage.offer": "የዋጋ ጥያቄ",
+    "stage.closed": "ሽያጭ ተጠናቋል",
+  }
+};
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguage] = useState<Language>(() => {
+    const stored = localStorage.getItem("language");
+    return (stored as Language) || "en";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("language", language);
+    // Set document lang for accessibility/SEO
+    document.documentElement.lang = language;
+  }, [language]);
+
+  const t = (key: string) => {
+    return translations[language][key] || key;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      <div style={{ fontFamily: language === 'am' ? "'Noto Sans Ethiopic', sans-serif" : "inherit" }}>
+        {children}
+      </div>
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error("useLanguage must be used within a LanguageProvider");
+  }
+  return context;
+}

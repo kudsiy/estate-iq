@@ -582,6 +582,7 @@ function scoreBuyerMatch(
     budgetMax?: string | number | null;
     bedrooms?: number | null;
     bathrooms?: number | null;
+    notes?: string | null;
   },
   property: {
     city?: string | null;
@@ -589,6 +590,7 @@ function scoreBuyerMatch(
     price?: string | number | null;
     bedrooms?: number | null;
     bathrooms?: number | null;
+    description?: string | null;
   }
 ) {
   let score = 0;
@@ -597,13 +599,14 @@ function scoreBuyerMatch(
   const minBudget = Number(buyer.budgetMin ?? 0);
   const maxBudget = Number(buyer.budgetMax ?? 0);
 
+  // 1. Geography (Addis Specific: Subcity is king)
   if (
     buyer.city &&
     property.city &&
     buyer.city.toLowerCase() === property.city.toLowerCase()
   ) {
-    score += 25;
-    reasons.push("city match");
+    score += 15; // Base city match
+    reasons.push("City match");
   }
 
   if (
@@ -611,30 +614,32 @@ function scoreBuyerMatch(
     property.subcity &&
     buyer.subcity.toLowerCase() === property.subcity.toLowerCase()
   ) {
-    score += 20;
-    reasons.push("subcity match");
+    score += 35; // Significant location weigh
+    reasons.push("Priority subcity match");
   }
 
+  // 2. Financials
   if ((minBudget || maxBudget) && price) {
     if (
       (!minBudget || price >= minBudget) &&
       (!maxBudget || price <= maxBudget)
     ) {
-      score += 25;
-      reasons.push("within budget");
-    } else if (maxBudget && price <= maxBudget * 1.1) {
+      score += 20;
+      reasons.push("Perfect budget fit");
+    } else if (maxBudget && price <= maxBudget * 1.15) {
       score += 10;
-      reasons.push("close to budget");
+      reasons.push("Close to budget (+/- 15%)");
     }
   }
 
+  // 3. Specs
   if (
     buyer.bedrooms &&
     property.bedrooms &&
     property.bedrooms >= buyer.bedrooms
   ) {
-    score += 15;
-    reasons.push("bedrooms fit");
+    score += 10;
+    reasons.push("Bedrooms fit/exceed");
   }
 
   if (
@@ -642,9 +647,35 @@ function scoreBuyerMatch(
     property.bathrooms &&
     property.bathrooms >= buyer.bathrooms
   ) {
-    score += 15;
-    reasons.push("bathrooms fit");
+    score += 5;
+    reasons.push("Bathrooms fit");
   }
+
+  // 4. Amenity & Keyword Matching (The Intelligence layer)
+  const amenities = [
+    { key: "g+1", label: "G+1 Architecture" },
+    { key: "luxury", label: "Luxury Finishing" },
+    { key: "parking", label: "Parking Space" },
+    { key: "security", label: "Security System" },
+    { key: "garden", label: "Garden/Patio" },
+    { key: "modern", label: "Modern Design" },
+    { key: "furnished", label: "Fully Furnished" },
+  ];
+
+  const desc = (property.description || "").toLowerCase();
+  const buyerNotes = (buyer.notes || "").toLowerCase();
+
+  amenities.forEach(amenity => {
+    if (desc.includes(amenity.key) || buyerNotes.includes(amenity.key)) {
+      if (desc.includes(amenity.key) && buyerNotes.includes(amenity.key)) {
+        score += 5;
+        reasons.push(`Matched amenity: ${amenity.label}`);
+      }
+    }
+  });
+
+  // Cap score at 100
+  score = Math.min(score, 100);
 
   return {
     score,
@@ -2134,6 +2165,36 @@ export const appRouter = router({
   }),
 
   ai: router({
+    generateTikTokPack: protectedProcedure
+      .input(z.object({ propertyId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const scope = getScope(ctx.user);
+        const db = await import("./db.js");
+        const aiGen = await import("./_core/ai_generator.js");
+        
+        const property = assertFound(
+          await db.getPropertyById(scope, input.propertyId),
+          "Property"
+        );
+
+        await assertPlanCapacity(scope, "aiCaptions", async () => {
+          const ws = await db.getWorkspaceById(scope.workspaceId);
+          return ws?.aiCaptionsCount ?? 0;
+        });
+
+        const pack = await aiGen.generateTikTokMarketingPack({
+          title: property.title,
+          price: property.price ? Number(property.price) : null,
+          city: property.city,
+          subcity: property.subcity,
+          bedrooms: property.bedrooms,
+          bathrooms: property.bathrooms,
+          description: property.description,
+        });
+
+        await db.incrementWorkspaceAiCaptionsCount(scope.workspaceId);
+        return pack;
+      }),
     generateCaption: protectedProcedure
       .input(z.object({ propertyId: z.number().int().positive() }))
       .mutation(async ({ ctx, input }) => {

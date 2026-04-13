@@ -1,100 +1,126 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CreditCard, Star, Zap, TrendingUp, AlertTriangle, Check, Info, ArrowUpRight, Layout, Activity, Sparkles, Image as ImageIcon, Video } from "lucide-react";
+import { CreditCard, Star, Zap, TrendingUp, AlertTriangle, Check, Info, ArrowUpRight, Layout, Activity, Sparkles, Image as ImageIcon, Video, ShieldCheck, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
+// ── Shared Styling ────────────────────────────────────────────────────────────
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "32px",
+  boxShadow: theme === "dark" ? "0 25px 50px rgba(0,0,0,0.5)" : "0 15px 20px -5px rgba(0,0,0,0.1)",
+});
+
 export default function BillingPage() {
+  const { t } = useLanguage();
+  const { theme } = useTheme();
   const [isYearly, setIsYearly] = useState(true);
   const utils = trpc.useUtils();
   const { data: plans = [] } = trpc.subscription.plans.useQuery();
-  const { data: usage, isLoading } = trpc.billing.getUsage.useQuery();
+  const { data: usage } = trpc.billing.getUsage.useQuery();
   
   const checkoutMutation = trpc.billing.createCheckoutSession.useMutation({
     onSuccess: (data: any) => {
       window.location.href = data.checkoutUrl;
     },
-    onError: (error: any) => toast.error(error.message || "Failed to start checkout"),
+    onError: (error: any) => toast.error(error.message || "Checkout failed"),
   });
 
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
   const isTrial = usage?.status === "trial";
   const planName = usage?.plan ?? "starter";
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Billing</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your subscription. All prices in ETB.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div>
+          <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">{t("bill.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">{t("bill.sub")}</p>
+        </div>
+        <div className="flex items-center gap-3 bg-accent/10 border border-accent/20 px-6 py-2.5 rounded-2xl">
+           <ShieldCheck className="w-5 h-5 text-accent" />
+           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">Payment Secured via Chapa</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
-        {/* Main Status & Usage */}
+        {/* Resource Command Center */}
         <div className="xl:col-span-8 space-y-8">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-8 rounded-[2.5rem] bg-[#151518] border border-white/5 shadow-2xl relative overflow-hidden"
+            style={glassStyle}
+            className="p-10 border-0 relative overflow-hidden"
           >
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent/10 blur-[100px] rounded-full" />
+            <div className="absolute -top-32 -right-32 w-80 h-80 bg-accent/20 blur-[120px] rounded-full" />
             
-            <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
-               <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                     <div className="w-12 h-12 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20">
-                        <Zap className="w-6 h-6 text-white" />
+            <div className="relative z-10 flex flex-col md:flex-row justify-between gap-12">
+               <div className="flex-1 space-y-8">
+                  <div className="flex items-center gap-5">
+                     <div className="w-16 h-16 bg-accent rounded-[24px] flex items-center justify-center shadow-2xl shadow-accent/40 animate-pulse">
+                        <Zap className="w-8 h-8 text-white" />
                      </div>
                      <div>
-                        <h2 className="text-2xl font-bold tracking-tight capitalize">{planName} Plan</h2>
-                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                           {isTrial ? 'Free Trial Period' : 'Subscription Active'}
-                        </p>
+                        <h2 className="text-3xl font-black tracking-tighter uppercase italic text-foreground leading-none mb-2">{planName} Tier</h2>
+                        <div className="flex items-center gap-2">
+                           <span className="text-[9px] font-black uppercase tracking-widest bg-accent/20 text-accent px-2 py-0.5 rounded-lg border border-accent/10">
+                              {isTrial ? 'Trial Deployment' : t("bill.active")}
+                           </span>
+                           <span className="text-white/20 text-[9px] font-black uppercase tracking-widest italic pl-2 border-l border-white/10">{t("bill.status")}</span>
+                        </div>
                      </div>
                   </div>
                   
-                  <div className="flex gap-4 pt-4">
-                     <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5">
-                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Status</p>
-                        <p className="text-xs font-bold text-green-500 flex items-center gap-2">
-                           <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                           Operational
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="p-5 bg-background/40 rounded-3xl border border-white/5 shadow-xl transition-all hover:bg-background/60">
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2 italic">Pipeline Status</p>
+                        <p className="text-sm font-black text-green-500 flex items-center gap-2 uppercase tracking-tighter italic">
+                           <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+                           Nominal
                         </p>
                      </div>
-                     <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5">
-                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Auto-Renew</p>
-                        <p className="text-xs font-bold text-white italic">Active (Telebirr)</p>
+                     <div className="p-5 bg-background/40 rounded-3xl border border-white/5 shadow-xl transition-all hover:bg-background/60">
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2 italic">{t("bill.renew")}</p>
+                        <p className="text-sm font-black text-foreground italic uppercase tracking-tighter">Telebirr Sequence</p>
                      </div>
                   </div>
                </div>
 
-               <div className="space-y-6 min-w-[280px]">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-white/30 border-b border-white/5 pb-2">Resource Consumption</h3>
-                  <div className="space-y-5">
+               <div className="lg:w-80 p-8 rounded-[32px] bg-background/40 border border-white/5 shadow-2xl space-y-6">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent flex items-center gap-2">
+                     <Activity className="w-4 h-4" /> {t("bill.consumption")}
+                  </h3>
+                  <div className="space-y-6">
                     {[
-                      { label: "AI Captions", icon: Sparkles, used: usage?.captions ?? 0, limit: usage?.limits.captions },
-                      { label: "AI Images", icon: ImageIcon, used: usage?.images ?? 0, limit: usage?.limits.images },
-                      { label: "Creative Reels", icon: Video, used: usage?.reels ?? 0, limit: usage?.limits.reels },
+                      { label: "AI Narratives", icon: Sparkles, used: usage?.captions ?? 0, limit: usage?.limits.captions },
+                      { label: "Visual Staging", icon: ImageIcon, used: usage?.images ?? 0, limit: usage?.limits.images },
+                      { label: "Cinema Reels", icon: Video, used: usage?.reels ?? 0, limit: usage?.limits.reels },
                     ].map((m) => {
                       const pct = Math.min((m.used / (m.limit || 1)) * 100, 100);
                       return (
                         <div key={m.label} className="space-y-2">
                           <div className="flex justify-between items-end">
-                            <div className="flex items-center gap-2 text-white/60">
-                               <m.icon className="w-3 h-3" />
-                               <span className="text-[10px] font-bold uppercase tracking-wider">{m.label}</span>
+                            <div className="flex items-center gap-2 text-foreground/60 transition-colors hover:text-accent cursor-default">
+                               <m.icon className="w-3.5 h-3.5" />
+                               <span className="text-[9px] font-black uppercase tracking-widest">{m.label}</span>
                             </div>
-                            <span className="text-xs font-bold">{m.used} <span className="text-white/20 font-light">/ {m.limit}</span></span>
+                            <span className="text-[10px] font-black italic">{m.used} <span className="opacity-20">/ {m.limit}</span></span>
                           </div>
-                          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                          <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
                              <motion.div 
                                initial={{ width: 0 }}
                                animate={{ width: `${pct}%` }}
-                               className={`h-full rounded-full ${pct > 90 ? 'bg-red-500' : 'bg-accent'}`} 
+                               className={`h-full rounded-full ${pct > 90 ? 'bg-red-500 shadow-[0_0_10px_rgba(239,44,44,0.5)]' : 'bg-accent shadow-[0_0_10px_rgba(249,115,22,0.3)]'}`} 
                              />
                           </div>
                         </div>
@@ -106,107 +132,104 @@ export default function BillingPage() {
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <Card className="bg-[#151518] border-white/5 rounded-[2rem] p-8 shadow-xl overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                   <TrendingUp className="w-24 h-24" />
+             <div style={glassStyle} className="p-10 border-0 group hover:bg-background/40 transition-all cursor-default relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-all group-hover:scale-110">
+                   <TrendingUp className="w-32 h-32" />
                 </div>
-                <h3 className="text-lg font-bold mb-2">Revenue ROI</h3>
-                <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-6">Commission Impact</p>
-                <p className="text-white/60 text-sm leading-relaxed mb-6 italic font-light">
-                   One mid-range deal (ETB 60k+) covers <strong>5 years</strong> of Pro membership. Your platform is paid for within the first conversion.
+                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-3">{t("bill.roi")}</h3>
+                <p className="text-[9px] font-black uppercase tracking-widest text-accent mb-6">Market Efficiency Leverage</p>
+                <p className="text-white/60 text-sm leading-relaxed mb-8 italic font-medium pr-8 uppercase tracking-tight">
+                   {t("bill.roiDesc")}
                 </p>
-                <div className="flex items-center gap-2 text-xs font-bold text-accent">
-                   <Activity className="w-4 h-4" /> Calculate Growth potential
+                <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-accent">
+                   <Activity className="w-4 h-4" /> Calculate Growth Potential
                 </div>
-             </Card>
+             </div>
 
-             <Card className="bg-accent/10 border-accent/20 rounded-[2rem] p-8 shadow-xl relative overflow-hidden">
-                <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-accent/20 blur-[40px] rounded-full" />
-                <h3 className="text-lg font-bold mb-2 text-accent">Pro Features Locked</h3>
-                <p className="text-accent/60 text-[10px] font-black uppercase tracking-widest mb-6">Upgrade required</p>
-                <ul className="space-y-3 mb-8">
-                   {['Instagram Auto-Posting', 'Bulk AI Image Generation', 'Agency Multi-Seat Control'].map(f => (
-                     <li key={f} className="flex items-center gap-2 text-[11px] font-bold text-white/50">
-                        <Check className="w-3.5 h-3.5 text-accent" /> {f}
+             <div style={glassStyle} className="p-10 border-0 bg-accent/5 border-accent/10 relative overflow-hidden">
+                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/20 blur-[60px] rounded-full" />
+                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-2 text-accent">Pro Sovereignty</h3>
+                <p className="text-accent/60 text-[9px] font-black uppercase tracking-widest mb-8">Access Protocol Required</p>
+                <ul className="space-y-4 mb-10">
+                   {['Instagram Auto-Pilot Pipeline', 'Unlimited Cinematic 4K Exports', 'Agency Multi-Identity Management'].map(f => (
+                     <li key={f} className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-foreground/40 italic">
+                        <Check className="w-4 h-4 text-accent" /> {f}
                      </li>
                    ))}
                 </ul>
-                <Button className="w-full bg-accent text-white hover:bg-accent/90 rounded-xl h-12 font-black uppercase tracking-widest text-[10px]">
-                   Unlock Pro Now
+                <Button className="w-full h-14 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-accent/30 border-b-4 border-black/20 hover:translate-y-px transition-all">
+                   Deploy Pro Access Now
                 </Button>
-             </Card>
+             </div>
           </div>
         </div>
 
-        {/* Right Sidebar - Pricing Simple */}
-        <div className="xl:col-span-4 space-y-6">
-           <div className="flex items-center justify-between px-4">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white/40">Available Tiers</h3>
-              <div className="flex items-center gap-2">
-                 <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Yearly</span>
-                 <button onClick={() => setIsYearly(!isYearly)} className={`w-8 h-4 rounded-full relative transition-colors ${isYearly ? 'bg-accent' : 'bg-white/10'}`}>
-                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isYearly ? 'right-0.5' : 'left-0.5'}`} />
-                 </button>
+        {/* Membership Tiers */}
+        <div className="xl:col-span-4 space-y-8">
+           <div className="flex items-center justify-between px-6">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{t("bill.tiers")}</h3>
+              <div className="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/5">
+                 <span className={`text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all cursor-pointer ${isYearly ? 'bg-accent text-white' : 'text-white/40'}`} onClick={() => setIsYearly(true)}>Yearly</span>
+                 <span className={`text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all cursor-pointer ${!isYearly ? 'bg-accent text-white' : 'text-white/40'}`} onClick={() => setIsYearly(false)}>Monthly</span>
               </div>
            </div>
 
-           <div className="space-y-4">
+           <div className="space-y-6">
               {plans.map(plan => (
                 <motion.div 
                   key={plan.key}
-                  whileHover={{ x: 4 }}
-                  className={`p-6 rounded-3xl border transition-all cursor-pointer ${
+                  whileHover={{ scale: 1.02 }}
+                  style={glassStyle}
+                  className={`p-8 border-2 transition-all cursor-pointer relative overflow-hidden ${
                     plan.key === planName 
-                      ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20' 
-                      : 'bg-white/5 border-white/5 hover:border-white/10 text-white'
+                      ? 'border-accent shadow-2xl shadow-accent/20 bg-accent/5' 
+                      : 'border-white/5 hover:border-white/10'
                   }`}
                 >
-                   <div className="flex justify-between items-start mb-4">
+                   {plan.key === planName && (
+                     <div className="absolute top-0 right-0 px-4 py-1.5 bg-accent text-white text-[8px] font-black uppercase tracking-widest rounded-bl-2xl italic">Current Power</div>
+                   )}
+                   <div className="flex justify-between items-start mb-6">
                       <div>
-                         <h4 className="font-bold text-sm tracking-tight">{plan.name}</h4>
-                         <p className="text-[10px] font-medium opacity-50 uppercase tracking-widest">
-                            {(plan as any).tagline}
+                         <h4 className="font-black text-xl tracking-tighter uppercase italic">{plan.name}</h4>
+                         <p className="text-[9px] font-black opacity-40 uppercase tracking-[0.2em] mt-1">
+                            {(plan as any).tagline || 'Standard Access'}
                          </p>
                       </div>
-                      {plan.key === planName && <Check className="w-4 h-4" />}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.key === planName ? 'bg-accent text-white' : 'bg-white/5 text-muted-foreground'}`}>
+                         {plan.key === 'starter' ? <Activity className="w-5 h-5" /> : plan.key === 'pro' ? <Zap className="w-5 h-5" /> : <Star className="w-5 h-5" />}
+                      </div>
                    </div>
-                   <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-black">ETB {isYearly ? (plan as any).monthlyEquivalent?.toLocaleString() : plan.priceMonthly?.toLocaleString()}</span>
-                      <span className="text-[10px] font-bold opacity-30 uppercase">/mo</span>
+                   <div className="flex items-baseline gap-2 mb-8">
+                      <span className="text-4xl font-black italic tracking-tighter">ETB {isYearly ? (plan as any).monthlyEquivalent?.toLocaleString() : plan.priceMonthly?.toLocaleString()}</span>
+                      <span className="text-[10px] font-black opacity-30 uppercase tracking-widest">/ Month</span>
                    </div>
                    
                    {plan.key !== planName && (
                      <Button 
-                       className="w-full mt-6 bg-white/10 hover:bg-white/20 text-white border-0 shadow-none rounded-xl text-[10px] font-black uppercase tracking-widest h-10"
+                       className="w-full h-12 bg-white/5 hover:bg-accent hover:text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-none transition-all"
                        onClick={() => checkoutMutation.mutate({ plan: plan.key as any })}
                        disabled={checkoutMutation.isPending}
                      >
-                        Upgrade
+                        Upgrade Membership
                      </Button>
                    )}
                 </motion.div>
               ))}
            </div>
 
-           <div className="p-6 rounded-3xl bg-[#1a1a1e] border border-white/5">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-4">Secured Payments</h4>
-              <div className="flex gap-3 opacity-30 grayscale hover:grayscale-0 transition-all cursor-pointer">
-                 {/* Mock Payment provider visual */}
-                 <div className="h-6 w-10 bg-white/20 rounded flex items-center justify-center text-[8px] font-black italic">CHAPA</div>
-                 <div className="h-6 w-10 bg-white/20 rounded flex items-center justify-center text-[8px] font-black italic">CBE</div>
-                 <div className="h-6 w-10 bg-white/20 rounded flex items-center justify-center text-[8px] font-black italic">BIRR</div>
+           <div style={glassStyle} className="p-8 border-0 bg-background/40">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-6 italic">{t("bill.help")}</h4>
+              <p className="text-[11px] text-white/50 leading-relaxed italic mb-8 uppercase tracking-tighter pr-4">
+                 {t("bill.helpDesc")}
+              </p>
+              <div className="flex items-center gap-6 opacity-40 transition-all hover:opacity-100 cursor-pointer">
+                 <div className="text-[10px] font-black italic tracking-tighter">TELEBIRR</div>
+                 <div className="text-[10px] font-black italic tracking-tighter">CBE BIRR</div>
+                 <div className="text-[10px] font-black italic tracking-tighter">CHAPA PAY</div>
               </div>
            </div>
         </div>
-      </div>
-
-      {/* Payment help */}
-      <div className="mt-8 rounded-xl border border-border p-5 bg-muted/20">
-        <h3 className="text-sm font-semibold text-foreground mb-2">Payment Help</h3>
-        <p className="text-xs text-muted-foreground">
-          We accept <strong>Telebirr</strong>, <strong>CBE Birr</strong>, <strong>Amole</strong>, and <strong>Visa/Mastercard</strong> via Chapa. 
-          If you have trouble paying, send a screenshot of your payment to our WhatsApp support and we'll activate your account manually.
-        </p>
       </div>
     </DashboardLayout>
   );

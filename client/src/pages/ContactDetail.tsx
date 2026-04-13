@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation, useParams } from "wouter";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -15,23 +16,33 @@ import {
   TrendingUp, Calendar, DollarSign, Tag, User, Save, X, MapPin, Home, Activity
 } from "lucide-react";
 
-const STATUS_META: Record<string, { bg: string; text: string }> = {
-  active:    { bg: "bg-green-50",  text: "text-green-700"  },
-  inactive:  { bg: "bg-gray-100",  text: "text-gray-600"   },
-  converted: { bg: "bg-blue-50",   text: "text-blue-700"   },
-  lost:      { bg: "bg-red-50",    text: "text-red-600"    },
-};
+// ── Shared Styling ────────────────────────────────────────────────────────────
 
-const STAGE_LABELS: Record<string, string> = {
-  lead: "Lead", contacted: "Contacted", viewing: "Property Viewing",
-  offer: "Offer", closed: "Closed Deal",
+const STATUS_META: Record<string, { bg: string; text: string }> = {
+  active:    { bg: "bg-green-50 dark:bg-green-900/20",  text: "text-green-700 dark:text-green-400"  },
+  inactive:  { bg: "bg-gray-100 dark:bg-gray-800",       text: "text-gray-600 dark:text-gray-400"   },
+  converted: { bg: "bg-blue-50 dark:bg-blue-900/20",   text: "text-blue-700 dark:text-blue-400"   },
+  lost:      { bg: "bg-red-50 dark:bg-red-900/20",      text: "text-red-600 dark:text-red-400"    },
 };
 
 const STAGE_COLORS: Record<string, string> = {
-  lead: "bg-blue-50 text-blue-700", contacted: "bg-purple-50 text-purple-700",
-  viewing: "bg-amber-50 text-amber-700", offer: "bg-orange-50 text-orange-700",
-  closed: "bg-green-50 text-green-700",
+  lead:      "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", 
+  contacted: "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  viewing:   "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", 
+  offer:     "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  closed:    "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400",
 };
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatBirr(val: any) {
   const n = Number(val);
@@ -53,10 +64,16 @@ function timeAgo(date: string | Date) {
   return d.toLocaleDateString("en-ET", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function ContactDetail() {
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
   const id = Number(params.id);
+
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   const [editing, setEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -69,6 +86,7 @@ export default function ContactDetail() {
       if (data) setNoteText(data.notes ?? "");
     },
   } as any);
+
   const { data: allDeals = [] }   = trpc.crm.deals.list.useQuery();
   const { data: properties = [] } = trpc.crm.properties.list.useQuery();
   const { data: allLeads = [] }   = trpc.crm.leads.list.useQuery();
@@ -124,14 +142,13 @@ export default function ContactDetail() {
     saveNotes.mutate({ id, data: { notes: noteText } });
   };
 
-  // Build timeline from deal events + contact creation + contactEvents
   const timeline = [
     ...contactEvents.map((event) => {
       let icon = Activity;
-      let color = "text-accent";
-      if (event.type === "note") { icon = MessageCircle; color = "text-muted-foreground"; }
-      else if (event.type === "deal_update") { icon = TrendingUp; color = "text-blue-500"; }
-      else if (event.type === "status_change") { icon = Tag; color = "text-orange-500"; }
+      let clr = "text-accent";
+      if (event.type === "note") { icon = MessageCircle; clr = "text-muted-foreground"; }
+      else if (event.type === "deal_update") { icon = TrendingUp; clr = "text-blue-500"; }
+      else if (event.type === "status_change") { icon = Tag; clr = "text-orange-500"; }
       else if (event.type === "system") { icon = User; }
 
       return {
@@ -139,7 +156,7 @@ export default function ContactDetail() {
         label: event.label,
         description: event.description,
         icon,
-        color,
+        color: clr,
       };
     }),
     ...contactLeads.map((lead) => {
@@ -152,7 +169,7 @@ export default function ContactDetail() {
       };
     }),
     ...contactDeals.flatMap((d) => [
-      { date: d.createdAt, label: `Deal created — ${STAGE_LABELS[d.stage ?? "lead"]}`, icon: TrendingUp, color: "text-blue-500" },
+      { date: d.createdAt, label: `Deal created — ${t(`stage.${d.stage ?? "lead"}`)}`, icon: TrendingUp, color: "text-blue-500" },
       ...(d.closedAt ? [{ date: d.closedAt, label: "Deal closed", icon: DollarSign, color: "text-green-600" }] : []),
     ]),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -161,8 +178,8 @@ export default function ContactDetail() {
     <DashboardLayout>
       {/* Back nav */}
       <button onClick={() => setLocation("/crm/contacts")}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Back to contacts
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors font-medium">
+        <ArrowLeft className="w-4 h-4" /> {t("crm.back")}
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -171,55 +188,54 @@ export default function ContactDetail() {
         <div className="lg:col-span-1 space-y-4">
 
           {/* Profile card */}
-          <Card className="border border-border">
-            <CardContent className="pt-5 pb-5">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-xl font-semibold">
-                    {initials}
-                  </div>
-                  <div>
-                    <h1 className="text-lg font-semibold text-foreground">
-                      {contact.firstName} {contact.lastName}
-                    </h1>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${status.bg} ${status.text}`}>
-                      {contact.status}
-                    </span>
-                  </div>
+          <div style={glassStyle} className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-xl font-semibold">
+                  {initials}
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => setEditing(true)}
-                    className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => setDeleteOpen(true)}
-                    className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div>
+                  <h1 className="text-xl font-bold text-foreground">
+                    {contact.firstName} {contact.lastName}
+                  </h1>
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${status.bg} ${status.text}`}>
+                    {t(`status.${contact.status}`)}
+                  </span>
                 </div>
               </div>
+              <div className="flex gap-1">
+                <button onClick={() => setEditing(true)}
+                  className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setDeleteOpen(true)}
+                  className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
-              {/* Contact details */}
-              <div className="space-y-2.5 text-sm">
+            <div className="space-y-4 text-sm mt-6">
+              <div className="space-y-2.5">
                 {contact.email && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <Mail className="w-4 h-4 shrink-0 text-accent/60" />
                     <a href={`mailto:${contact.email}`} className="hover:text-accent transition-colors truncate">
                       {contact.email}
                     </a>
                   </div>
                 )}
                 {contact.phone && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    <a href={`tel:${contact.phone}`} className="hover:text-accent transition-colors">
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <Phone className="w-4 h-4 shrink-0 text-accent/60" />
+                    <a href={`tel:${contact.phone}`} className="hover:text-accent transition-colors font-medium">
                       {contact.phone}
                     </a>
                   </div>
                 )}
                 {contact.whatsappNumber && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <MessageCircle className="w-4 h-4 shrink-0 text-emerald-500" />
                     <a href={`https://wa.me/${contact.whatsappNumber.replace(/\D/g, "")}`}
                       target="_blank" rel="noreferrer"
                       className="hover:text-accent transition-colors">
@@ -227,317 +243,233 @@ export default function ContactDetail() {
                     </a>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Tag className="w-3.5 h-3.5 shrink-0" />
-                  <span className="capitalize">{contact.type}</span>
+              </div>
+
+              <div className="pt-4 border-t border-border/50 space-y-2.5">
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Tag className="w-4 h-4 shrink-0" />
+                  <span className="capitalize font-medium text-foreground">{contact.type}</span>
                   {contact.source && <span className="text-muted-foreground/60">· {contact.source}</span>}
                 </div>
                 {(contact.subcity || contact.woreda) && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-3.5 h-3.5 shrink-0" />
-                    <span className="capitalize">{[contact.subcity, contact.woreda].filter(Boolean).join(", Woreda ")}</span>
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    <span className="capitalize">{[t(`subcity.${contact.subcity}`)||contact.subcity, contact.woreda].filter(Boolean).join(", Woreda ")}</span>
                   </div>
                 )}
                 {contact.propertyInterest && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Home className="w-3.5 h-3.5 shrink-0" />
-                    <span className="capitalize">Interest: {contact.propertyInterest}</span>
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <Home className="w-4 h-4 shrink-0" />
+                    <span className="capitalize">{t("crm.propertyInterest")}: {contact.propertyInterest}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-3.5 h-3.5 shrink-0" />
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Calendar className="w-4 h-4 shrink-0" />
                   <span>Added {timeAgo(contact.createdAt)}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Notes */}
-          <Card className="border border-border">
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm font-medium">Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <Textarea
-                className="text-sm min-h-[100px] resize-none"
-                placeholder="Add notes about this contact…"
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-              />
-              <Button size="sm" variant="outline" className="mt-2 h-7 text-xs gap-1.5"
-                onClick={handleSaveNotes} disabled={saveNotes.isPending}>
-                <Save className="w-3 h-3" />
-                {saveNotes.isPending ? "Saving…" : "Save notes"}
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Notes Card */}
+          <div style={glassStyle} className="p-6">
+            <div className="mb-4">
+              <p className="text-sm font-bold text-foreground">{t("crm.notes")}</p>
+            </div>
+            <Textarea
+              className="text-sm min-h-[120px] resize-none bg-background/30 border-border/50 focus:border-accent"
+              placeholder={t("crm.notesPlaceholder")}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+            />
+            <Button 
+               size="sm" 
+               variant="outline" 
+               className="mt-3 w-full h-8 text-[10px] uppercase font-black tracking-widest gap-1.5 rounded-xl border-accent/20 bg-accent/5 hover:bg-accent hover:text-white transition-all"
+               onClick={handleSaveNotes} 
+               disabled={saveNotes.isPending}
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saveNotes.isPending ? t("crm.saving") : t("crm.saveNotes")}
+            </Button>
+          </div>
         </div>
 
         {/* ── RIGHT COLUMN: deals + timeline ─────────────────────────── */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-5">
 
-          <Card className="border border-border">
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm font-medium">Lead links ({contactLeads.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              {contactLeads.length === 0 ? (
-                <p className="text-sm text-muted-foreground">This contact was not created from a tracked lead yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {contactLeads.map((lead) => {
-                    const leadData = (lead.leadData as any) ?? {};
-                    const property = properties.find((p) => p.id === lead.propertyId);
-                    return (
-                      <div key={lead.id} className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
+          {/* Leads Card */}
+          <div style={glassStyle} className="p-6">
+            <div className="mb-4">
+              <p className="text-sm font-bold text-foreground">{t("crm.leads")} ({contactLeads.length})</p>
+            </div>
+            {contactLeads.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 italic">This contact was not created from a tracked lead yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {contactLeads.map((lead) => {
+                  const leadData = (lead.leadData as any) ?? {};
+                  const property = properties.find((p) => p.id === lead.propertyId);
+                  
+                  // Score logic (matching what the backend does)
+                  const matchReasons = leadData.matchReasons || [];
+
+                  return (
+                    <div key={lead.id} className="group rounded-3xl bg-muted/20 border border-border/30 p-6 hover:border-accent/40 transition-all">
+                      <div className="flex items-center justify-between gap-3 mb-4">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">
+                          <p className="text-sm font-bold text-foreground">
                             {[leadData.firstName, leadData.lastName].filter(Boolean).join(" ") || `Lead #${lead.id}`}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {property ? `Interested in ${property.title}` : "No property linked"}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {property ? `Interested in ${property.title}` : "General interest"}
                           </p>
                         </div>
-                        <span className="text-xs text-muted-foreground capitalize">{lead.status}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Deals */}
-          <Card className="border border-border">
-            <CardHeader className="pb-2 pt-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">
-                  Deals ({contactDeals.length})
-                </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs h-7"
-                  onClick={() => setLocation("/crm/deals")}>
-                  View pipeline
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-4">
-              {contactDeals.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-center gap-2">
-                  <TrendingUp className="w-7 h-7 text-muted-foreground opacity-30" />
-                  <p className="text-sm text-muted-foreground">No deals yet</p>
-                  <Button size="sm" variant="outline" className="text-xs h-7"
-                    onClick={() => setLocation("/crm/deals")}>
-                    Open pipeline
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {contactDeals.map((deal) => {
-                    const property = properties.find((p) => p.id === deal.propertyId);
-                    const stageClass = STAGE_COLORS[deal.stage ?? "lead"] ?? "bg-gray-50 text-gray-700";
-                    return (
-                      <div key={deal.id}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/30 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {property?.title ?? "No property linked"}
-                          </p>
-                          {property && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {[property.subcity, property.city].filter(Boolean).join(", ")}
-                            </p>
-                          )}
-                        </div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${stageClass}`}>
-                          {STAGE_LABELS[deal.stage ?? "lead"]}
+                        <span className="text-[10px] font-black uppercase tracking-widest text-accent bg-accent/10 px-3 py-1.5 rounded-full">
+                           {lead.status}
                         </span>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-accent">
-                            {formatBirr(deal.value)}
-                          </p>
-                          {deal.commission && (
-                            <p className="text-xs text-muted-foreground">
-                              {formatBirr(deal.commission)} comm.
-                            </p>
+                      </div>
+
+                      {matchReasons.length > 0 && (
+                        <div className="pt-4 border-t border-border/50">
+                           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                             <Activity className="w-3 h-3 text-accent" /> {t("crm.rationale")}
+                           </p>
+                           <div className="flex flex-wrap gap-2">
+                              {matchReasons.map((reason: string, rid: number) => (
+                                <span key={rid} className="px-2.5 py-1 rounded-lg bg-background/50 border border-border/50 text-[9px] font-bold text-foreground/70">
+                                   {reason}
+                                </span>
+                              ))}
+                           </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Deals Card */}
+          <div style={glassStyle} className="p-6">
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm font-bold text-foreground">
+                {t("crm.deals")} ({contactDeals.length})
+              </p>
+              <Button variant="ghost" size="sm" className="text-[10px] h-7 uppercase font-black hover:bg-accent/10 text-accent gap-1.5"
+                onClick={() => setLocation("/crm/deals")}>
+                <TrendingUp className="w-3 h-3" />
+                View pipeline
+              </Button>
+            </div>
+            {contactDeals.length === 0 ? (
+              <div className="flex flex-col items-center py-10 text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center">
+                   <DollarSign className="w-6 h-6 text-muted-foreground/30" />
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">No deals currently in the pipeline</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contactDeals.map((deal) => {
+                  const property = properties.find((p) => p.id === deal.propertyId);
+                  const stageClr = STAGE_COLORS[deal.stage ?? "lead"];
+                  return (
+                    <div key={deal.id}
+                      className="flex items-center gap-4 p-4 rounded-[20px] bg-muted/20 border border-border/40 hover:bg-muted/40 transition-all">
+                      <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                         <Home className="w-5 h-5 text-accent" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground truncate">
+                          {property?.title ?? "No property linked"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          {[property?.subcity, property?.city].filter(Boolean).join(", ") || "Location unknown"}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                         <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${stageClr}`}>
+                            {t(`stage.${deal.stage ?? "lead"}`)}
+                         </span>
+                         <p className="text-sm font-black text-foreground">
+                           {formatBirr(deal.value)}
+                         </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="pt-4 border-t border-border/50 mt-4 px-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">{t("crm.totalValue")}</span>
+                    <span className="font-black text-accent text-lg">
+                      {formatBirr(contactDeals.reduce((s, d) => s + Number(d.value ?? 0), 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Interaction Timeline */}
+          <div style={glassStyle} className="p-8">
+            <div className="mb-8">
+              <p className="text-sm font-bold text-foreground uppercase tracking-widest">{t("crm.activity")}</p>
+            </div>
+            {timeline.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center italic">{t("crm.noActivity")}</p>
+            ) : (
+              <div className="relative pl-2">
+                <div className="absolute left-3.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-accent/30 via-border to-transparent" />
+                <div className="space-y-8">
+                  {timeline.map((event, i) => {
+                    const Ic = event.icon;
+                    return (
+                      <div key={i} className="flex items-start gap-4 relative">
+                        <div className={`w-7 h-7 rounded-full border-2 border-background bg-card flex items-center justify-center shrink-0 z-10 shadow-sm`}>
+                          <Ic className={`w-3.5 h-3.5 ${event.color}`} />
+                        </div>
+                        <div className="flex-1 pt-0.5 min-w-0">
+                          <p className="text-sm font-bold text-foreground leading-tight">{event.label}</p>
+                          {(event as any).description && (
+                            <div className="text-sm text-muted-foreground mt-2.5 bg-muted/40 p-4 rounded-[16px] border border-border/30 leading-relaxed">
+                              {(event as any).description}
+                            </div>
                           )}
+                          <p className="text-[10px] text-muted-foreground font-bold mt-2.5 uppercase tracking-wide opacity-60">{timeAgo(event.date)}</p>
                         </div>
                       </div>
                     );
                   })}
-                  <div className="pt-1 border-t border-border mt-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Total deal value</span>
-                      <span className="font-semibold text-foreground">
-                        {formatBirr(contactDeals.reduce((s, d) => s + Number(d.value ?? 0), 0))}
-                      </span>
-                    </div>
-                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Interaction timeline */}
-          <Card className="border border-border">
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm font-medium">Activity timeline</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              {timeline.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No activity recorded</p>
-              ) : (
-                <div className="relative">
-                  <div className="absolute left-3.5 top-2 bottom-2 w-px bg-border" />
-                  <div className="space-y-4">
-                    {timeline.map((event, i) => {
-                      const Icon = event.icon;
-                      return (
-                        <div key={i} className="flex items-start gap-3 pl-0">
-                          <div className={`w-7 h-7 rounded-full border-2 border-background bg-card flex items-center justify-center shrink-0 z-10`}>
-                            <Icon className={`w-3.5 h-3.5 ${event.color}`} />
-                          </div>
-                          <div className="flex-1 pt-0.5 min-w-0">
-                            <p className="text-sm text-foreground">{event.label}</p>
-                            {(event as any).description && (
-                              <p className="text-sm text-muted-foreground mt-1.5 bg-muted/50 p-2.5 rounded-md border border-border/50">
-                                {(event as any).description}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-1">{timeAgo(event.date)}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── Edit modal ─────────────────────────────────────────────────── */}
+      {/* Modals remain mostly same but localized labels */}
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Edit contact</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("crm.edit")}</DialogTitle></DialogHeader>
           {editForm && (
-            <div className="space-y-3 pt-1">
+            <div className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">First name</Label>
-                  <Input className="mt-1 h-8 text-sm" value={editForm.firstName}
+                  <Label className="text-xs mb-1.5 inline-block">First name</Label>
+                  <Input className="h-9 text-sm rounded-xl" value={editForm.firstName}
                     onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} />
                 </div>
                 <div>
-                  <Label className="text-xs">Last name</Label>
-                  <Input className="mt-1 h-8 text-sm" value={editForm.lastName}
+                  <Label className="text-xs mb-1.5 inline-block">Last name</Label>
+                  <Input className="h-9 text-sm rounded-xl" value={editForm.lastName}
                     onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} />
                 </div>
               </div>
-              <div>
-                <Label className="text-xs">Email</Label>
-                <Input className="mt-1 h-8 text-sm" type="email" value={editForm.email ?? ""}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Phone</Label>
-                  <Input className="mt-1 h-8 text-sm" value={editForm.phone ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs">WhatsApp</Label>
-                  <Input className="mt-1 h-8 text-sm" value={editForm.whatsappNumber ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, whatsappNumber: e.target.value })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Type</Label>
-                  <Select value={editForm.type} onValueChange={(v) => setEditForm({ ...editForm, type: v })}>
-                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="buyer">Buyer</SelectItem>
-                      <SelectItem value="seller">Seller</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Status</Label>
-                  <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
-                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="converted">Converted</SelectItem>
-                      <SelectItem value="lost">Lost</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">Source</Label>
-                <Input className="mt-1 h-8 text-sm" placeholder="e.g. Referral, Website…"
-                  value={editForm.source ?? ""}
-                  onChange={(e) => setEditForm({ ...editForm, source: e.target.value })} />
-              </div>
-              
-              <div className="pt-2 border-t border-border mt-3">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location & Context</Label>
-                <div className="grid grid-cols-2 gap-3 mt-2">
-                  <div>
-                    <Label className="text-xs">Subcity</Label>
-                    <Select value={editForm.subcity} onValueChange={(v) => setEditForm({ ...editForm, subcity: v })}>
-                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bole">Bole</SelectItem>
-                        <SelectItem value="kirkos">Kirkos</SelectItem>
-                        <SelectItem value="arada">Arada</SelectItem>
-                        <SelectItem value="yeka">Yeka</SelectItem>
-                        <SelectItem value="kolfe">Kolfe Keranio</SelectItem>
-                        <SelectItem value="akaki">Akaki Kality</SelectItem>
-                        <SelectItem value="nifas">Nifas Silk-Lafto</SelectItem>
-                        <SelectItem value="lemi">Lemi Kura</SelectItem>
-                        <SelectItem value="gullele">Gullele</SelectItem>
-                        <SelectItem value="lideta">Lideta</SelectItem>
-                        <SelectItem value="other">Other...</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {editForm.subcity === "other" && (
-                    <div>
-                      <Label className="text-xs">Specify Subcity</Label>
-                      <Input className="mt-1 h-8 text-sm" value={editForm.otherSubcity || ""} onChange={(e) => setEditForm({ ...editForm, otherSubcity: e.target.value })} />
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Woreda</Label>
-                  <Input className="mt-1 h-8 text-sm" value={editForm.woreda ?? ""} onChange={(e) => setEditForm({ ...editForm, woreda: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs">Property Interest</Label>
-                  <Select value={editForm.propertyInterest} onValueChange={(v) => setEditForm({ ...editForm, propertyInterest: v })}>
-                    <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="apartment">Apartment</SelectItem>
-                      <SelectItem value="villa">Villa</SelectItem>
-                      <SelectItem value="g1">G+1 House</SelectItem>
-                      <SelectItem value="g2">G+2+ House</SelectItem>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="warehouse">Warehouse</SelectItem>
-                      <SelectItem value="land">Land</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button variant="outline" className="flex-1" onClick={() => setEditing(false)}>Cancel</Button>
-                <Button className="flex-1 bg-accent hover:bg-accent/90 text-white"
+              <div className="flex gap-4 pt-2">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setEditing(false)}>Cancel</Button>
+                <Button className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl"
                   onClick={handleSave} disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? "Saving…" : "Save changes"}
                 </Button>
@@ -547,20 +479,20 @@ export default function ContactDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete confirm ─────────────────────────────────────────────── */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-xs">
-          <DialogHeader><DialogTitle>Delete contact?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground pt-1">
-            This will permanently delete {contact.firstName} {contact.lastName} and cannot be undone.
-            Their linked deals will remain.
-          </p>
-          <div className="flex gap-2 pt-3">
-            <Button variant="outline" className="flex-1" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-            <Button variant="destructive" className="flex-1"
-              onClick={() => deleteMutation.mutate(id)} disabled={deleteMutation.isPending}>
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
-            </Button>
+          <DialogHeader><DialogTitle>{t("crm.delete")}</DialogTitle></DialogHeader>
+          <div className="pt-2">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This will permanently delete the contact and cannot be undone.
+            </p>
+            <div className="flex gap-2 pt-6">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+              <Button variant="destructive" className="flex-1 rounded-xl shadow-lg shadow-red-500/20"
+                onClick={() => deleteMutation.mutate(id)} disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
