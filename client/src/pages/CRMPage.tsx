@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,24 +22,33 @@ function LeadsInbox() {
   const [, setLocation] = useLocation();
   const { data: leads = [] } = trpc.crm.leads.list.useQuery();
 
-  const sourceColor: Record<string, string> = {
-    instagram: "bg-pink-100 text-pink-700",
-    facebook:  "bg-blue-100 text-blue-700",
-    telegram:  "bg-sky-100 text-sky-700",
-    tracking_link: "bg-purple-100 text-purple-700",
-    manual:    "bg-gray-100 text-gray-700",
-  };
+const sourceColor: Record<string, string> = {
+  instagram: "bg-pink-100 text-pink-700 dark:bg-pink-900/20 dark:text-pink-400",
+  facebook:  "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
+  telegram:  "bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400",
+  tracking_link: "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400",
+  manual:    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+};
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
 
   if (leads.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-          <Inbox className="w-8 h-8 text-muted-foreground" />
+        <div className="w-16 h-16 rounded-3xl bg-muted/40 flex items-center justify-center">
+          <Inbox className="w-8 h-8 text-muted-foreground/40" />
         </div>
         <div>
-          <p className="text-base font-semibold text-foreground">No leads yet</p>
-          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-            Leads captured from your social tracking links will appear here automatically.
+          <p className="text-lg font-black text-foreground tracking-tight">{t("crm.noLeads")}</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm font-medium leading-relaxed">
+            {t("crm.noLeadsSub")}
           </p>
         </div>
       </div>
@@ -57,7 +68,7 @@ function LeadsInbox() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm font-semibold text-foreground">{lead.name || "Anonymous Lead"}</p>
+              <p className="text-sm font-bold text-foreground">{lead.name || "Anonymous Lead"}</p>
               {lead.source && (
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize ${sourceColor[lead.source] || "bg-gray-100 text-gray-700"}`}>
                   {lead.source.replace("_", " ")}
@@ -127,8 +138,8 @@ function Conversations() {
         />
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-accent text-white hover:bg-accent/90 h-9 shrink-0">
-              <Plus className="w-4 h-4 mr-2" /> Add Contact
+            <Button className="bg-accent text-white hover:bg-accent/90 h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest shrink-0">
+              <Plus className="w-3.5 h-3.5 mr-2" /> {t("crm.addContact")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
@@ -242,12 +253,12 @@ function ClosedDeals() {
   if (closed.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-          <CheckCircle2 className="w-8 h-8 text-muted-foreground" />
+        <div className="w-16 h-16 rounded-3xl bg-muted/40 flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8 text-muted-foreground/40" />
         </div>
         <div>
-          <p className="text-base font-semibold text-foreground">No closed deals yet</p>
-          <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+          <p className="text-lg font-black text-foreground tracking-tight">No closed deals yet</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm font-medium leading-relaxed">
             Deals you mark as won or lost will appear here for tracking.
           </p>
         </div>
@@ -301,41 +312,47 @@ function ClosedDeals() {
 // ── Main CRM Page ────────────────────────────────────────────────────────────
 export default function CRMPage() {
   const { data: leads = [] } = trpc.crm.leads.list.useQuery();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
+  
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
   const newLeadsCount = (leads as any[]).filter((l: any) => l.status === "new").length;
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-3">
-          CRM
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-foreground flex items-center gap-3 tracking-tighter">
+          {t("nav.crm")}
           {newLeadsCount > 0 && (
-            <span className="flex items-center gap-1.5 text-xs font-semibold bg-accent/10 text-accent px-2.5 py-1 rounded-full">
-              <Zap className="w-3 h-3" /> {newLeadsCount} new lead{newLeadsCount !== 1 ? "s" : ""}
+            <span className="flex items-center gap-1.5 text-[10px] font-black bg-accent text-white px-3 py-1 rounded-full uppercase tracking-widest">
+              <Zap className="w-3 h-3" /> {newLeadsCount} {t("dash.activeLeads")}
             </span>
           )}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Leads, conversations, and closed deals — all in one place.
+        <p className="text-sm text-muted-foreground mt-1 font-medium">
+          {t("dash.commandSubtitle")}
         </p>
       </div>
 
       <Tabs defaultValue="leads" className="w-full">
-        <TabsList className="w-full max-w-sm mb-6 h-10 bg-muted/50 rounded-xl p-1">
-          <TabsTrigger value="leads" className="flex-1 rounded-lg text-sm font-medium">
-            <Inbox className="w-4 h-4 mr-1.5" /> Leads Inbox
-            {newLeadsCount > 0 && (
-              <span className="ml-1.5 bg-accent text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                {newLeadsCount}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="conversations" className="flex-1 rounded-lg text-sm font-medium">
-            <MessageSquare className="w-4 h-4 mr-1.5" /> Conversations
-          </TabsTrigger>
-          <TabsTrigger value="deals" className="flex-1 rounded-lg text-sm font-medium">
-            <CheckCircle2 className="w-4 h-4 mr-1.5" /> Closed Deals
-          </TabsTrigger>
-        </TabsList>
+        <div style={glassStyle} className="p-1 max-w-xl mb-8 flex">
+          <TabsList className="flex-1 h-12 bg-transparent border-0 gap-1 p-0">
+            <TabsTrigger value="leads" className="flex-1 rounded-2xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-accent data-[state=active]:text-white">
+              <Inbox className="w-3.5 h-3.5 mr-2" /> {t("crm.inbox")}
+              {newLeadsCount > 0 && (
+                <span className="ml-2 bg-white text-accent text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                  {newLeadsCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="conversations" className="flex-1 rounded-2xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-accent data-[state=active]:text-white">
+              <MessageSquare className="w-3.5 h-3.5 mr-2" /> {t("crm.conversations")}
+            </TabsTrigger>
+            <TabsTrigger value="deals" className="flex-1 rounded-2xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-accent data-[state=active]:text-white">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-2" /> {t("crm.closed")}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="leads"><LeadsInbox /></TabsContent>
         <TabsContent value="conversations"><Conversations /></TabsContent>

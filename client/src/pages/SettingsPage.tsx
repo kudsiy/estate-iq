@@ -1,634 +1,310 @@
 import { useMemo, useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PremiumUpgradeModal } from "@/components/PremiumUpgradeModal";
 import {
-  User,
-  Bell,
-  Link2,
-  Shield,
-  Building2,
-  Facebook,
-  Instagram,
-  MessageCircle,
-  Mail,
-  ExternalLink,
-  Phone,
-  Share2,
-  Code2,
-  Key,
-  RefreshCw,
-  Copy,
-  Check,
-  Palette,
-  LogOut,
+  User, Bell, Link2, Shield, Building2, Facebook,
+  Instagram, MessageCircle, Mail, ExternalLink, Phone,
+  Share2, Code2, Key, RefreshCw, Copy, Check, Palette, LogOut,
+  Target, Zap, Activity, Globe, ShieldAlert, Cpu
 } from "lucide-react";
 import BrandKitPage from "./BrandKitPage";
 
+// ── Shared Styling ────────────────────────────────────────────────────────────
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
+
 type IntegrationStatus = "live" | "needs_setup" | "demo";
 
-type NotificationPreference = {
-  key: string;
-  label: string;
-  sub: string;
-  enabled: boolean;
-};
-
-function StatusBadge({ status }: { status: IntegrationStatus }) {
-  const meta: Record<IntegrationStatus, { label: string; classes: string }> = {
-    live: { label: "Live", classes: "bg-green-50 text-green-700" },
-    demo: { label: "Demo", classes: "bg-amber-50 text-amber-700" },
-    needs_setup: { label: "Needs setup", classes: "bg-blue-50 text-blue-700" },
-  };
-
+function IntegrationTile({ icon: Icon, name, status, desc, theme }: any) {
+  const isLive = status === "live";
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta[status].classes}`}>
-      {meta[status].label}
-    </span>
-  );
-}
-
-function IntegrationCard({
-  icon: Icon,
-  iconBg,
-  iconColor,
-  name,
-  description,
-  status,
-  docsUrl,
-}: {
-  icon: any;
-  iconBg: string;
-  iconColor: string;
-  name: string;
-  description: string;
-  status: IntegrationStatus;
-  docsUrl?: string;
-}) {
-  return (
-    <div className="flex items-start gap-4 rounded-xl border border-border p-4 hover:bg-muted/20 transition-colors">
-      <div className={`h-10 w-10 shrink-0 rounded-xl ${iconBg} flex items-center justify-center`}>
-        <Icon className={`h-5 w-5 ${iconColor}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-foreground">{name}</p>
-          <StatusBadge status={status} />
-        </div>
-        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
-      </div>
-      {docsUrl ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs gap-1 shrink-0"
-          onClick={() => window.open(docsUrl, "_blank")}
-        >
-          <ExternalLink className="h-3 w-3" />
-          Docs
-        </Button>
-      ) : null}
+    <div className={`p-5 rounded-[20px] border transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-black/5 border-black/5 hover:bg-black/10'}`}>
+       <div className="flex items-center justify-between mb-4">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isLive ? 'bg-accent text-white' : 'bg-muted/40 text-muted-foreground'}`}>
+             <Icon className="w-5 h-5" />
+          </div>
+          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isLive ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+             {status.replace('_', ' ')}
+          </span>
+       </div>
+       <p className="text-sm font-bold text-foreground mb-1">{name}</p>
+       <p className="text-[10px] text-muted-foreground font-medium leading-tight">{desc}</p>
     </div>
-  );
+  )
 }
 
 export default function SettingsPage() {
+  const { t } = useLanguage();
+  const { theme } = useTheme();
   const { user, logout } = useAuth();
   const utils = trpc.useUtils();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("upgrade") === "pro") {
-      setIsUpgradeModalOpen(true);
-      // Clean up URL without reload
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
-  const defaultNotificationPreferences: NotificationPreference[] = [
-    { key: "newLead", label: "New lead captured", sub: "When a lead arrives through a working capture channel.", enabled: true },
-    { key: "dealStage", label: "Deal stage changed", sub: "When a deal moves between pipeline stages.", enabled: true },
-    { key: "supplierReview", label: "Supplier listing review", sub: "When a new supplier listing lands in the review inbox.", enabled: true },
-    { key: "matchAlert", label: "Hot buyer match", sub: "When a buyer profile finds a high-confidence listing match.", enabled: true },
-    { key: "publishFailure", label: "Publishing failure", sub: "When a scheduled social post fails to publish.", enabled: true },
-  ];
-  const storedNotificationPreferences = Array.isArray(user?.notificationPreferences)
-    ? (user.notificationPreferences as Array<{ key?: string; enabled?: boolean }>)
-    : [];
+  const { data: workspace } = trpc.subscription.get.useQuery();
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
+
   const [profile, setProfile] = useState({
     name: user?.name ?? "",
     email: user?.email ?? "",
     companyName: user?.companyName ?? "",
     phone: user?.phone ?? "",
-    role: (user?.role ?? "agent") as "agent" | "team_member" | "admin" | "user",
   });
-
-  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreference[]>(
-    storedNotificationPreferences.length > 0
-      ? defaultNotificationPreferences.map((pref) => {
-          const stored = storedNotificationPreferences.find((item) => item?.key === pref.key);
-          return stored ? { ...pref, enabled: Boolean(stored.enabled) } : pref;
-        })
-      : defaultNotificationPreferences
-  );
 
   const updateProfileMutation = trpc.auth.updateProfile.useMutation({
-    onSuccess: async () => {
-      await utils.auth.me.invalidate();
-      toast.success("Profile updated.");
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to update profile");
-    },
+    onSuccess: () => { toast.success(t("status.updated")); utils.auth.me.invalidate(); },
   });
-
-  const appModules = useMemo(
-    () => [
-      ["CRM", "live", "Contacts, deals, listings, and manual leads are active."],
-      ["Onboarding", "live", "First-run workspace setup is now required for new users."],
-      ["Brand Kit", "live", "Brand kits persist, but auto-apply is still pending."],
-      ["Supplier Inbox", "live", "Manual supplier intake, duplicate review, and property import are active."],
-      ["Matching Engine", "live", "Buyer requirement profiles and scored listing matches are active."],
-      ["Social Publishing", "live", "Background sharing worker and Telegram bot integration is active."],
-      ["Notifications", "live", "Preference storage and in-app alerts are now active for core workflow events."],
-    ],
-    []
-  );
-
-  const { data: workspace, isLoading: workspaceLoading } = trpc.subscription.get.useQuery();
-
-  const [apiKey, setApiKey] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  // Social Config state
-  const [socialConfig, setSocialConfig] = useState({
-    telegram: {
-      botToken: "",
-      chatId: "",
-    },
-  });
-
-  // Sync state when workspace data loads
-  useMemo(() => {
-    if (workspace) {
-      setApiKey(workspace.apiKey ?? "");
-      const config = (workspace.socialConfig as any) || {};
-      setSocialConfig({
-        telegram: {
-          botToken: config.telegram?.botToken ?? "",
-          chatId: config.telegram?.chatId ?? "",
-        },
-      });
-    }
-  }, [workspace]);
-
-  const rotateApiKeyMutation = trpc.workspace.rotateApiKey.useMutation({
-    onSuccess: (data: { apiKey: string }) => {
-      setApiKey(data.apiKey);
-      toast.success("New API Key generated.");
-    },
-  });
-
-  const updateSocialConfigMutation = trpc.workspace.updateSocialConfig.useMutation({
-    onSuccess: () => {
-      toast.success("Integrations updated.");
-    },
-  });
-
-  const handleSaveProfile = () => {
-    updateProfileMutation.mutate(profile);
-  };
-
-  const handleSaveNotifications = () => {
-    updateProfileMutation.mutate({
-      notificationPreferences,
-    });
-  };
 
   return (
     <DashboardLayout>
-      <PremiumUpgradeModal 
-        open={isUpgradeModalOpen} 
-        onOpenChange={setIsUpgradeModalOpen} 
-        feature="Estate IQ Pro" 
-      />
+      <PremiumUpgradeModal open={isUpgradeModalOpen} onOpenChange={setIsUpgradeModalOpen} />
 
-      <div className="mb-6 flex justify-between items-start">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage your account details and see which integrations are live versus still awaiting setup.
-          </p>
+          <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">{t("set.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">{t("set.sub")}</p>
         </div>
         {!workspace?.plan || workspace.plan === 'starter' ? (
-          <Button 
-            className="bg-accent text-white font-bold tracking-tight shadow-md"
-            onClick={() => setIsUpgradeModalOpen(true)}
-          >
-            Upgrade to Pro
+          <Button onClick={() => setIsUpgradeModalOpen(true)} className="h-14 px-8 rounded-2xl bg-gradient-to-r from-accent to-[#fb923c] text-white font-black text-xs uppercase tracking-widest gap-2 shadow-2xl shadow-accent/40 border-0">
+            <Zap className="w-4 h-4 fill-current" /> {t("set.upgrade")}
           </Button>
-        ) : null}
+        ) : (
+          <div className="px-6 py-3 rounded-2xl bg-accent/10 border border-accent/20 flex items-center gap-3">
+             <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white"><Shield className="w-4 h-4" /></div>
+             <div>
+                <p className="text-[10px] font-black uppercase text-accent tracking-widest">Active Plan</p>
+                <p className="text-sm font-bold text-foreground uppercase tracking-tighter">Estate IQ Professional</p>
+             </div>
+          </div>
+        )}
       </div>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="mb-6 h-9">
-          <TabsTrigger value="profile" className="text-xs">
-            <User className="mr-1.5 h-3.5 w-3.5" />
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="text-xs">
-            <Link2 className="mr-1.5 h-3.5 w-3.5" />
-            Integrations
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs">
-            <Bell className="mr-1.5 h-3.5 w-3.5" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="developer" className="text-xs">
-            <Code2 className="mr-1.5 h-3.5 w-3.5" />
-            Developer
-          </TabsTrigger>
-          <TabsTrigger value="brand" className="text-xs">
-            <Palette className="mr-1.5 h-3.5 w-3.5" />
-            Brand Identity
-          </TabsTrigger>
-          <TabsTrigger value="account" className="text-xs">
-            <Shield className="mr-1.5 h-3.5 w-3.5" />
-            Account
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex flex-col lg:flex-row gap-8">
+           <aside className="lg:w-64 shrink-0">
+              <TabsList className="bg-transparent flex flex-col h-auto w-full p-0 gap-1">
+                 {[
+                   { id: "profile", label: t("set.profile"), icon: User },
+                   { id: "integrations", label: t("set.itg"), icon: Link2 },
+                   { id: "notifications", label: t("set.notif"), icon: Bell },
+                   { id: "developer", label: t("set.dev"), icon: Code2 },
+                   { id: "brand", label: t("set.brand"), icon: Palette },
+                   { id: "account", label: t("set.acc"), icon: Shield },
+                 ].map(x => (
+                   <TabsTrigger key={x.id} value={x.id} className="w-full justify-start h-11 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-accent data-[state=active]:text-white transition-all gap-3 bg-muted/10 border-0">
+                      <x.icon className="w-3.5 h-3.5" /> {x.label}
+                   </TabsTrigger>
+                 ))}
+              </TabsList>
 
-        <TabsContent value="profile" className="mt-0">
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <Card className="border border-border lg:col-span-2">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Personal information</CardTitle>
-                <CardDescription className="text-xs">
-                  These fields persist to your account and workspace.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="mb-5 flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10 text-2xl font-semibold text-accent">
-                    {(user?.name ?? "?")[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{user?.name}</p>
-                    <p className="text-xs text-muted-foreground">{user?.email}</p>
-                    <p className="mt-0.5 text-xs capitalize text-muted-foreground">{user?.role ?? "agent"}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs">Full name</Label>
-                    <Input className="mt-1 h-8 text-sm" value={profile.name} onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Email</Label>
-                    <Input className="mt-1 h-8 text-sm" type="email" value={profile.email} onChange={(event) => setProfile((current) => ({ ...current, email: event.target.value }))} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs">Company / agency name</Label>
-                    <Input className="mt-1 h-8 text-sm" value={profile.companyName} onChange={(event) => setProfile((current) => ({ ...current, companyName: event.target.value }))} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Phone</Label>
-                    <Input className="mt-1 h-8 text-sm" value={profile.phone} onChange={(event) => setProfile((current) => ({ ...current, phone: event.target.value }))} />
-                  </div>
-                </div>
-
-                <Button className="h-8 bg-accent text-sm text-white hover:bg-accent/90" onClick={handleSaveProfile} disabled={updateProfileMutation.isPending}>
-                  {updateProfileMutation.isPending ? "Saving..." : "Save profile"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Product status</CardTitle>
-                <CardDescription className="text-xs">Transparent feature states based on the current build.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-white">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Estate IQ</p>
-                    <p className="text-xs text-muted-foreground">Current workspace-enabled build</p>
-                  </div>
-                </div>
-
-                {appModules.map(([module, status, desc]) => (
-                  <div key={module} className="rounded-lg border border-border px-3 py-3">
-                    <div className="mb-1 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-foreground">{module}</span>
-                      <StatusBadge status={status as IntegrationStatus} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">{desc}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="integrations" className="mt-0">
-          <div className="space-y-4">
-            <Card className="border border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Social media connections</CardTitle>
-                <CardDescription className="text-xs">
-                  Connect your accounts to enable automated publishing.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-xl border border-border p-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                      <Share2 className="h-4 w-4" />
+              <div className="mt-8 p-6 rounded-[24px] bg-accent/5 border border-accent/10 relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 rotate-12 transition-transform group-hover:scale-[1.7]">
+                    <Activity className="w-24 h-24" />
+                 </div>
+                 <p className="text-[9px] font-black uppercase tracking-widest text-accent mb-2">Usage Monitor</p>
+                 <div className="space-y-4 relative z-10">
+                    <div>
+                       <div className="flex justify-between text-[10px] font-bold mb-1">
+                          <span>Listing Capacity</span>
+                          <span>85%</span>
+                       </div>
+                       <div className="h-1 rounded-full bg-accent/10 overflow-hidden">
+                          <div className="h-full bg-accent w-[85%]" />
+                       </div>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Telegram Bot</p>
-                      <p className="text-xs text-muted-foreground">Used for direct channel/group posting</p>
+                       <div className="flex justify-between text-[10px] font-bold mb-1">
+                          <span>AI Energy</span>
+                          <span>12/50</span>
+                       </div>
+                       <div className="h-1 rounded-full bg-accent/10 overflow-hidden">
+                          <div className="h-full bg-accent w-[24%]" />
+                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Bot Token</Label>
-                      <Input 
-                        placeholder="123456:ABC-DEF..." 
-                        className="h-8 text-xs" 
-                        value={socialConfig.telegram.botToken} 
-                        onChange={(e) => setSocialConfig(prev => ({ ...prev, telegram: { ...prev.telegram, botToken: e.target.value } }))}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Chat ID</Label>
-                      <Input 
-                        placeholder="-100..." 
-                        className="h-8 text-xs" 
-                        value={socialConfig.telegram.chatId} 
-                        onChange={(e) => setSocialConfig(prev => ({ ...prev, telegram: { ...prev.telegram, chatId: e.target.value } }))}
-                      />
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-4 h-7 text-xs"
-                    onClick={() => updateSocialConfigMutation.mutate(socialConfig)}
-                    disabled={updateSocialConfigMutation.isPending}
-                  >
-                    {updateSocialConfigMutation.isPending ? "Saving..." : "Save Telegram Config"}
-                  </Button>
-                </div>
-
-                <IntegrationCard
-                  icon={Facebook}
-                  iconBg="bg-blue-50"
-                  iconColor="text-blue-700"
-                  name="Facebook Pages"
-                  description="Required for future direct publishing and Lead Ads import. Estate IQ does not publish to Facebook yet."
-                  status="needs_setup"
-                  docsUrl="https://developers.facebook.com/docs/pages/getting-started"
-                />
-                <IntegrationCard
-                  icon={Instagram}
-                  iconBg="bg-pink-50"
-                  iconColor="text-pink-700"
-                  name="Instagram Business"
-                  description="Planned for feed and reel publishing. This screen documents requirements only."
-                  status="needs_setup"
-                  docsUrl="https://developers.facebook.com/docs/instagram-api"
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Messaging & communication</CardTitle>
-                <CardDescription className="text-xs">
-                  These channels are planned. They are not connected to automated workflows yet.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <IntegrationCard
-                  icon={MessageCircle}
-                  iconBg="bg-green-50"
-                  iconColor="text-green-700"
-                  name="WhatsApp Business API"
-                  description="Planned for lead capture and follow-up automation. Estate IQ currently offers no live WhatsApp sync."
-                  status="demo"
-                  docsUrl="https://developers.facebook.com/docs/whatsapp"
-                />
-                <IntegrationCard
-                  icon={Mail}
-                  iconBg="bg-blue-50"
-                  iconColor="text-blue-600"
-                  name="SendGrid Email"
-                  description="Reserved for future email notifications and follow-up automation."
-                  status="demo"
-                  docsUrl="https://docs.sendgrid.com"
-                />
-                <IntegrationCard
-                  icon={Phone}
-                  iconBg="bg-red-50"
-                  iconColor="text-red-600"
-                  name="Twilio SMS"
-                  description="Reserved for future SMS alerts and workflow automation."
-                  status="demo"
-                  docsUrl="https://www.twilio.com/docs/sms"
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="developer" className="mt-0">
-          <Card className="max-w-2xl border border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">API Access</CardTitle>
-              <CardDescription className="text-xs">
-                Use your API key to ingest leads from external sources like Zapier or Facebook Lead Ads.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label className="text-xs">Write-only API Key</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input 
-                      readOnly 
-                      type={apiKey ? "text" : "password"} 
-                      placeholder="No key generated yet" 
-                      value={apiKey} 
-                      className="h-9 pr-24 font-mono text-xs"
-                    />
-                    <div className="absolute right-1 top-1 flex gap-1">
-                      {apiKey && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => {
-                            navigator.clipboard.writeText(apiKey);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                            toast.success("API Key copied to clipboard.");
-                          }}
-                        >
-                          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <Button 
-                    className="h-9 text-xs gap-2" 
-                    onClick={() => rotateApiKeyMutation.mutate()} 
-                    disabled={rotateApiKeyMutation.isPending}
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${rotateApiKeyMutation.isPending ? 'animate-spin' : ''}`} />
-                    {apiKey ? "Rotate Key" : "Generate Key"}
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Warning: Rotating your key will immediately invalidate the current one.
-                </p>
+                 </div>
               </div>
+           </aside>
 
-              <div className="rounded-xl bg-muted/30 border border-border p-4 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Key className="h-3.5 w-3.5 text-accent" />
-                  Integration Guide
-                </div>
-                <div className="space-y-2 text-[11px] leading-relaxed text-muted-foreground">
-                  <p>1. Send a <strong>POST</strong> request to <code>/api/leads/external</code></p>
-                  <p>2. Include header: <code>Authorization: Bearer YOUR_API_KEY</code></p>
-                  <p>3. JSON Body: <code>{`{ "firstName": "John", "lastName": "Doe", "phone": "0911..." }`}</code></p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="mt-0">
-          <Card className="max-w-2xl border border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Notification preferences</CardTitle>
-              <CardDescription className="text-xs">
-                Preferences now persist to your account and control in-app alert creation for supported events.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {notificationPreferences.map((item) => (
-                  <div key={item.key} className="flex items-start justify-between gap-4 border-b border-border py-2 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.sub}</p>
+           <main className="flex-1 min-w-0">
+              <TabsContent value="profile" className="m-0 focus-visible:outline-none">
+                 <div style={glassStyle} className="p-8 border-0">
+                    <h3 className="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-2">
+                       <User className="w-4 h-4 text-accent" /> {t("set.profile")}
+                    </h3>
+                    
+                    <div className="flex items-center gap-6 mb-10 p-6 rounded-3xl bg-background/30 border border-white/5">
+                       <div className="relative">
+                          <div className="w-20 h-20 rounded-[32px] bg-accent flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-accent/20">
+                             {user?.name?.[0]?.toUpperCase()}
+                          </div>
+                          <button className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-foreground text-background flex items-center justify-center border-4 border-background/20"><Plus className="w-4 h-4" /></button>
+                       </div>
+                       <div>
+                          <p className="text-xl font-black text-foreground tracking-tighter uppercase">{user?.name}</p>
+                          <p className="text-xs text-muted-foreground font-medium mb-1">{user?.email}</p>
+                          <span className="text-[8px] font-black uppercase tracking-widest bg-accent/20 text-accent px-2 py-0.5 rounded-lg">{user?.role}</span>
+                       </div>
                     </div>
-                    <button
-                      onClick={() =>
-                        setNotificationPreferences((current) =>
-                          current.map((pref) =>
-                            pref.key === item.key ? { ...pref, enabled: !pref.enabled } : pref
-                          )
-                        )
-                      }
-                      className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${item.enabled ? "bg-accent" : "bg-border"}`}
-                    >
-                      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${item.enabled ? "translate-x-4" : "translate-x-0.5"}`} />
-                    </button>
-                  </div>
-                ))}
-              </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-xs text-muted-foreground">
-                  Supported today: new leads, deal stage changes, supplier reviews, hot matches, and publishing failures.
-                </p>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleSaveNotifications} disabled={updateProfileMutation.isPending}>
-                  {updateProfileMutation.isPending ? "Saving..." : "Save preferences"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                       <div className="space-y-6">
+                          <div>
+                             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Display Name</Label>
+                             <Input className="h-11 rounded-1.5xl bg-background/20" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} />
+                          </div>
+                          <div>
+                             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Company Portal Name</Label>
+                             <Input className="h-11 rounded-1.5xl bg-background/20" value={profile.companyName} onChange={e => setProfile({...profile, companyName: e.target.value})} />
+                          </div>
+                       </div>
+                       <div className="space-y-6">
+                          <div>
+                             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Official Email</Label>
+                             <Input className="h-11 rounded-1.5xl bg-background/20" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} />
+                          </div>
+                          <div>
+                             <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 block">Contact Number</Label>
+                             <Input className="h-11 rounded-1.5xl bg-background/20" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} />
+                          </div>
+                       </div>
+                    </div>
+                    
+                    <div className="flex justify-end p-6 -mx-8 -mb-8 mt-10 border-t border-white/5 bg-background/20 rounded-b-[24px]">
+                       <Button onClick={() => updateProfileMutation.mutate(profile)} className="h-11 px-10 rounded-xl bg-accent hover:bg-accent/90 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-accent/20">
+                          Save Identity Updates
+                       </Button>
+                    </div>
+                 </div>
+              </TabsContent>
 
-        <TabsContent value="brand" className="mt-0">
-          {/* Render Brand Kit inline — sidebar item removed, editable here */}
-          <BrandKitPage embedded />
-        </TabsContent>
+              <TabsContent value="integrations" className="m-0 focus-visible:outline-none">
+                 <div className="space-y-6">
+                    <div style={glassStyle} className="p-8 border-0">
+                       <h3 className="text-sm font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Share2 className="w-4 h-4 text-accent" /> Social Ecosystem
+                       </h3>
+                       <p className="text-xs text-muted-foreground font-medium mb-8">Connect your branded production channels for one-click distribution.</p>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <IntegrationTile icon={Send} name="Telegram Bot" status="live" desc="Automated channel broadcasting and production queue sync." theme={theme} />
+                          <IntegrationTile icon={Facebook} name="Facebook Page" status="needs_setup" desc="Ingest leads directly from Facebook Lead Forms." theme={theme} />
+                          <IntegrationTile icon={Instagram} name="Instagram IGTV" status="needs_setup" desc="Sync property reels to your professional discovery feed." theme={theme} />
+                          <IntegrationTile icon={MessageCircle} name="WhatsApp Suite" status="demo" desc="Direct customer engagement and AI-powered lead qualification." theme={theme} />
+                       </div>
+                    </div>
+                    <div style={glassStyle} className="p-8 border-0">
+                       <h3 className="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-accent" /> External Hook Points
+                       </h3>
+                       <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-border/40">
+                          <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><Cpu className="w-5 h-5" /></div>
+                             <div>
+                                <p className="text-sm font-bold text-foreground">Zapier Orchestration</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Planned Integration</p>
+                             </div>
+                          </div>
+                          <Button variant="outline" className="text-[10px] font-black uppercase h-8 px-4 rounded-lg">Early Access</Button>
+                       </div>
+                    </div>
+                 </div>
+              </TabsContent>
 
-        <TabsContent value="account" className="mt-0">
-          <div className="max-w-lg space-y-4">
-            <Card className="border border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Session</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <div>
-                    <p className="font-medium text-foreground">Signed in as</p>
-                    <p className="text-xs text-muted-foreground">{user?.email}</p>
-                  </div>
-                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">Active</span>
-                </div>
-                <div className="pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 text-xs gap-2 text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
-                    onClick={logout}
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    Sign out of session
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              <TabsContent value="developer" className="m-0 focus-visible:outline-none">
+                 <div style={glassStyle} className="p-8 border-0">
+                    <h3 className="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-2">
+                       <Key className="w-4 h-4 text-accent" /> {t("set.api")}
+                    </h3>
+                    <div className="p-8 rounded-3xl bg-background/40 border border-white/5 mb-8">
+                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 block">Secret API Signature</Label>
+                       <div className="flex gap-3">
+                          <div className="flex-1 h-12 bg-black/20 rounded-xl flex items-center px-4 font-mono text-xs text-accent italic tracking-tighter border border-white/5 opacity-80">
+                             {workspace?.apiKey || "************************************"}
+                          </div>
+                          <Button className="h-12 w-12 rounded-xl bg-accent text-white p-0 shadow-lg shadow-accent/20"><Copy className="w-4 h-4" /></Button>
+                          <Button variant="outline" className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">Rotate</Button>
+                       </div>
+                       <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-4 flex items-center gap-2"><ShieldAlert className="w-3 h-3 text-amber-500" /> Never share this key on public clients or repositories.</p>
+                    </div>
 
-            <Card className="border border-destructive/30">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-destructive">Danger zone</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Clear all data</p>
-                    <p className="text-xs text-muted-foreground">This is intentionally disabled until scoped deletes and export flows are finished.</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="h-7 border-destructive text-xs text-destructive hover:bg-destructive/5" onClick={() => toast.info("Disabled until full destructive action safeguards are added.")}>
-                    Disabled
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between border-t border-border pt-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Export all data</p>
-                    <p className="text-xs text-muted-foreground">Still planned for a later release after export packaging and audit safeguards are added.</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toast.info("Export is not implemented yet.")}>
-                    Coming soon
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                    <div className="space-y-4">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quickstart Guide</h4>
+                       <pre className="p-6 rounded-3xl bg-black/20 font-mono text-xs leading-relaxed text-muted-foreground border border-white/5 overflow-x-auto">
+                          <code>{`// Capture Identity
+POST https://app.estateiq.et/api/leads/external
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "name": "Luxury Prospect",
+  "phone": "+251...",
+  "source": "api.integration"
+}`}</code>
+                       </pre>
+                    </div>
+                 </div>
+              </TabsContent>
+
+              <TabsContent value="brand" className="m-0 focus-visible:outline-none">
+                 <BrandKitPage embedded />
+              </TabsContent>
+
+              <TabsContent value="account" className="m-0 focus-visible:outline-none">
+                 <div className="space-y-6">
+                    <div style={glassStyle} className="p-8 border-0">
+                       <h3 className="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-accent" /> Workspace Sovereignty
+                       </h3>
+                       <div className="flex items-center justify-between p-6 rounded-2xl bg-muted/20 border border-border/40">
+                          <div>
+                             <p className="text-sm font-bold text-foreground">Sign out of identity</p>
+                             <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest mt-1">End existing session safely</p>
+                          </div>
+                          <Button onClick={logout} variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-red-500/20">
+                             <LogOut className="w-3.5 h-3.5 mr-2" /> Log Out
+                          </Button>
+                       </div>
+                    </div>
+                    <div style={glassStyle} className="p-8 border-0 border-red-500/10 bg-red-500/5">
+                       <h3 className="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-2 text-red-500">
+                          <ShieldAlert className="w-4 h-4" /> Danger Precinct
+                       </h3>
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
+                             <div>
+                                <p className="text-sm font-bold text-foreground">Data Extraction</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Request full CSV/JSON identity dump</p>
+                             </div>
+                             <Button disabled variant="outline" className="text-[10px] font-black uppercase h-9 px-6 rounded-xl">Pending release</Button>
+                          </div>
+                          <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
+                             <div>
+                                <p className="text-sm font-bold text-foreground">Irreversible Erasure</p>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Delete workspace and all associated assets</p>
+                             </div>
+                             <Button disabled variant="outline" className="text-[10px] font-black uppercase h-9 px-6 rounded-xl border-red-500/20 text-red-500">Destroy Data</Button>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </TabsContent>
+           </main>
+        </div>
       </Tabs>
     </DashboardLayout>
   );

@@ -1,4 +1,5 @@
 import { claimNextQueuedPost, updateSocialMediaPostStatus, getWorkspaceById } from "../db";
+import { publishToTikTok } from "./tiktok";
 
 /**
  * Expected shape of workspace.socialConfig:
@@ -40,7 +41,15 @@ export async function processQueuedPosts() {
           `$1?platform=${platform}&creativeId=${post.id}`
         );
 
-        if (platform === "telegram") {
+        if (platform === "tiktok") {
+          const result = await publishToTikTok(
+            platformContent,
+            config.tiktok,
+            (post as any).mediaUrl
+          );
+          platformResults[platform] = result;
+          if (result.status === "failed") allSuccess = false;
+        } else if (platform === "telegram") {
           const result = await publishToTelegram(
             platformContent, 
             config.telegram,

@@ -1,6 +1,8 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -35,12 +37,21 @@ const STAGE_LABELS = {
 };
 
 const STAGE_COLORS = {
-  lead: "bg-blue-50 border-blue-200",
-  contacted: "bg-purple-50 border-purple-200",
-  viewing: "bg-amber-50 border-amber-200",
-  offer: "bg-orange-50 border-orange-200",
-  closed: "bg-green-50 border-green-200",
+  lead: "bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800/50",
+  contacted: "bg-purple-50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-800/50",
+  viewing: "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50",
+  offer: "bg-orange-50 border-orange-200 dark:bg-orange-900/10 dark:border-orange-800/50",
+  closed: "bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800/50",
 };
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
 
 function timeAgo(date: string | Date) {
   const d = new Date(date);
@@ -56,7 +67,11 @@ function timeAgo(date: string | Date) {
 
 export default function DealPipeline() {
   const [location, setLocation] = useLocation();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
   const searchParams = new URLSearchParams(window.location.search);
+  
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDealId, setSelectedDealId] = useState<number | null>(
@@ -280,8 +295,8 @@ export default function DealPipeline() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Deal Pipeline</h1>
-          <p className="text-sm text-muted-foreground mt-1">Drag deals between stages to track progress</p>
+          <h1 className="text-2xl font-black text-foreground tracking-tighter">{t("crm.deals")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">{t("dash.pipeSub")}</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
@@ -415,21 +430,23 @@ export default function DealPipeline() {
 
       {/* Pipeline stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground">Pipeline Value</p>
-          <p className="text-2xl font-semibold text-foreground">ETB {(totalPipelineValue / 1_000_000).toFixed(1)}M</p>
+        <div style={glassStyle} className="p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{t("dash.pipeValue")}</p>
+          <p className="text-xl font-black text-foreground mt-1">ETB {(totalPipelineValue / 1_000_000).toFixed(1)}M</p>
         </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground">Total Deals</p>
-          <p className="text-2xl font-semibold text-foreground">{deals?.length || 0}</p>
+        <div style={glassStyle} className="p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Total Deals</p>
+          <p className="text-xl font-black text-foreground mt-1">{deals?.length || 0}</p>
         </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground">Filtered</p>
-          <p className="text-2xl font-semibold text-foreground">{totalFilteredDeals}</p>
+        <div style={glassStyle} className="p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Filtered</p>
+          <p className="text-xl font-black text-foreground mt-1">{totalFilteredDeals}</p>
         </div>
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-xs text-muted-foreground">Closed This Month</p>
-          <p className="text-2xl font-semibold text-foreground">{stageStats["closed"].count}</p>
+        <div style={glassStyle} className="p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Closed %</p>
+          <p className="text-xl font-black text-foreground mt-1">
+            {deals?.length ? Math.round((stageStats["closed"].count / deals.length) * 100) : 0}%
+          </p>
         </div>
       </div>
 
@@ -534,50 +551,48 @@ export default function DealPipeline() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {STAGES.map((stage) => (
               <div key={stage}>
-                <Card className={`border-2 ${STAGE_COLORS[stage]}`}>
-                  <CardHeader className="pb-3">
+                <div style={glassStyle} className={`border-2 ${STAGE_COLORS[stage]} p-5 h-full`}>
+                  <div className="mb-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="text-lg">{STAGE_LABELS[stage]}</CardTitle>
-                        <CardDescription className="mt-1">{stageStats[stage].count} deals</CardDescription>
+                        <p className="text-sm font-black uppercase tracking-widest text-foreground">{t(`stage.${stage}`)}</p>
+                        <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-widest">{stageStats[stage].count} deals</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Value</p>
-                        <p className="text-sm font-semibold text-foreground">
+                        <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Value</p>
+                        <p className="text-xs font-black text-foreground">
                           ETB {(stageStats[stage].value / 1000000).toFixed(1)}M
                         </p>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Droppable id={stage}>
-                      <SortableContext items={dealsByStage[stage]?.map((d) => d.id) || []} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-3 min-h-[400px]">
-                          {dealsByStage[stage]?.map((deal) => (
-                            <DealCard
-                              key={deal.id}
-                              id={deal.id}
-                              contactName={
-                                contacts?.find((c) => c.id === deal.contactId)
-                                  ? `${contacts.find((c) => c.id === deal.contactId)?.firstName} ${contacts.find((c) => c.id === deal.contactId)?.lastName}`
-                                  : "Unknown"
-                              }
-                              propertyTitle={properties?.find((p) => p.id === deal.propertyId)?.title}
-                              value={Number(deal.value)}
-                              stage={stage}
-                              onViewDetails={() => setSelectedDealId(deal.id)}
-                            />
-                          ))}
-                          {dealsByStage[stage]?.length === 0 && (
-                            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                              No deals yet
-                            </div>
-                          )}
-                        </div>
-                      </SortableContext>
-                    </Droppable>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <Droppable id={stage}>
+                    <SortableContext items={dealsByStage[stage]?.map((d) => d.id) || []} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-3 min-h-[400px]">
+                        {dealsByStage[stage]?.map((deal) => (
+                          <DealCard
+                            key={deal.id}
+                            id={deal.id}
+                            contactName={
+                              contacts?.find((c) => c.id === deal.contactId)
+                                ? `${contacts.find((c) => c.id === deal.contactId)?.firstName} ${contacts.find((c) => c.id === deal.contactId)?.lastName}`
+                                : "Unknown"
+                            }
+                            propertyTitle={properties?.find((p) => p.id === deal.propertyId)?.title}
+                            value={Number(deal.value)}
+                            stage={stage}
+                            onViewDetails={() => setSelectedDealId(deal.id)}
+                          />
+                        ))}
+                        {dealsByStage[stage]?.length === 0 && (
+                          <div className="flex items-center justify-center h-32 text-muted-foreground text-[10px] font-black uppercase tracking-widest opacity-30">
+                            Empty stage
+                          </div>
+                        )}
+                      </div>
+                    </SortableContext>
+                  </Droppable>
+                </div>
               </div>
             ))}
           </div>
@@ -604,7 +619,7 @@ export default function DealPipeline() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-accent" />
-                  Deal — {contact ? `${contact.firstName} ${contact.lastName}` : "Unknown contact"}
+                  {t("crm.deals")} — {contact ? `${contact.firstName} ${contact.lastName}` : "Unknown contact"}
                 </DialogTitle>
                 <div className="flex gap-2 mb-2">
                   <Button 

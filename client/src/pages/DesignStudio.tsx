@@ -1,27 +1,17 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
-  Download,
-  Sparkles,
-  Upload,
-  ArrowRight,
-  Copy,
-  Palette,
-  Image as ImageIcon,
-  Video,
-  Building2,
-  Wand2,
-  Check,
-  X,
-  Loader2,
-  ExternalLink,
-  Smartphone,
-  Eye,
+  Download, Sparkles, Upload, ArrowRight, Palette,
+  Image as ImageIcon, Video, Building2, Wand2, Check, X, Loader2,
+  ExternalLink, Smartphone, Eye, Plus, MessageCircle, Send, Copy, Activity
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -32,54 +22,45 @@ import {
   BrandData as StudioBrandData,
 } from "@/components/studio/ListingTemplates";
 import {
-  generateAdImage,
-  generateRebrand,
-  generateVideo,
   generateCaption,
 } from "@/lib/studio/CanvasAdGenerator";
 
+// ── Shared Styling ────────────────────────────────────────────────────────────
+
 type StudioMode = "create-ad" | "create-video" | "create-agency";
-type AdStyle =
-  | "classic"
-  | "modern"
-  | "minimal"
-  | "luxury"
-  | "commercial"
-  | "instagram";
+type AdStyle = "classic" | "modern" | "minimal" | "luxury" | "commercial" | "instagram";
+
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
 
 const SUBCITIES = [
-  "Bole",
-  "Kirkos",
-  "Yeka",
-  "Arada",
-  "Lideta",
-  "Gulele",
-  "Kolfe Keranio",
-  "Nifas Silk-Lafto",
-  "Akaky Kaliti",
-  "Lemi Kura",
-  "CMC",
-  "Kazanchis",
-  "Piassa",
-  "Sarbet",
-  "Summit",
-  "Ayat",
-  "Gerji",
-  "Megenagna",
+  "bole", "yeka", "arada", "kirkos", "lideta", "gullele", "akaky", 
+  "addis_ketema", "kolfe", "nifas_silk", "lemi_kura"
 ];
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function DesignStudio() {
   const { contextId } = useParams();
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
   const [, navigate] = useLocation();
+
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   const [mode, setMode] = useState<StudioMode | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState("modern");
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
-    null
-  );
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const templateRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Brand Kit
   const { data: brandKits = [] } = trpc.crm.brandKits.list.useQuery();
@@ -87,314 +68,131 @@ export default function DesignStudio() {
 
   // Listing form state
   const [listing, setListing] = useState({
-    title: "",
-    price: "",
-    subcity: "",
-    subLocation: "",
-    propertyType: "Apartment",
-    bedrooms: "",
-    bathrooms: "",
-    area: "",
-    description: "",
-    nearbyLandmarks: "",
-    utilities: "",
-    finishingLevel: "",
-    negotiable: false,
-    propertyUse: "Residential",
-    titleType: "",
-    imageUrl: "",
+    title: "", price: "", subcity: "", subLocation: "",
+    propertyType: "Apartment", bedrooms: "", bathrooms: "",
+    area: "", description: "", nearbyLandmarks: "",
+    utilities: "", finishingLevel: "", negotiable: false,
+    propertyUse: "Residential", titleType: "", imageUrl: "",
   });
 
-  const [adStyle, setAdStyle] = useState<AdStyle>("modern");
-  const [caption, setCaption] = useState<{
-    amharic: string;
-    english: string;
-    combined: string;
-    hashtags: string[];
-    amharicHashtags: string[];
-    tiktok: string;
-  } | null>(null);
+  const [caption, setCaption] = useState<any>(null);
+  const [tiktokPack, setTiktokPack] = useState<any>(null);
   const [isCaptionLoading, setIsCaptionLoading] = useState(false);
-  const [rebrandImage, setRebrandImage] = useState<string | null>(null);
-  const [isRebranding, setIsRebranding] = useState(false);
+  const [isTikTokLoading, setIsTikTokLoading] = useState(false);
 
-  const setField = (k: string, v: any) =>
-    setListing(prev => ({ ...prev, [k]: v }));
+  const setField = (k: string, v: any) => setListing(prev => ({ ...prev, [k]: v }));
 
-  const brandData = activeBrandKit
-    ? {
-        id: activeBrandKit.id,
-        name: activeBrandKit.name || "My Brand",
-        primaryColor: (activeBrandKit.colors as any[])?.[0]?.hex || "#1e3a5f",
-        secondaryColor: (activeBrandKit.colors as any[])?.[1]?.hex || "#f5f0eb",
-        backgroundColor:
-          (activeBrandKit.colors as any[])?.[2]?.hex || "#0a0a0f",
-        phoneNumber: activeBrandKit.phoneNumber || "",
-        whatsappNumber: activeBrandKit.whatsappNumber || "",
-        telegramChannel: activeBrandKit.telegramChannel || "",
-        instagramHandle: activeBrandKit.instagramHandle || "",
-        tiktokHandle: activeBrandKit.tiktokHandle || "",
-        facebookUrl: activeBrandKit.facebookUrl || "",
-        logoUrl: (activeBrandKit.logos as any[])?.[0]?.src || "",
-        tagline: activeBrandKit.tagline || "",
-        targetAreas: (activeBrandKit.targetAreas as string[]) || [],
-        languagePreference: activeBrandKit.languagePreference || "both",
-      }
-    : null;
-
-  // AI mutations (kept for potential server-side fallback)
-  const generateAdMutation = trpc.studio.aiStudio.generateAd.useMutation();
-  const rebrandMutation = trpc.studio.aiStudio.rebrand.useMutation();
-  const generateCaptionMutation =
-    trpc.studio.aiStudio.generateCaption.useMutation();
+  const brandData = activeBrandKit ? {
+    id: activeBrandKit.id,
+    name: activeBrandKit.name || "My Brand",
+    primaryColor: (activeBrandKit.colors as any[])?.[0]?.hex || "#1e3a5f",
+    secondaryColor: (activeBrandKit.colors as any[])?.[1]?.hex || "#f5f0eb",
+    backgroundColor: (activeBrandKit.colors as any[])?.[2]?.hex || "#0a0a0f",
+    phoneNumber: activeBrandKit.phoneNumber || "",
+    whatsappNumber: activeBrandKit.whatsappNumber || "",
+    telegramChannel: activeBrandKit.telegramChannel || "",
+    logoUrl: (activeBrandKit.logos as any[])?.[0]?.src || "",
+    tagline: activeBrandKit.tagline || "",
+    languagePreference: activeBrandKit.languagePreference || "both",
+  } : null;
 
   const handleGenerateAd = async () => {
-    if (!brandData) {
-      toast.error("Create a Brand Kit first in Settings → Brand Identity");
-      return;
-    }
-    if (!templateRef.current) {
-      toast.error("Template renderer not ready");
-      return;
-    }
-
+    if (!brandData) { toast.error("Create a Brand Kit first in Settings"); return; }
+    if (!templateRef.current) { toast.error("Template not ready"); return; }
     setIsGenerating(true);
     try {
-      // Use html-to-image for high-quality PNG export of the React template
-      const dataUrl = await toPng(templateRef.current, {
-        quality: 1.0,
-        pixelRatio: 2, // Double resolution for Retina/High-DPI
-        skipFonts: false,
-      });
-
+      const dataUrl = await toPng(templateRef.current, { quality: 1.0, pixelRatio: 2 });
       setGeneratedImageUrl(dataUrl);
-      toast.success("Ad generated from premium template!");
-    } catch (e: any) {
-      console.error("Export error:", e);
-      toast.error("Failed to export template as image. Try again.");
-    } finally {
-      setIsGenerating(false);
-    }
+      toast.success("Ad generated!");
+    } catch (e) {
+      toast.error("Generation failed. Try again.");
+    } finally { setIsGenerating(false); }
   };
+
+  const tiktokMutation = trpc.ai.generateTikTokPack.useMutation({
+    onSuccess: (data) => {
+      setTiktokPack(data);
+      toast.success("TikTok Pack ready!");
+    },
+    onError: () => toast.error("Failed to generate TikTok content"),
+  });
+
+  const socialMutation = trpc.marketing.social.create.useMutation({
+    onSuccess: () => {
+      toast.success("Successfully queued for TikTok dispatch!");
+    },
+    onError: (err) => toast.error(err.message || "Failed to queue post"),
+  });
 
   const handleGenerateCaption = async () => {
-    if (!brandData) {
-      toast.error("Create a Brand Kit first");
-      return;
-    }
+    if (!brandData) return;
     setIsCaptionLoading(true);
     try {
-      const result = generateCaption(
-        {
-          title: listing.title,
-          price: listing.price,
-          subcity: listing.subcity,
-          subLocation: listing.subLocation,
-          propertyType: listing.propertyType,
-          bedrooms: listing.bedrooms,
-          bathrooms: listing.bathrooms,
-          area: listing.area,
-          description: listing.description,
-          nearbyLandmarks: listing.nearbyLandmarks,
-          utilities: listing.utilities,
-          finishingLevel: listing.finishingLevel,
-          negotiable: listing.negotiable,
-        },
-        {
-          primaryColor: brandData.primaryColor,
-          secondaryColor: brandData.secondaryColor,
-          backgroundColor: brandData.backgroundColor,
-          textColor: "#ffffff",
-          phoneNumber: brandData.phoneNumber || undefined,
-          whatsappNumber: brandData.whatsappNumber || undefined,
-          telegramChannel: brandData.telegramChannel || undefined,
-          companyName: brandData.name,
-          tagline: brandData.tagline || undefined,
-          languagePreference: brandData.languagePreference || "both",
-        }
-      );
+      const result = generateCaption(listing as any, brandData as any);
       setCaption(result);
-      toast.success("Captions generated!");
-    } catch (e: any) {
-      toast.error(e.message || "Caption generation failed");
-    } finally {
-      setIsCaptionLoading(false);
-    }
+      
+      // Also trigger the high-fidelity TikTok specific pack
+      if (contextId) {
+        tiktokMutation.mutate({ propertyId: parseInt(contextId) });
+      }
+      
+      toast.success("Captions ready!");
+    } catch { toast.error("Caption failed"); }
+    finally { setIsCaptionLoading(false); }
   };
 
-  const handleRebrand = async () => {
-    if (!rebrandImage) {
-      toast.error("Upload a competitor ad first");
-      return;
-    }
-    if (!brandData) {
-      toast.error("Create a Brand Kit first");
-      return;
-    }
-    setIsRebranding(true);
-    try {
-      const dataUrl = await generateRebrand(rebrandImage, {
-        primaryColor: brandData.primaryColor,
-        secondaryColor: brandData.secondaryColor,
-        backgroundColor: brandData.backgroundColor,
-        textColor: "#ffffff",
-        logoUrl: brandData.logoUrl || undefined,
-        phoneNumber: brandData.phoneNumber || undefined,
-        whatsappNumber: brandData.whatsappNumber || undefined,
-        telegramChannel: brandData.telegramChannel || undefined,
-        instagramHandle: brandData.instagramHandle || undefined,
-        tiktokHandle: brandData.tiktokHandle || undefined,
-        companyName: brandData.name,
-        tagline: brandData.tagline || undefined,
-        languagePreference: brandData.languagePreference || "both",
-      });
-      setGeneratedImageUrl(dataUrl);
-      toast.success("Rebranded!");
-    } catch (e: any) {
-      toast.error(e.message || "Rebranding failed");
-    } finally {
-      setIsRebranding(false);
-    }
-  };
-
-  const handleGenerateVideo = async () => {
-    if (!brandData) {
-      toast.error("Create a Brand Kit first");
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      const videoUrl = await generateVideo(
-        {
-          title: listing.title,
-          price: listing.price,
-          subcity: listing.subcity,
-          subLocation: listing.subLocation,
-          propertyType: listing.propertyType,
-          bedrooms: listing.bedrooms,
-          bathrooms: listing.bathrooms,
-          area: listing.area,
-          description: listing.description,
-          imageUrl: listing.imageUrl || undefined,
-        },
-        {
-          primaryColor: brandData.primaryColor,
-          secondaryColor: brandData.secondaryColor,
-          backgroundColor: brandData.backgroundColor,
-          textColor: "#ffffff",
-          logoUrl: brandData.logoUrl || undefined,
-          phoneNumber: brandData.phoneNumber || undefined,
-          whatsappNumber: brandData.whatsappNumber || undefined,
-          telegramChannel: brandData.telegramChannel || undefined,
-          companyName: brandData.name,
-          tagline: brandData.tagline || undefined,
-          languagePreference: brandData.languagePreference || "both",
-        },
-        adStyle
-      );
-      setGeneratedImageUrl(videoUrl);
-      toast.success("Video generated!");
-    } catch (e: any) {
-      toast.error(e.message || "Video generation failed");
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleQueueTikTok = () => {
+    if (!tiktokPack || !contextId) return;
+    socialMutation.mutate({
+      platform: "tiktok",
+      platforms: ["tiktok"],
+      content: `${tiktokPack.hook}\n\n${tiktokPack.description}\n\n${tiktokPack.hashtags.join(" ")}`,
+      mediaUrl: generatedImageUrl || listing.imageUrl || "",
+      mediaType: "image",
+      status: "scheduled",
+      scheduledFor: new Date().toISOString(),
+      propertyId: parseInt(contextId)
+    });
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setListing(prev => ({ ...prev, imageUrl: result }));
-      setRebrandImage(result);
-      toast.success("Image loaded");
-    };
+    reader.onload = () => setListing(prev => ({ ...prev, imageUrl: reader.result as string }));
     reader.readAsDataURL(file);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+    toast.success("Copied!");
   };
 
-  const downloadImage = async () => {
-    if (!generatedImageUrl) return;
-    try {
-      // If it's a data URL (canvas-generated), download directly
-      if (generatedImageUrl.startsWith("data:")) {
-        const a = document.createElement("a");
-        a.href = generatedImageUrl;
-        a.download = `${listing.title || "property-ad"}.png`;
-        a.click();
-      } else {
-        const response = await fetch(generatedImageUrl);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${listing.title || "property-ad"}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-      toast.success("Image downloaded!");
-    } catch {
-      toast.error("Download failed");
-    }
-  };
+  // ── RENDER: Entry ───────────────────────────────────────────────────────
 
-  // ── MODE SELECT ────────────────────────────────────────────────────────
   if (!mode) {
     return (
       <DashboardLayout>
-        <div className="max-w-4xl mx-auto py-8">
-          <h1 className="text-3xl font-bold mb-2">Design Studio</h1>
-          <p className="text-muted-foreground mb-10">
-            Choose what you want to create
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="max-w-6xl mx-auto py-12">
+          <div className="mb-12">
+            <h1 className="text-4xl font-black text-foreground tracking-tighter uppercase">{t("studio.title")}</h1>
+            <p className="text-base text-muted-foreground mt-2 font-medium">{t("studio.subtitle")}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              {
-                id: "create-ad" as StudioMode,
-                icon: <ImageIcon className="w-8 h-8" />,
-                title: "Create Property Ad",
-                desc: "Generate a professional property ad image with your brand. Upload a photo or fill property details.",
-                color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-              },
-              {
-                id: "create-video" as StudioMode,
-                icon: <Video className="w-8 h-8" />,
-                title: "Create Property Video",
-                desc: "Upload images or video footage. We'll create a branded vertical video with price, location, and contact overlays.",
-                color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-              },
-              {
-                id: "create-agency" as StudioMode,
-                icon: <Building2 className="w-8 h-8" />,
-                title: "Create Agency Ad",
-                desc: "Generate agency branding materials — rebrand a competitor ad or create a general agency promotional image.",
-                color: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-              },
+              { id: "create-ad" as StudioMode, icon: ImageIcon, title: t("studio.createAd"), desc: t("studio.createAdSub"), clr: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
+              { id: "create-video" as StudioMode, icon: Video, title: t("studio.video"), desc: t("studio.videoSub"), clr: "text-purple-500 bg-purple-500/10 border-purple-500/20" },
+              { id: "create-agency" as StudioMode, icon: Building2, title: t("studio.rebrand"), desc: t("studio.rebrandSub"), clr: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
             ].map(m => (
-              <button
-                key={m.id}
-                onClick={() => setMode(m.id)}
-                className={`flex flex-col items-start gap-4 p-6 rounded-2xl border-2 border-border bg-card hover:border-accent/50 hover:shadow-lg transition-all text-left`}
-              >
-                <div
-                  className={`w-14 h-14 rounded-xl flex items-center justify-center border ${m.color}`}
-                >
-                  {m.icon}
+              <button key={m.id} onClick={() => setMode(m.id)} style={glassStyle} className="flex flex-col items-start gap-6 p-8 border hover:border-accent transition-all text-left group">
+                <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center border ${m.clr} group-hover:bg-accent group-hover:text-white transition-all duration-500`}>
+                  <m.icon className="w-8 h-8" />
                 </div>
                 <div>
-                  <p className="text-lg font-bold">{m.title}</p>
-                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                    {m.desc}
-                  </p>
+                  <p className="text-xl font-black tracking-tight text-foreground">{m.title}</p>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed font-medium">{m.desc}</p>
                 </div>
-                <div className="mt-auto flex items-center gap-1 text-accent text-sm font-semibold">
+                <div className="mt-auto flex items-center gap-2 text-accent text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all">
                   Get started <ArrowRight className="w-4 h-4" />
                 </div>
               </button>
@@ -405,972 +203,217 @@ export default function DesignStudio() {
     );
   }
 
-  // ── CREATE PROPERTY AD ─────────────────────────────────────────────────
-  if (mode === "create-ad") {
-    return (
-      <DashboardLayout>
-        <div className="max-w-6xl mx-auto py-6">
-          <button
-            onClick={() => {
-              setMode(null);
-              setGeneratedImageUrl(null);
-              setCaption(null);
-            }}
-            className="text-sm text-muted-foreground hover:text-foreground mb-6 flex items-center gap-1"
-          >
-            ← Back to Studio
-          </button>
+  // ── RENDER: Studio Workspace ────────────────────────────────────────────
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* LEFT: Form */}
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold">Create Property Ad</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Fill in property details — AI generates the ad with your brand
-                </p>
-              </div>
+  return (
+    <DashboardLayout>
+      <div className="max-w-[1600px] mx-auto py-6">
+        <div className="flex items-center justify-between mb-8">
+           <button onClick={() => setMode(null)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors bg-muted/40 px-4 py-2 rounded-xl border border-border/50">
+             <ArrowRight className="w-3 h-3 rotate-180" /> Back to Studio
+           </button>
+           <div className="flex items-center gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Mode:</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-accent bg-accent/10 px-3 py-1 rounded-lg border border-accent/20">
+                {t(`studio.${mode === "create-ad" ? "createAd" : mode === "create-video" ? "video" : "rebrand"}`)}
+              </span>
+           </div>
+        </div>
 
-              {/* Brand Kit Status */}
-              {brandData ? (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
-                  <Check className="w-4 h-4 text-green-500 shrink-0" />
-                  <span className="text-sm font-medium text-green-600">
-                    Brand Kit: {brandData.name}
-                  </span>
-                  <div className="flex gap-1 ml-auto">
-                    <div
-                      className="w-4 h-4 rounded-full border"
-                      style={{ backgroundColor: brandData.primaryColor }}
-                    />
-                    <div
-                      className="w-4 h-4 rounded-full border"
-                      style={{ backgroundColor: brandData.secondaryColor }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                  <X className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="text-sm text-amber-600">
-                    No Brand Kit —{" "}
-                    <button
-                      onClick={() => navigate("/settings")}
-                      className="underline font-semibold"
-                    >
-                      create one
-                    </button>
-                  </span>
-                </div>
-              )}
-
-              {/* Photo Upload */}
-              <div className="p-4 rounded-xl border border-border bg-card">
-                <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Property Photo
-                </Label>
-                <div className="flex items-center gap-3 mt-2">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 text-accent text-sm font-semibold hover:bg-accent/20">
-                      <Upload className="w-4 h-4" /> Upload Photo
-                    </span>
-                  </label>
-                  {listing.imageUrl && (
-                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-border">
-                      <img
-                        src={listing.imageUrl}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Property Details */}
-              <div className="space-y-4 p-4 rounded-xl border border-border bg-card">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Property Title
-                  </Label>
-                  <Input
-                    value={listing.title}
-                    onChange={e => setField("title", e.target.value)}
-                    placeholder="e.g. Modern 3BR Apartment"
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Price (ETB)
-                    </Label>
-                    <Input
-                      value={listing.price}
-                      onChange={e => setField("price", e.target.value)}
-                      placeholder="e.g. 4,500,000"
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Property Type
-                    </Label>
-                    <select
-                      value={listing.propertyType}
-                      onChange={e => setField("propertyType", e.target.value)}
-                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm"
-                    >
-                      <option>Apartment</option>
-                      <option>Villa</option>
-                      <option>Commercial</option>
-                      <option>Land</option>
-                      <option>Condo</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Subcity
-                    </Label>
-                    <select
-                      value={listing.subcity}
-                      onChange={e => setField("subcity", e.target.value)}
-                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm"
-                    >
-                      <option value="">Select subcity</option>
-                      {SUBCITIES.map(s => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Sub-location
-                    </Label>
-                    <Input
-                      value={listing.subLocation}
-                      onChange={e => setField("subLocation", e.target.value)}
-                      placeholder="e.g. Bole Atlas"
-                      className="h-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Bedrooms
-                    </Label>
-                    <Input
-                      value={listing.bedrooms}
-                      onChange={e => setField("bedrooms", e.target.value)}
-                      placeholder="3"
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Bathrooms
-                    </Label>
-                    <Input
-                      value={listing.bathrooms}
-                      onChange={e => setField("bathrooms", e.target.value)}
-                      placeholder="2"
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Area (m²)
-                    </Label>
-                    <Input
-                      value={listing.area}
-                      onChange={e => setField("area", e.target.value)}
-                      placeholder="180"
-                      className="h-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Description
-                  </Label>
-                  <textarea
-                    value={listing.description}
-                    onChange={e => setField("description", e.target.value)}
-                    placeholder="Utilities, features, amenities, access, special notes..."
-                    rows={3}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Nearby Landmarks
-                    </Label>
-                    <Input
-                      value={listing.nearbyLandmarks}
-                      onChange={e =>
-                        setField("nearbyLandmarks", e.target.value)
-                      }
-                      placeholder="e.g. Near Edna Mall"
-                      className="h-10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Utilities
-                    </Label>
-                    <Input
-                      value={listing.utilities}
-                      onChange={e => setField("utilities", e.target.value)}
-                      placeholder="e.g. Water, Electric, Internet"
-                      className="h-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Finishing Level
-                    </Label>
-                    <select
-                      value={listing.finishingLevel}
-                      onChange={e => setField("finishingLevel", e.target.value)}
-                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm"
-                    >
-                      <option value="">Select</option>
-                      <option>Shell</option>
-                      <option>Semi-finished</option>
-                      <option>Fully finished</option>
-                      <option>Luxury finish</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Property Use
-                    </Label>
-                    <select
-                      value={listing.propertyUse}
-                      onChange={e => setField("propertyUse", e.target.value)}
-                      className="w-full h-10 bg-background border border-border rounded-lg px-3 text-sm"
-                    >
-                      <option>Residential</option>
-                      <option>Commercial</option>
-                      <option>Mixed Use</option>
-                      <option>Office</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={listing.negotiable}
-                      onChange={e => setField("negotiable", e.target.checked)}
-                      className="w-4 h-4 rounded border-border text-accent"
-                    />
-                    <span className="text-sm">Price is negotiable</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Ad Style */}
-              <div className="p-4 rounded-xl border border-border bg-card">
-                <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Ad Style
-                </Label>
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {(
-                    [
-                      "modern",
-                      "classic",
-                      "minimal",
-                      "luxury",
-                      "commercial",
-                      "instagram",
-                    ] as AdStyle[]
-                  ).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setAdStyle(s)}
-                      className={`py-2 rounded-lg border text-xs font-semibold capitalize transition-all ${adStyle === s ? "border-accent bg-accent/10 text-accent" : "border-border text-muted-foreground hover:border-accent/40"}`}
-                    >
-                      {s}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* LEFT: Controls (4 cols) */}
+          <div className="lg:col-span-4 space-y-6 max-h-[calc(100vh-180px)] overflow-y-auto pr-2 scrollbar-none">
+            
+            <div style={glassStyle} className="p-6 border-0">
+               <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                 <Palette className="w-4 h-4 text-accent" /> {t("studio.style")}
+               </h3>
+               <div className="grid grid-cols-2 gap-2">
+                  {LISTING_TEMPLATES.map(tmp => (
+                    <button key={tmp.id} onClick={() => setSelectedTemplateId(tmp.id)}
+                      className={`px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${selectedTemplateId === tmp.id ? "bg-accent text-white border-accent shadow-lg" : "bg-muted/10 border-border/50 text-muted-foreground hover:border-accent/30"}`}>
+                      {tmp.name}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* Generate Button */}
-              <Button
-                className="w-full h-12 text-base font-bold bg-accent text-white hover:bg-accent/90"
-                onClick={handleGenerateAd}
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Generating
-                    Ad...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2" /> Generate Property Ad
-                  </>
-                )}
-              </Button>
+               </div>
             </div>
 
-            {/* RIGHT: Preview + Captions + Publish */}
-            {/* RIGHT: Preview + Captions + Publish */}
-            <div className="space-y-6">
-              {/* Template Picker Strip */}
-              <div className="p-4 rounded-xl border border-border bg-card">
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Select Template
-                  </Label>
-                  <span className="text-[10px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-bold">
-                    8 PREMIUM THEMES
-                  </span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                  {LISTING_TEMPLATES.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setSelectedTemplateId(t.id);
-                        setGeneratedImageUrl(null); // Clear previous capture to show live
-                      }}
-                      className={`flex-shrink-0 px-4 py-2 rounded-lg border text-xs font-bold transition-all ${
-                        selectedTemplateId === t.id
-                          ? "border-accent bg-accent text-white shadow-md shadow-accent/20"
-                          : "border-border bg-background text-muted-foreground hover:border-accent/40"
-                      }`}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div style={glassStyle} className="p-6 border-0">
+               <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                 <Wand2 className="w-4 h-4 text-accent" /> {t("studio.form")}
+               </h3>
+               <div className="space-y-4">
+                  <div>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Upload Property Photo</Label>
+                    <div className="relative h-40 rounded-2xl border-2 border-dashed border-border/50 hover:border-accent/40 bg-muted/5 transition-all overflow-hidden flex flex-col items-center justify-center group">
+                       {listing.imageUrl ? (
+                         <>
+                           <img src={listing.imageUrl} className="w-full h-full object-cover opacity-60" />
+                           <Button variant="secondary" size="sm" className="absolute h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => inputRef.current?.click()}>Change</Button>
+                         </>
+                       ) : (
+                         <div className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => inputRef.current?.click()}>
+                           <ImageIcon className="w-8 h-8 text-muted-foreground/30 group-hover:text-accent group-hover:scale-110 transition-all" />
+                           <span className="text-[10px] font-black text-muted-foreground uppercase">Pick a photo</span>
+                         </div>
+                       )}
+                       <input type="file" ref={inputRef} className="hidden" onChange={handleImageUpload} />
+                    </div>
+                  </div>
 
-              {/* Live Preview / Generated Result */}
-              <div className="relative group">
-                <div
-                  className={`rounded-2xl overflow-hidden border border-border bg-card shadow-2xl transition-all ${isGenerating ? "opacity-50" : ""}`}
-                >
-                  {/* The actual React Template that html-to-image will capture */}
-                  <div
-                    ref={templateRef}
-                    className="aspect-[4/5] w-full origin-top transform"
-                    style={{
-                      // This ensures the capture is 1080x1350 for Insta/FB
-                      width: "100%",
-                      maxWidth: "1080px",
-                      height: "auto",
-                      aspectRatio: "4/5",
-                    }}
-                  >
+                  <div className="space-y-3">
+                     <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="Property Title" value={listing.title} onChange={e => setField("title", e.target.value)} />
+                     <div className="grid grid-cols-2 gap-3">
+                        <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="Price (ETB)" value={listing.price} onChange={e => setField("price", e.target.value)} />
+                        <Select value={listing.subcity} onValueChange={v => setField("subcity", v)}>
+                           <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/50 text-xs font-bold uppercase tracking-widest"><SelectValue placeholder="Subcity" /></SelectTrigger>
+                           <SelectContent>
+                              {SUBCITIES.map(s => <SelectItem key={s} value={s} className="uppercase font-black text-[10px]">{t(`subcity.${s}`)||s}</SelectItem>)}
+                           </SelectContent>
+                        </Select>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            <Button onClick={handleGenerateAd} disabled={isGenerating} className="w-full h-14 bg-accent text-white hover:bg-accent/90 rounded-2xl font-black uppercase tracking-widest shadow-2xl shadow-accent/30 gap-3">
+              {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+              {t("studio.generate")}
+            </Button>
+          </div>
+
+          {/* RIGHT: Preview (8 cols) */}
+          <div className="lg:col-span-8 flex flex-col gap-6">
+            
+            <div style={glassStyle} className="p-10 border-0 flex items-center justify-center min-h-[700px]">
+               {generatedImageUrl ? (
+                 <div className="relative animate-in fade-in zoom-in duration-700 max-w-[500px] w-full">
+                    <img src={generatedImageUrl} className="w-full rounded-2xl shadow-2xl ring-1 ring-white/10" />
+                    <div className="absolute top-4 right-4 flex gap-2">
+                       <Button size="icon" className="w-10 h-10 rounded-xl bg-accent text-white hover:scale-105 transition-transform" onClick={() => { const a = document.createElement("a"); a.href = generatedImageUrl; a.download="ad.png"; a.click(); }}>
+                          <Download className="w-5 h-5" />
+                       </Button>
+                    </div>
+                 </div>
+               ) : (
+                 <div className="w-[500px] aspect-[4/5] bg-background/40 rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 text-center border border-dashed border-border/50 group">
+                    <div className="w-20 h-20 rounded-3xl bg-accent/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                       <Eye className="w-10 h-10 text-accent/30" />
+                    </div>
+                    <p className="text-xl font-black text-foreground mb-2">Live Canvas</p>
+                    <p className="text-sm text-muted-foreground font-medium max-w-[280px]">Fill the property details and hit "Generate AI Material" to see your premium ad.</p>
+                 </div>
+               )}
+
+               {/* Hidden Template Ref for Capture */}
+               <div className="fixed top-[-9999px] left-[-9999px]">
+                  <div ref={templateRef} className="w-[1080px] h-[1350px]">
                     {(() => {
-                      const SelectedTemplate =
-                        LISTING_TEMPLATES.find(
-                          t => t.id === selectedTemplateId
-                        )?.component || LISTING_TEMPLATES[0].component;
-
-                      const templateData: ListingFormData = {
-                        title: listing.title,
-                        price: listing.price,
-                        location: listing.subcity || "Addis Ababa",
-                        subLocation: listing.subLocation,
-                        propertyType: listing.propertyType,
-                        bedrooms: listing.bedrooms,
-                        bathrooms: listing.bathrooms,
-                        area: listing.area,
-                        description: listing.description,
-                        ctaText: "Contact Agent",
-                        image: listing.imageUrl,
-                      };
-
-                      const studioBrand: StudioBrandData = {
-                        logo: brandData?.logoUrl || null,
-                        companyName: brandData?.name || "Your Agency",
-                        primaryColor: brandData?.primaryColor || "#1e3a5f",
-                        secondaryColor: brandData?.secondaryColor || "#d4af37",
-                        textColor: "#ffffff",
-                        backgroundColor:
-                          brandData?.backgroundColor || "#0a0a0f",
-                        fontHeading: "Poppins, sans-serif",
-                        fontBody: "Poppins, sans-serif",
-                        phoneNumber: brandData?.phoneNumber || "",
-                        whatsappNumber: brandData?.whatsappNumber || "",
-                        facebookUrl: brandData?.facebookUrl || "",
-                        instagramHandle: brandData?.instagramHandle || "",
-                        tiktokHandle: brandData?.tiktokHandle || "",
-                        telegramChannel: brandData?.telegramChannel || "",
-                        agentPortrait: null,
-                        tagline: brandData?.tagline || "",
-                        targetAreas: brandData?.targetAreas || [],
-                        languagePreference:
-                          brandData?.languagePreference || "both",
-                      };
-
-                      return (
-                        <SelectedTemplate
-                          data={templateData}
-                          brand={studioBrand}
-                        />
-                      );
+                      const Tpl = LISTING_TEMPLATES.find(x => x.id === selectedTemplateId)?.component || LISTING_TEMPLATES[0].component;
+                      return <Tpl data={{ ...listing, location: t(`subcity.${listing.subcity}`)||listing.subcity } as any} brand={brandData as any} />;
                     })()}
                   </div>
+               </div>
+            </div>
 
-                  {/* Generation Overlay */}
-                  {isGenerating && (
-                    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-                      <Loader2 className="w-10 h-10 text-accent animate-spin mb-4" />
-                      <p className="text-sm font-bold animate-pulse">
-                        CAPTURING PREMIUM HI-RES EXPORT...
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Overlays for UX */}
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-white text-[10px] font-bold border border-white/10 shadow-lg">
-                    <Eye className="w-3 h-3 text-green-400" /> LIVE PREVIEW
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-white text-[10px] font-bold border border-white/10 shadow-lg">
-                    <Smartphone className="w-3 h-3 text-blue-400" /> 4:5 FORMAT
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button
-                  className="flex-1 h-12 text-base font-bold bg-accent text-white shadow-lg shadow-accent/20 hover:bg-accent/90"
-                  onClick={handleGenerateAd}
-                  disabled={isGenerating}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {generatedImageUrl ? "Regenerate & Save" : "Generate Export"}
-                </Button>
-                {generatedImageUrl && (
-                  <Button
-                    variant="outline"
-                    className="h-12 px-6 border-accent text-accent hover:bg-accent/5"
-                    onClick={downloadImage}
-                  >
-                    <Download className="w-4 h-4" />
+             {/* AI Caption & TikTok Hub */}
+            <div style={glassStyle} className="p-8 border-0 mt-2">
+               <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-accent" /> Marketing Intelligence
+                  </h3>
+                  <Button variant="outline" size="sm" className="h-9 rounded-xl text-[10px] font-black uppercase tracking-widest gap-2" onClick={handleGenerateCaption} disabled={isCaptionLoading || tiktokMutation.isPending}>
+                     {isCaptionLoading || tiktokMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin"/> : <Sparkles className="w-3 h-3"/>}
+                     Generate Marketing Pack
                   </Button>
-                )}
-              </div>
+               </div>
 
-              {/* Success Result / Download Prompt */}
-              {generatedImageUrl && (
-                <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                  <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0">
-                    <Check className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-green-700">
-                      Image Ready for Social Media!
-                    </p>
-                    <p className="text-xs text-green-600/80">
-                      High-resolution PNG generated. Click below to save.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="ml-auto bg-green-600 hover:bg-green-700 text-white"
-                    onClick={downloadImage}
-                  >
-                    Save to Device
-                  </Button>
-                </div>
-              )}
-
-              {/* Caption Generator */}
-                  <div className="p-4 rounded-xl border border-border bg-card space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold">AI Captions</h3>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleGenerateCaption}
-                        disabled={isCaptionLoading}
-                      >
-                        {isCaptionLoading ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-3 h-3 mr-1" />
-                        )}
-                        Generate
-                      </Button>
-                    </div>
-
-                    {caption && (
-                      <>
-                        {/* Amharic */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs font-semibold text-muted-foreground">
-                              Amharic
-                            </Label>
-                            <button
-                              onClick={() => copyToClipboard(caption.amharic)}
-                              className="text-xs text-accent flex items-center gap-1"
-                            >
-                              <Copy className="w-3 h-3" /> Copy
-                            </button>
-                          </div>
-                          <div className="p-3 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap leading-relaxed">
-                            {caption.amharic}
-                          </div>
-                        </div>
-
-                        {/* English */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs font-semibold text-muted-foreground">
-                              English
-                            </Label>
-                            <button
-                              onClick={() => copyToClipboard(caption.english)}
-                              className="text-xs text-accent flex items-center gap-1"
-                            >
-                              <Copy className="w-3 h-3" /> Copy
-                            </button>
-                          </div>
-                          <div className="p-3 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap leading-relaxed">
-                            {caption.english}
-                          </div>
-                        </div>
-
-                        {/* TikTok */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs font-semibold text-muted-foreground">
-                              TikTok Style
-                            </Label>
-                            <button
-                              onClick={() => copyToClipboard(caption.tiktok)}
-                              className="text-xs text-accent flex items-center gap-1"
-                            >
-                              <Copy className="w-3 h-3" /> Copy
-                            </button>
-                          </div>
-                          <div className="p-3 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap leading-relaxed">
-                            {caption.tiktok}
-                          </div>
-                        </div>
-
-                        {/* Hashtags */}
-                        <div className="space-y-2">
-                          <Label className="text-xs font-semibold text-muted-foreground">
-                            Hashtags
-                          </Label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {caption.amharicHashtags.map(t => (
-                              <span
-                                key={t}
-                                className="px-2 py-0.5 rounded-full text-xs bg-accent/10 text-accent"
-                              >
-                                {t}
-                              </span>
-                            ))}
-                            {caption.hashtags.map(t => (
-                              <span
-                                key={t}
-                                className="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground"
-                              >
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                          <button
-                            onClick={() =>
-                              copyToClipboard(
-                                [
-                                  ...caption.amharicHashtags,
-                                  ...caption.hashtags,
-                                ].join(" ")
-                              )
-                            }
-                            className="text-xs text-accent flex items-center gap-1 mt-1"
-                          >
-                            <Copy className="w-3 h-3" /> Copy all hashtags
-                          </button>
-                        </div>
-
-                        {/* Combined Caption */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs font-semibold text-muted-foreground">
-                              Combined (Amharic + English)
-                            </Label>
-                            <button
-                              onClick={() => copyToClipboard(caption.combined)}
-                              className="text-xs text-accent flex items-center gap-1"
-                            >
-                              <Copy className="w-3 h-3" /> Copy
-                            </button>
-                          </div>
-                          <div className="p-3 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
-                            {caption.combined}
-                          </div>
-                        </div>
-                      </>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Standard Captions */}
+                  <div className="space-y-6">
+                    {caption ? (
+                      <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+                         <div className="p-5 rounded-2xl bg-background/40 border border-border/50">
+                            <div className="flex justify-between items-center mb-4">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Standard English</span>
+                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(caption.english)}><Copy className="w-3 h-3" /></Button>
+                            </div>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{caption.english}</p>
+                         </div>
+                         <div className="p-5 rounded-2xl bg-background/40 border border-border/50">
+                            <div className="flex justify-between items-center mb-4">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-accent">Standard Amharic</span>
+                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(caption.amharic)}><Copy className="w-3 h-3" /></Button>
+                            </div>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">{caption.amharic}</p>
+                         </div>
+                      </div>
+                    ) : (
+                      <div className="h-40 flex items-center justify-center border border-dashed border-border/50 rounded-2xl opacity-50 italic text-sm">
+                        Standard captions placeholder
+                      </div>
                     )}
                   </div>
 
-                  {/* Publish Flow */}
-                  <div className="p-4 rounded-xl border border-border bg-card space-y-3">
-                    <h3 className="text-sm font-bold">Publish</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={downloadImage}
-                      >
-                        <Download className="w-4 h-4 mr-2" /> Download Image
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          if (caption) copyToClipboard(caption.combined);
-                          else toast.info("Generate captions first");
-                        }}
-                      >
-                        <Copy className="w-4 h-4 mr-2" /> Copy Caption
-                      </Button>
-                    </div>
-                    <div className="p-3 rounded-lg bg-muted/30 text-center">
-                      <p className="text-xs text-muted-foreground">
-                        Schedule post — Coming soon
-                      </p>
-                    </div>
-                  </div>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+                  {/* TikTok Special Pack */}
+                  <div className="space-y-6">
+                    {tiktokPack ? (
+                      <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
+                         <div className="p-6 rounded-[32px] bg-foreground text-background shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                              <Activity className="w-12 h-12" />
+                            </div>
+                            <div className="relative z-10">
+                              <span className="bg-accent text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest mb-4 inline-block">TikTok Scroll-Stopper</span>
+                              <p className="text-lg font-black leading-tight mb-2">"{tiktokPack.hook}"</p>
+                              <p className="text-xs font-bold opacity-60 italic mb-4">Pure Amharic: "{tiktokPack.amharicHook}"</p>
+                              
+                              <div className="pt-4 border-t border-background/10">
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Recommended Vibe</p>
+                                <p className="text-xs font-bold">{tiktokPack.vibe} • {tiktokPack.musicSuggestion}</p>
+                              </div>
 
-  // ── CREATE AGENCY AD (Rebrand) ─────────────────────────────────────────
-  if (mode === "create-agency") {
-    return (
-      <DashboardLayout>
-        <div className="max-w-4xl mx-auto py-6">
-          <button
-            onClick={() => {
-              setMode(null);
-              setGeneratedImageUrl(null);
-            }}
-            className="text-sm text-muted-foreground hover:text-foreground mb-6 flex items-center gap-1"
-          >
-            ← Back to Studio
-          </button>
+                              <Button onClick={() => copyToClipboard(tiktokPack.hook)} variant="secondary" size="sm" className="w-full mt-6 bg-background/10 hover:bg-background/20 text-background rounded-xl font-black text-[10px] uppercase border-0">
+                                Copy TikTok Hook
+                              </Button>
+                              
+                              <Button 
+                                onClick={handleQueueTikTok} 
+                                disabled={socialMutation.isPending}
+                                className="w-full mt-2 bg-accent text-white hover:bg-accent/90 rounded-xl font-black text-[10px] uppercase border-0 shadow-lg shadow-accent/20 h-10 gap-2"
+                              >
+                                {socialMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin"/> : <Send className="w-3 h-3"/>}
+                                {t("studio.queueTikTok")}
+                              </Button>
+                            </div>
+                         </div>
 
-          <h2 className="text-2xl font-bold mb-2">Create Agency Ad</h2>
-          <p className="text-muted-foreground mb-8">
-            Upload a competitor ad — AI analyzes it and regenerates with your
-            brand
-          </p>
-
-          {brandData ? (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20 mb-6">
-              <Check className="w-4 h-4 text-green-500 shrink-0" />
-              <span className="text-sm font-medium text-green-600">
-                Brand Kit active: {brandData.name}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6">
-              <X className="w-4 h-4 text-amber-500 shrink-0" />
-              <span className="text-sm text-amber-600">
-                No Brand Kit —{" "}
-                <button
-                  onClick={() => navigate("/settings")}
-                  className="underline font-semibold"
-                >
-                  create one
-                </button>
-              </span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Upload */}
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-border rounded-2xl p-10 flex flex-col items-center gap-4 hover:border-accent/60 transition-colors bg-card">
-                <Upload className="w-10 h-10 text-muted-foreground/40" />
-                <p className="font-semibold">Upload Competitor Ad</p>
-                <p className="text-sm text-muted-foreground text-center">
-                  PNG, JPG or WebP. AI will analyze and regenerate with your
-                  brand.
-                </p>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                  <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-2.5 rounded-xl hover:bg-accent/90">
-                    <Upload className="w-4 h-4" /> Choose Image
-                  </span>
-                </label>
-              </div>
-
-              {rebrandImage && (
-                <div className="rounded-xl overflow-hidden border border-border">
-                  <img src={rebrandImage} className="w-full" />
-                </div>
-              )}
-
-              {rebrandImage && (
-                <Button
-                  className="w-full h-12 text-base font-bold bg-accent text-white"
-                  onClick={handleRebrand}
-                  disabled={isRebranding}
-                >
-                  {isRebranding ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />{" "}
-                      Analyzing & Regenerating...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-5 h-5 mr-2" /> Rebrand with My Brand
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-
-            {/* Result */}
-            <div className="space-y-4">
-              {generatedImageUrl ? (
-                <>
-                  <div className="rounded-2xl overflow-hidden border border-border bg-card">
-                    <img
-                      src={generatedImageUrl}
-                      alt="Rebranded ad"
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button className="flex-1" onClick={downloadImage}>
-                      <Download className="w-4 h-4 mr-2" /> Download
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleRebrand}
-                      disabled={isRebranding}
-                    >
-                      <Wand2 className="w-4 h-4 mr-2" /> Regenerate
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-96 rounded-2xl border-2 border-dashed border-border bg-card">
-                  <Palette className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    Upload a competitor ad to get started
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // ── CREATE PROPERTY VIDEO ──────────────────────────────────────────────
-  if (mode === "create-video") {
-    return (
-      <DashboardLayout>
-        <div className="max-w-4xl mx-auto py-6">
-          <button
-            onClick={() => {
-              setMode(null);
-              setGeneratedImageUrl(null);
-            }}
-            className="text-sm text-muted-foreground hover:text-foreground mb-6 flex items-center gap-1"
-          >
-            ← Back to Studio
-          </button>
-
-          <h2 className="text-2xl font-bold mb-2">Create Property Video</h2>
-          <p className="text-muted-foreground mb-8">
-            Upload images or video — we create a branded vertical video with
-            overlays
-          </p>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              {/* Step Guide */}
-              <div className="flex items-center gap-3 mb-4">
-                {["Upload Media", "Add Details", "Generate", "Download"].map(
-                  (s, i) => (
-                    <div key={i} className="flex items-center gap-1.5 flex-1">
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${generatedImageUrl ? "bg-green-500 text-white" : "bg-accent text-white"}`}
-                      >
-                        {i + 1}
+                         <div className="p-5 rounded-2xl bg-muted/40 border border-border/50">
+                            <div className="flex justify-between items-center mb-4">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">TikTok Optimized Base</span>
+                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(tiktokPack.description)}><Copy className="w-3 h-3" /></Button>
+                            </div>
+                            <p className="text-sm leading-relaxed line-clamp-3">{tiktokPack.description}</p>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                               {tiktokPack.hashtags.map((tag: string) => (
+                                 <span key={tag} className="text-[9px] font-black text-accent bg-accent/5 px-2 py-0.5 rounded-md">{tag}</span>
+                               ))}
+                            </div>
+                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold text-muted-foreground">
-                        {s}
-                      </span>
-                      {i < 3 && <div className="flex-1 h-px bg-border" />}
-                    </div>
-                  )
-                )}
-              </div>
-
-              <div className="border-2 border-dashed border-border rounded-2xl p-10 flex flex-col items-center gap-4 bg-card">
-                <Video className="w-10 h-10 text-muted-foreground/40" />
-                <p className="font-semibold">Upload Images or Video</p>
-                <p className="text-sm text-muted-foreground text-center">
-                  Vertical (9:16) preferred for TikTok/Reels
-                </p>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*,video/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                  <span className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-6 py-2.5 rounded-xl hover:bg-accent/90">
-                    <Upload className="w-4 h-4" /> Upload Media
-                  </span>
-                </label>
-              </div>
-
-              {listing.imageUrl && (
-                <div className="rounded-xl overflow-hidden border border-border">
-                  {listing.imageUrl.includes("video") ||
-                  listing.imageUrl.includes("mp4") ? (
-                    <video src={listing.imageUrl} controls className="w-full" />
-                  ) : (
-                    <img src={listing.imageUrl} className="w-full" />
-                  )}
-                </div>
-              )}
-
-              {/* Quick property details for video overlays */}
-              {listing.imageUrl && (
-                <div className="space-y-3 p-4 rounded-xl border border-border bg-card">
-                  <Label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Video Overlay Details
-                  </Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      value={listing.price}
-                      onChange={e => setField("price", e.target.value)}
-                      placeholder="Price"
-                      className="h-9"
-                    />
-                    <Input
-                      value={listing.subLocation || listing.subcity}
-                      onChange={e => setField("subLocation", e.target.value)}
-                      placeholder="Location"
-                      className="h-9"
-                    />
+                    ) : (
+                      <div className="h-40 flex flex-col items-center justify-center border border-dashed border-accent/20 rounded-[32px] bg-accent/5 opacity-50 p-6 text-center">
+                        <Smartphone className="w-8 h-8 text-accent/30 mb-2" />
+                        <p className="text-xs font-bold">TikTok Pack details will appear here</p>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Phone and brand from your Brand Kit will be auto-added
-                  </p>
-                </div>
-              )}
-
-              {listing.imageUrl && (
-                <Button
-                  className="w-full h-12 text-base font-bold bg-accent text-white"
-                  onClick={handleGenerateVideo}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />{" "}
-                      Generating Video...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" /> Generate Video
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {generatedImageUrl ? (
-                <>
-                  <div className="rounded-2xl overflow-hidden border border-border bg-card">
-                    <video
-                      src={generatedImageUrl}
-                      controls
-                      autoPlay
-                      loop
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      className="flex-1"
-                      onClick={() => {
-                        const a = document.createElement("a");
-                        a.href = generatedImageUrl;
-                        a.download = `${listing.title || "property-video"}.webm`;
-                        a.click();
-                        toast.success("Video downloaded!");
-                      }}
-                    >
-                      <Download className="w-4 h-4 mr-2" /> Download Video
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleGenerateVideo}
-                      disabled={isGenerating}
-                    >
-                      <Wand2 className="w-4 h-4 mr-2" /> Regenerate
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-96 rounded-2xl border-2 border-dashed border-border bg-card">
-                  <Video className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    Upload media to create your branded video
-                  </p>
-                </div>
-              )}
+               </div>
             </div>
           </div>
         </div>
-      </DashboardLayout>
-    );
-  }
-
-  return null;
+      </div>
+    </DashboardLayout>
+  );
 }

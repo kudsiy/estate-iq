@@ -1,584 +1,281 @@
 import { useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, FunnelChart, Funnel, LabelList,
+  Tooltip, ResponsiveContainer, Legend, AreaChart, Area
 } from "recharts";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   TrendingUp, Users, Heart, MessageCircle, Share2,
-  Target, Eye, MousePointer, BarChart2, ArrowRight,
+  Target, Eye, BarChart2, ArrowRight, Activity, Wallet, PieChart
 } from "lucide-react";
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+// ── Shared Styling ────────────────────────────────────────────────────────────
 
-const PLATFORM_COLORS: Record<string, string> = {
-  facebook:  "#1877F2",
-  instagram: "#E1306C",
-  tiktok:    "#010101",
-};
+const getGlassStyle = (theme: string): React.CSSProperties => ({
+  background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
+  backdropFilter: "blur(24px)",
+  border: "1px solid",
+  borderColor: theme === "dark" ? "rgba(255, 255, 255, 0.09)" : "rgba(0, 0, 0, 0.05)",
+  borderRadius: "24px",
+  boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
+});
 
-function last30Days(): { label: string; date: string }[] {
-  return Array.from({ length: 30 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    return {
-      label: d.toLocaleDateString("en-ET", { month: "short", day: "numeric" }),
-      date:  d.toISOString().slice(0, 10),
-    };
-  });
+function formatETB(val: number | string | null | undefined) {
+  const n = Number(val);
+  if (!n || isNaN(n)) return "—";
+  if (n >= 1_000_000) return `ETB ${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `ETB ${Math.round(n / 1_000)}K`;
+  return `ETB ${n.toLocaleString()}`;
 }
 
-function last7Days(): { label: string; date: string }[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return {
-      label: d.toLocaleDateString("en-ET", { weekday: "short" }),
-      date:  d.toISOString().slice(0, 10),
-    };
-  });
-}
+// ── Components ────────────────────────────────────────────────────────────────
 
-// ─── STAT CARD ────────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon: Icon, label, value, sub, color = "text-accent",
-}: { icon: any; label: string; value: string | number; sub?: string; color?: string }) {
-  return (
-    <div className="bg-card border border-border rounded-xl px-4 py-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className={`w-3.5 h-3.5 ${color}`} />
-        <span className="text-xs text-muted-foreground">{label}</span>
+function CustomTooltip({ active, payload, label, theme }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div style={getGlassStyle(theme)} className="p-3 border-0 shadow-2xl">
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
+        {payload.map((entry: any, i: number) => (
+          <div key={i} className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className="text-xs font-bold text-foreground">
+              {entry.name}: {entry.value.toLocaleString()}
+            </span>
+          </div>
+        ))}
       </div>
-      <p className="text-2xl font-semibold text-foreground">{value}</p>
-      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-    </div>
-  );
+    );
+  }
+  return null;
 }
 
-// ─── EMPTY STATE ──────────────────────────────────────────────────────────────
-
-function EmptyChart({ message, action, onAction }: { message: string; action?: string; onAction?: () => void }) {
+function StatCard({ icon: Icon, label, value, sub, color, glassStyle }: any) {
   return (
-    <div className="h-[220px] flex flex-col items-center justify-center text-center gap-2">
-      <BarChart2 className="w-8 h-8 text-muted-foreground opacity-25" />
-      <p className="text-sm text-muted-foreground">{message}</p>
-      {action && onAction && (
-        <Button size="sm" variant="outline" onClick={onAction} className="mt-1 text-xs h-7 gap-1">
-          {action} <ArrowRight className="w-3 h-3" />
-        </Button>
-      )}
+    <div style={glassStyle} className="p-5 border-0 flex flex-col justify-between">
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-8 h-8 rounded-xl bg-opacity-10 flex items-center justify-center ${color.replace('text-', 'bg-')} bg-opacity-20`}>
+           <Icon className={`w-4 h-4 ${color}`} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
+      </div>
+      <div>
+        <p className="text-2xl font-black text-foreground tracking-tight">{value}</p>
+        {sub && <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-tighter opacity-70">{sub}</p>}
+      </div>
     </div>
   );
 }
-
-// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   const [, setLocation] = useLocation();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   const { data: posts = [] }    = trpc.crm.socialMediaPosts.list.useQuery();
   const { data: contacts = [] } = trpc.crm.contacts.list.useQuery();
   const { data: leads = [] }    = trpc.crm.leads.list.useQuery();
   const { data: deals = [] }    = trpc.crm.deals.list.useQuery();
 
-  // ── aggregate all engagementMetrics stored in post JSON fields ─────────────
+  // ── Metrics Aggregation ─────────────────────────────────────────────────────
   const allMetrics = useMemo(() => {
     return posts.flatMap((p) => {
       const m = (p.engagementMetrics as any) ?? {};
       const platforms = (p.platforms as string[]) ?? [];
       return platforms.map((platform) => ({
-        postId: p.id,
         platform,
-        likes:       m.likes       ?? 0,
-        comments:    m.comments    ?? 0,
-        shares:      m.shares      ?? 0,
+        likes: m.likes ?? 0,
+        comments: m.comments ?? 0,
+        shares: m.shares ?? 0,
         impressions: m.impressions ?? 0,
-        clicks:      m.clicks      ?? 0,
-        leads:       m.leads       ?? 0,
+        leads: m.leads ?? 0,
         date: p.publishedAt ?? p.scheduledTime ?? p.createdAt,
       }));
     });
   }, [posts]);
 
-  // ── KPI totals ─────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
-    const totalPosts    = posts.filter((p) => p.status === "published").length;
-    const totalLikes    = allMetrics.reduce((s, m) => s + m.likes, 0);
-    const totalComments = allMetrics.reduce((s, m) => s + m.comments, 0);
-    const totalShares   = allMetrics.reduce((s, m) => s + m.shares, 0);
     const totalImpressions = allMetrics.reduce((s, m) => s + m.impressions, 0);
-    const totalLeadsFromSocial = allMetrics.reduce((s, m) => s + m.leads, 0);
-    const engagementRate = totalImpressions > 0
-      ? ((totalLikes + totalComments + totalShares) / totalImpressions * 100).toFixed(1)
-      : "—";
-    return { totalPosts, totalLikes, totalComments, totalShares, totalImpressions, totalLeadsFromSocial, engagementRate };
-  }, [posts, allMetrics]);
+    const totalEngagements = allMetrics.reduce((s, m) => s + m.likes + m.comments + m.shares, 0);
+    const er = totalImpressions > 0 ? ((totalEngagements / totalImpressions) * 100).toFixed(1) : "—";
+    const closedVal = deals.filter(d => d.stage === "closed").reduce((s, d) => s + (Number(d.value) || 0), 0);
+    return {
+      posts: posts.filter(p => p.status === "published").length,
+      likes: allMetrics.reduce((s, m) => s + m.likes, 0),
+      imp: totalImpressions,
+      er,
+      closedVal,
+      activeDeals: deals.filter(d => d.stage !== "closed").length
+    };
+  }, [posts, allMetrics, deals]);
 
-  // ── per-platform totals ────────────────────────────────────────────────────
-  const platformData = useMemo(() => {
-    return ["facebook", "instagram", "tiktok"].map((platform) => {
-      const rows = allMetrics.filter((m) => m.platform === platform);
-      return {
-        platform: platform.charAt(0).toUpperCase() + platform.slice(1),
-        likes:       rows.reduce((s, m) => s + m.likes, 0),
-        comments:    rows.reduce((s, m) => s + m.comments, 0),
-        shares:      rows.reduce((s, m) => s + m.shares, 0),
-        impressions: rows.reduce((s, m) => s + m.impressions, 0),
-        leads:       rows.reduce((s, m) => s + m.leads, 0),
-      };
-    });
-  }, [allMetrics]);
-
-  // ── posts over last 30 days ────────────────────────────────────────────────
-  const postTrend = useMemo(() => {
-    const days = last30Days();
-    return days
-      .filter((_, i) => i % 3 === 0) // every 3 days for readability
-      .map(({ label, date }) => ({
-        label,
-        posts:    posts.filter((p) => (p.scheduledTime ?? p.createdAt)?.toString().slice(0, 10) === date).length,
-        leads:    leads.filter((l) => l.createdAt.toString().slice(0, 10) === date).length,
-        contacts: contacts.filter((c) => c.createdAt.toString().slice(0, 10) === date).length,
-      }));
-  }, [posts, leads, contacts]);
-
-  // ── lead funnel ────────────────────────────────────────────────────────────
   const funnelData = useMemo(() => {
     const totalLeads = leads.length;
-    const contacted  = leads.filter((l) => l.status === "contacted" || l.status === "qualified" || l.status === "converted").length;
-    const qualified  = leads.filter((l) => l.status === "qualified" || l.status === "converted").length;
-    const converted  = leads.filter((l) => l.status === "converted").length;
-    const closed     = deals.filter((d) => d.stage === "closed").length;
-
+    const qualified = leads.filter(l => ["qualified", "converted"].includes(l.status as any)).length;
+    const closed = deals.filter(d => d.stage === "closed").length;
     return [
-      { name: "Leads captured",  value: totalLeads, fill: "#5a8bc4" },
-      { name: "Contacted",       value: contacted,  fill: "#4a7ab8" },
-      { name: "Qualified",       value: qualified,  fill: "#3a6aac" },
-      { name: "Converted",       value: converted,  fill: "#2a5aa0" },
-      { name: "Deals closed",    value: closed,     fill: "#1a4a94" },
+      { name: t("stage.lead"), value: totalLeads, fill: "#3b82f6" },
+      { name: t("status.converted"), value: qualified, fill: "#8b5cf6" },
+      { name: t("status.lost"), value: closed, fill: "#10b981" },
     ];
-  }, [leads, deals]);
+  }, [leads, deals, t]);
 
-  // ── top posts by engagement ────────────────────────────────────────────────
-  const topPosts = useMemo(() => {
-    return posts
-      .filter((p) => p.engagementMetrics)
-      .map((p) => {
-        const m = (p.engagementMetrics as any) ?? {};
-        const total = (m.likes ?? 0) + (m.comments ?? 0) + (m.shares ?? 0);
-        return { ...p, totalEngagement: total };
-      })
-      .sort((a, b) => b.totalEngagement - a.totalEngagement)
-      .slice(0, 5);
-  }, [posts]);
-
-  const hasPosts = posts.length > 0;
-  const hasLeads = leads.length > 0;
+  const platformData = useMemo(() => {
+    return ["facebook", "instagram", "tiktok"].map(p => ({
+      name: p.charAt(0).toUpperCase() + p.slice(1),
+      likes: allMetrics.filter(m => m.platform === p).reduce((s, m) => s + m.likes, 0),
+      imp: allMetrics.filter(m => m.platform === p).reduce((s, m) => s + m.impressions, 0),
+    }));
+  }, [allMetrics]);
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Performance across social media, leads and deals
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+        <div>
+          <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">{t("analz.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">{t("analz.sub")}</p>
+        </div>
+        <div className="flex gap-2">
+            <Button variant="outline" className="h-11 rounded-2xl text-[10px] font-black uppercase tracking-widest gap-2 bg-transparent">
+               <Download className="w-3.5 h-3.5" /> Export Report
+            </Button>
+        </div>
       </div>
 
-      {/* ── KPI strip ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard icon={TrendingUp}     label="Published posts"    value={kpis.totalPosts}            color="text-accent"       />
-        <StatCard icon={Heart}          label="Total likes"        value={kpis.totalLikes}            color="text-pink-500"     />
-        <StatCard icon={MessageCircle}  label="Comments"           value={kpis.totalComments}         color="text-blue-500"     />
-        <StatCard icon={Share2}         label="Shares"             value={kpis.totalShares}           color="text-violet-500"   />
-        <StatCard icon={Eye}            label="Impressions"        value={kpis.totalImpressions}      color="text-amber-500"    />
-        <StatCard icon={Target}         label="Engagement rate"    value={`${kpis.engagementRate}%`}  color="text-green-500"    />
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <StatCard icon={Activity} label={t("analz.trend")} value={kpis.posts} sub="Published" color="text-accent" glassStyle={glassStyle} />
+        <StatCard icon={Heart} label="Total Likes" value={kpis.likes.toLocaleString()} sub="Life-time" color="text-pink-500" glassStyle={glassStyle} />
+        <StatCard icon={Eye} label={t("analz.imp")} value={kpis.imp.toLocaleString()} sub="Organic Reach" color="text-amber-500" glassStyle={glassStyle} />
+        <StatCard icon={Target} label={t("analz.er")} value={`${kpis.er}%`} sub="Avg Content ES" color="text-green-500" glassStyle={glassStyle} />
+        <StatCard icon={Wallet} label={t("analz.revenue")} value={formatETB(kpis.closedVal)} sub="Verified Sales" color="text-blue-500" glassStyle={glassStyle} />
+        <StatCard icon={TrendingUp} label="Active Pipeline" value={kpis.activeDeals} sub="In Progress" color="text-violet-500" glassStyle={glassStyle} />
       </div>
 
-      {/* ── Row 1: Activity trend + Platform breakdown ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-        {/* Activity trend */}
-        <Card className="border border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Activity trend</CardTitle>
-            <CardDescription className="text-xs">Posts, leads and contacts — last 30 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!hasPosts && !hasLeads ? (
-              <EmptyChart
-                message="Start scheduling posts and capturing leads to see your trend"
-                action="Go to Social Media"
-                onAction={() => setLocation("/social-media")}
-              />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={postTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="posts"    name="Posts"    stroke="#5a8bc4" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="leads"    name="Leads"    stroke="#d4af37" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="contacts" name="Contacts" stroke="#5ac47b" strokeWidth={2} dot={false} />
-                </LineChart>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+        <div style={glassStyle} className="lg:col-span-8 p-8 border-0">
+           <div className="flex items-center justify-between mb-8">
+              <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-accent" /> {t("analz.trend")}
+              </h3>
+           </div>
+           <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={allMetrics.slice(-20)}>
+                   <defs>
+                     <linearGradient id="colorImp" x1="0" y1="0" x2="0" y2="1">
+                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                     </linearGradient>
+                   </defs>
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} />
+                   <XAxis dataKey="date" hide />
+                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} stroke={theme === "dark" ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)"} />
+                   <Tooltip content={<CustomTooltip theme={theme} />} />
+                   <Area type="monotone" dataKey="impressions" name={t("analz.imp")} stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorImp)" />
+                   <Area type="monotone" dataKey="likes" name="Likes" stroke="#ec4899" strokeWidth={3} fillOpacity={0} />
+                </AreaChart>
               </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+           </div>
+        </div>
 
-        {/* Platform breakdown */}
-        <Card className="border border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Platform performance</CardTitle>
-            <CardDescription className="text-xs">Engagement by platform</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {allMetrics.length === 0 ? (
-              <EmptyChart
-                message="No engagement data yet — publish posts to see platform stats"
-                action="Schedule a post"
-                onAction={() => setLocation("/social-media")}
-              />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={platformData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="platform" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="likes"    name="Likes"    fill="#5a8bc4" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="comments" name="Comments" fill="#7b6fc4" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="shares"   name="Shares"   fill="#d4af37" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Row 2: Lead funnel + Top posts ────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-        {/* Lead conversion funnel */}
-        <Card className="border border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Lead conversion funnel</CardTitle>
-            <CardDescription className="text-xs">From capture to closed deal</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!hasLeads ? (
-              <EmptyChart
-                message="Capture leads to see your conversion funnel"
-                action="Go to Lead Capture"
-                onAction={() => setLocation("/leads")}
-              />
-            ) : (
-              <div className="space-y-2 pt-2">
-                {funnelData.map((stage, i) => {
-                  const pct = funnelData[0].value > 0
-                    ? Math.round((stage.value / funnelData[0].value) * 100)
-                    : 0;
-                  return (
-                    <div key={stage.name}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-muted-foreground">{stage.name}</span>
-                        <span className="text-xs font-medium text-foreground">
-                          {stage.value} <span className="text-muted-foreground font-normal">({pct}%)</span>
-                        </span>
-                      </div>
-                      <div className="h-6 bg-muted rounded-lg overflow-hidden">
-                        <div
-                          className="h-full rounded-lg transition-all duration-700 flex items-center pl-2"
-                          style={{ width: `${Math.max(pct, 4)}%`, background: stage.fill }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="mt-3 pt-3 border-t border-border">
-                  <p className="text-xs text-muted-foreground">
-                    Conversion rate:{" "}
-                    <span className="font-medium text-foreground">
-                      {funnelData[0].value > 0
-                        ? `${Math.round((funnelData[4].value / funnelData[0].value) * 100)}%`
-                        : "—"
-                      }
-                    </span>
-                    {" "}lead to closed deal
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Top posts */}
-        <Card className="border border-border">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-medium">Top posts by engagement</CardTitle>
-                <CardDescription className="text-xs">Best performing content</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" className="text-xs h-7"
-                onClick={() => setLocation("/social-media")}>
-                All posts
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {topPosts.length === 0 ? (
-              <EmptyChart
-                message="No posts with engagement data yet"
-                action="Schedule a post"
-                onAction={() => setLocation("/social-media")}
-              />
-            ) : (
-              <div className="space-y-3">
-                {topPosts.map((post, i) => {
-                  const m = (post.engagementMetrics as any) ?? {};
-                  const platforms = (post.platforms as string[]) ?? [];
-                  return (
-                    <div key={post.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
-                      <div className="w-5 h-5 rounded bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0 mt-0.5">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground line-clamp-1">{post.content ?? "No content"}</p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{m.likes ?? 0}</span>
-                          <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" />{m.comments ?? 0}</span>
-                          <span className="flex items-center gap-1"><Share2 className="w-3 h-3" />{m.shares ?? 0}</span>
+        <div style={glassStyle} className="lg:col-span-4 p-8 border-0 flex flex-col">
+           <h3 className="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-2">
+             <PieChart className="w-4 h-4 text-accent" /> {t("analz.platforms")}
+           </h3>
+           <div className="flex-1 flex flex-col justify-center">
+              <div className="space-y-6">
+                 {platformData.map(p => {
+                    const maxImp = Math.max(...platformData.map(d => d.imp));
+                    const pct = maxImp > 0 ? (p.imp / maxImp) * 100 : 0;
+                    return (
+                      <div key={p.name}>
+                        <div className="flex items-center justify-between mb-2">
+                           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{p.name}</span>
+                           <span className="text-xs font-black text-foreground">{p.imp.toLocaleString()} <span className="text-[10px] font-normal text-muted-foreground ml-1">reach</span></span>
+                        </div>
+                        <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+                           <div className="h-full bg-accent rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
-                      <span className="text-sm font-semibold text-accent shrink-0">
-                        {post.totalEngagement}
-                      </span>
-                    </div>
-                  );
-                })}
+                    )
+                 })}
               </div>
-            )}
-          </CardContent>
-        </Card>
+           </div>
+        </div>
       </div>
 
-      {/* ── Row 3: Deal Pipeline Analytics ──────────────────────────── */}
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-accent" />
-          Deal Pipeline Analytics
-        </h2>
-      </div>
-
-      {/* Deal KPIs */}
-      {(() => {
-        const openDeals = deals.filter((d) => d.stage !== "closed");
-        const closedDeals = deals.filter((d) => d.stage === "closed");
-        const totalOpenValue = openDeals.reduce((s, d) => s + (Number(d.value) || 0), 0);
-        const totalClosedValue = closedDeals.reduce((s, d) => s + (Number(d.value) || 0), 0);
-        const totalCommission = closedDeals.reduce((s, d) => s + (Number(d.commission) || 0), 0);
-        const winRate = deals.length > 0 ? Math.round((closedDeals.length / deals.length) * 100) : 0;
-        
-        // Average days to close
-        const closedWithDates = closedDeals.filter((d) => d.closedAt && d.createdAt);
-        const avgDaysToClose = closedWithDates.length > 0
-          ? Math.round(closedWithDates.reduce((s, d) => {
-              const created = new Date(d.createdAt).getTime();
-              const closed = new Date(d.closedAt!).getTime();
-              return s + (closed - created) / (1000 * 60 * 60 * 24);
-            }, 0) / closedWithDates.length)
-          : 0;
-        
-        const formatBirr = (val: number) => {
-          if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
-          if (val >= 1_000) return `${Math.round(val / 1_000)}K`;
-          return `${Math.round(val)}`;
-        };
-
-        // Stage velocity
-        const stages = ["lead", "contacted", "viewing", "offer", "closed"] as const;
-        const stageLabels: Record<string, string> = {
-          lead: "Lead", contacted: "Contacted", viewing: "Viewing",
-          offer: "Offer", closed: "Closed",
-        };
-        const stageColors: Record<string, string> = {
-          lead: "#5a8bc4", contacted: "#7b6fc4", viewing: "#c4a35a",
-          offer: "#c4875a", closed: "#5ac47b",
-        };
-        const stageData = stages.map((stage) => ({
-          name: stageLabels[stage],
-          count: deals.filter((d) => d.stage === stage).length,
-          value: deals.filter((d) => d.stage === stage).reduce((s, d) => s + (Number(d.value) || 0), 0),
-          fill: stageColors[stage],
-        }));
-
-        // Monthly revenue trend (last 6 months)
-        const revenueMonths = Array.from({ length: 6 }, (_, i) => {
-          const d = new Date();
-          d.setDate(1);
-          d.setMonth(d.getMonth() - (5 - i));
-          return {
-            label: d.toLocaleString("default", { month: "short" }),
-            year: d.getFullYear(),
-            monthNum: d.getMonth(),
-          };
-        });
-        const revenueTrend = revenueMonths.map(({ label, year, monthNum }) => {
-          const inMonth = (date: Date) => date.getMonth() === monthNum && date.getFullYear() === year;
-          const monthClosed = closedDeals.filter((d) => d.closedAt && inMonth(new Date(d.closedAt)));
-          return {
-            month: label,
-            revenue: monthClosed.reduce((s, d) => s + (Number(d.value) || 0), 0),
-            commission: monthClosed.reduce((s, d) => s + (Number(d.commission) || 0), 0),
-            deals: monthClosed.length,
-          };
-        });
-
-        return (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-              <StatCard icon={TrendingUp} label="Open pipeline" value={`${formatBirr(totalOpenValue)} ETB`} sub={`${openDeals.length} deals`} color="text-accent" />
-              <StatCard icon={TrendingUp} label="Closed revenue" value={`${formatBirr(totalClosedValue)} ETB`} sub={`${closedDeals.length} deals`} color="text-green-500" />
-              <StatCard icon={TrendingUp} label="Total commission" value={`${formatBirr(totalCommission)} ETB`} sub="earned" color="text-amber-500" />
-              <StatCard icon={Target} label="Win rate" value={`${winRate}%`} sub="lead → closed" color="text-blue-500" />
-              <StatCard icon={Eye} label="Avg days to close" value={avgDaysToClose || "—"} sub="from creation" color="text-violet-500" />
-              <StatCard icon={Users} label="Active pipeline" value={openDeals.length} sub={`${deals.length} total`} color="text-pink-500" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              {/* Stage velocity */}
-              <Card className="border border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Pipeline stage distribution</CardTitle>
-                  <CardDescription className="text-xs">Deals and value per stage</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {deals.length === 0 ? (
-                    <EmptyChart
-                      message="Add deals to see your pipeline distribution"
-                      action="Open Pipeline"
-                      onAction={() => setLocation("/crm/deals")}
-                    />
-                  ) : (
-                    <div className="space-y-2 pt-2">
-                      {stageData.map((stage) => {
-                        const maxCount = Math.max(...stageData.map((s) => s.count), 1);
-                        const pct = Math.round((stage.count / maxCount) * 100);
-                        return (
-                          <div key={stage.name}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-muted-foreground">{stage.name}</span>
-                              <span className="text-xs font-medium text-foreground">
-                                {stage.count} deal{stage.count !== 1 ? "s" : ""} · {formatBirr(stage.value)} ETB
-                              </span>
-                            </div>
-                            <div className="h-5 bg-muted rounded-md overflow-hidden">
-                              <div
-                                className="h-full rounded-md transition-all duration-700"
-                                style={{ width: `${Math.max(pct, 4)}%`, background: stage.fill }}
-                              />
-                            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <div style={glassStyle} className="p-8 border-0">
+            <h3 className="text-sm font-black uppercase tracking-widest mb-8 flex items-center gap-2">
+              <Target className="w-4 h-4 text-accent" /> {t("analz.conversion")}
+            </h3>
+            <div className="space-y-4">
+               {funnelData.map((stage, i) => {
+                  const maxVal = funnelData[0].value || 1;
+                  const pct = Math.round((stage.value / maxVal) * 100);
+                  return (
+                    <div key={stage.name} className="relative">
+                       <div className="flex justify-between items-center mb-2 px-1">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stage.name}</span>
+                          <span className="text-xs font-black text-foreground">{stage.value} <span className="text-[9px] text-muted-foreground font-normal ml-1">({pct}%)</span></span>
+                       </div>
+                       <div className="h-10 w-full bg-muted/20 rounded-2xl overflow-hidden flex items-center px-4">
+                          <div className="h-6 rounded-lg transition-all duration-1000 flex items-center justify-end pr-3" style={{ width: `${Math.max(pct, 5)}%`, background: stage.fill }}>
+                             {pct > 15 && <span className="text-[9px] font-black text-white">{pct}%</span>}
                           </div>
-                        );
-                      })}
+                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Monthly revenue trend */}
-              <Card className="border border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Monthly closed revenue</CardTitle>
-                  <CardDescription className="text-xs">ETB revenue from closed deals — last 6 months</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {closedDeals.length === 0 ? (
-                    <EmptyChart
-                      message="Close deals to see your revenue trend"
-                      action="Open Pipeline"
-                      onAction={() => setLocation("/crm/deals")}
-                    />
-                  ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={revenueTrend}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="month" stroke="#9ca3af" tick={{ fontSize: 11 }} />
-                        <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-                        <Tooltip
-                          contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-                          formatter={(value: number, name: string) => [
-                            `ETB ${value.toLocaleString()}`,
-                            name === "revenue" ? "Revenue" : name === "commission" ? "Commission" : "Deals"
-                          ]}
-                        />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="revenue" name="Revenue" fill="#5ac47b" radius={[3, 3, 0, 0]} />
-                        <Bar dataKey="commission" name="Commission" fill="#d4af37" radius={[3, 3, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
+                  )
+               })}
             </div>
-          </>
-        );
-      })()}
+         </div>
 
-      {/* ── CRM summary ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          {
-            label: "Total contacts",
-            value: contacts.length,
-            sub: `${contacts.filter((c) => c.status === "active").length} active`,
-            icon: Users, color: "text-accent",
-            action: () => setLocation("/crm/contacts"),
-          },
-          {
-            label: "Total leads",
-            value: leads.length,
-            sub: `${leads.filter((l) => l.status === "new").length} new`,
-            icon: Target, color: "text-blue-500",
-            action: () => setLocation("/leads"),
-          },
-          {
-            label: "Open deals",
-            value: deals.filter((d) => d.stage !== "closed").length,
-            sub: `${deals.filter((d) => d.stage === "closed").length} closed`,
-            icon: TrendingUp, color: "text-green-500",
-            action: () => setLocation("/crm/deals"),
-          },
-          {
-            label: "Social leads",
-            value: kpis.totalLeadsFromSocial,
-            sub: "from post metrics",
-            icon: MousePointer, color: "text-amber-500",
-            action: () => setLocation("/social-media"),
-          },
-        ].map((k) => (
-          <button
-            key={k.label}
-            onClick={k.action}
-            className="bg-card border border-border rounded-xl px-4 py-3 text-left hover:border-accent/40 hover:shadow-sm transition-all"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <k.icon className={`w-3.5 h-3.5 ${k.color}`} />
-              <span className="text-xs text-muted-foreground">{k.label}</span>
+         <div style={glassStyle} className="p-8 border-0">
+            <div className="flex items-center justify-between mb-8">
+               <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                 <Heart className="w-4 h-4 text-accent" /> {t("analz.topPosts")}
+               </h3>
+               <Button variant="ghost" className="text-[10px] font-black uppercase tracking-widest text-accent p-0 h-auto" onClick={() => setLocation("/social-media")}>All Media</Button>
             </div>
-            <p className="text-2xl font-semibold text-foreground">{k.value}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{k.sub}</p>
-          </button>
-        ))}
+            <div className="space-y-4">
+               {posts.filter(p => p.engagementMetrics).slice(0, 4).map((post: any) => (
+                 <div key={post.id} className="flex items-center gap-4 group p-2 rounded-2xl hover:bg-muted/30 transition-all">
+                    <div className="w-12 h-12 rounded-xl bg-muted/50 overflow-hidden flex-shrink-0">
+                       {post.mediaUrls?.[0] ? <img src={post.mediaUrls[0]} className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-muted-foreground/30" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                       <p className="text-xs font-bold text-foreground line-clamp-1">{post.content || "Branded Media Content"}</p>
+                       <div className="flex items-center gap-3 mt-1">
+                          <span className="flex items-center gap-1 text-[9px] font-black text-muted-foreground"><Heart className="w-2.5 h-2.5" /> {post.engagementMetrics?.likes || 0}</span>
+                          <span className="flex items-center gap-1 text-[9px] font-black text-muted-foreground"><MessageCircle className="w-2.5 h-2.5" /> {post.engagementMetrics?.comments || 0}</span>
+                       </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                 </div>
+               ))}
+               {posts.length === 0 && (
+                 <div className="py-10 text-center text-muted-foreground/50 text-xs font-bold italic">No media data available</div>
+               )}
+            </div>
+         </div>
       </div>
     </DashboardLayout>
   );
+}
+
+function Download(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+  )
+}
+
+function ImageIcon(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+  )
 }
