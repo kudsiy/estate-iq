@@ -11,10 +11,10 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { PremiumUpgradeModal } from "@/components/PremiumUpgradeModal";
 import {
-  User, Bell, Link2, Shield, Building2, Facebook,
+  User, Bell, Link2, Shield, Building2, Facebook, Plus,
   Instagram, MessageCircle, Mail, ExternalLink, Phone,
   Share2, Code2, Key, RefreshCw, Copy, Check, Palette, LogOut,
-  Target, Zap, Activity, Globe, ShieldAlert, Cpu
+  Target, Zap, Activity, Globe, ShieldAlert, Cpu, Send
 } from "lucide-react";
 import BrandKitPage from "./BrandKitPage";
 
