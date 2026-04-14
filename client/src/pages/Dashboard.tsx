@@ -134,6 +134,27 @@ export default function Dashboard() {
     { label: t("nav.analytics"),       icon: Activity,  path: "/analytics" },
   ];
 
+  // ── Trial Intelligence ──────────────────────────────────────────────────
+  const trialInfo = useMemo(() => {
+    if (!subscription?.workspace?.trialEndsAt) return null;
+    const endsAt = new Date(subscription.workspace.trialEndsAt);
+    const now = new Date();
+    const diff = endsAt.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    let stage: 'welcome' | 'active' | 'success' | 'urgency' | 'final' | 'expired' = 'active';
+    let messageKey = 'trial.day3';
+    
+    if (days > 11) { stage = 'welcome'; messageKey = 'trial.day1'; }
+    else if (days > 7) { stage = 'active'; messageKey = 'trial.day3'; }
+    else if (days > 4) { stage = 'success'; messageKey = 'trial.day7'; }
+    else if (days > 1) { stage = 'urgency'; messageKey = 'trial.day10'; }
+    else if (days === 1) { stage = 'final'; messageKey = 'trial.day13'; }
+    else { stage = 'expired'; messageKey = 'trial.day14'; }
+
+    return { days, stage, messageKey };
+  }, [subscription]);
+
   return (
     <DashboardLayout>
       {/* ── Page heading ─────────────────────────────────────────── */}
@@ -163,6 +184,55 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* ── Trial Urgency Tracker ────────────────────────────────────── */}
+      {trialInfo && subscription?.workspace?.subscriptionStatus === 'trialing' && (
+        <div 
+          className="mb-8 p-6 rounded-[2rem] border animate-in fade-in slide-in-from-top-4 duration-700"
+          style={{
+            background: trialInfo.days <= 4 
+              ? "linear-gradient(145deg, rgba(239,68,68,0.1), rgba(15,23,42,0.9))" 
+              : "linear-gradient(145deg, rgba(124,58,237,0.1), rgba(15,23,42,0.9))",
+            borderColor: trialInfo.days <= 4 ? "rgba(239,68,68,0.2)" : "rgba(124,58,237,0.2)"
+          }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-start gap-5">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                trialInfo.days <= 4 ? "bg-red-500/20 text-red-500" : "bg-accent/20 text-accent"
+              }`}>
+                {trialInfo.days <= 4 ? <Activity className="w-7 h-7" /> : <Sparkles className="w-7 h-7" />}
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-foreground mb-1">
+                  {t(`trial.${trialInfo.stage}`)} — {trialInfo.days} {t("trial.daysRemaining")}
+                </h3>
+                <p className="text-sm text-muted-foreground font-medium max-w-xl">
+                  {t(trialInfo.messageKey)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {trialInfo.stage === 'welcome' ? (
+                <Button onClick={() => setLocation("/properties")} className="bg-accent text-white hover:bg-accent/90 rounded-xl font-black uppercase tracking-widest text-[10px] px-8 py-6">
+                  {t("trial.getStarted")}
+                </Button>
+              ) : (
+                <Button onClick={() => setLocation("/billing")} className="bg-foreground text-background hover:bg-foreground/90 rounded-xl font-black uppercase tracking-widest text-[10px] px-8 py-6">
+                  {t("trial.upgrade")}
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          <div className="mt-6 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-1000 ${trialInfo.days <= 4 ? "bg-red-500" : "bg-accent"}`}
+              style={{ width: `${(trialInfo.days / 14) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Resource Hub (Sovereign Capacity) ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

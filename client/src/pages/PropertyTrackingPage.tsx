@@ -97,6 +97,24 @@ export default function PropertyTrackingPage() {
     window.open(`https://wa.me/251911223344?text=${message}`, "_blank");
   };
 
+  const [showHeartbeat, setShowHeartbeat] = useState(false);
+  const [heartbeatIndex, setHeartbeatIndex] = useState(0);
+
+  const heartbeatMessages = useMemo(() => [
+    { text: "Someone from Bole just viewed this", am: "በቦሌ አካባቢ የሚገኝ ሰው ይህን አይቶታል።" },
+    { text: "New WhatsApp inquiry received", am: "አዲስ የዋትስአፕ ጥያቄ ቀርቧል።" },
+    { text: "3 active viewers on this listing", am: "3 ሰዎች ይህን ንብረት አሁን እያዩት ነው።" },
+    { text: "Saved to 12 buyer portfolios", am: "በ12 የገዢዎች ዝርዝር ውስጥ ተቀምጧል።" },
+  ], []);
+
+  useMemo(() => {
+    const timer = setTimeout(() => setShowHeartbeat(true), 3000);
+    const interval = setInterval(() => {
+      setHeartbeatIndex(prev => (prev + 1) % heartbeatMessages.length);
+    }, 6000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
+  }, [heartbeatMessages]);
+
   const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   if (isLoading) {
@@ -141,6 +159,37 @@ export default function PropertyTrackingPage() {
 
   return (
     <div ref={containerRef} className={`min-h-screen bg-[#050505] text-white overflow-x-hidden ${language === 'am' ? 'font-ethiopic' : 'font-sans'}`}>
+      
+      {/* Interest Heartbeat (Floating Urgency) */}
+      <AnimatePresence>
+        {showHeartbeat && (
+          <motion.div 
+            initial={{ opacity: 0, x: 100, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 100, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-[100] p-4 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-3xl shadow-2xl flex items-center gap-4 max-w-sm"
+          >
+            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center relative shrink-0">
+               <Activity className="w-5 h-5 text-accent animate-pulse" />
+               <div className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-black animate-ping" />
+            </div>
+            <div className="overflow-hidden">
+               <AnimatePresence mode="wait">
+                 <motion.p 
+                   key={heartbeatIndex}
+                   initial={{ opacity: 0, y: 10 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   exit={{ opacity: 0, y: -10 }}
+                   className="text-[11px] font-black uppercase tracking-tight text-white leading-tight"
+                 >
+                   {language === 'am' ? heartbeatMessages[heartbeatIndex].am : heartbeatMessages[heartbeatIndex].text}
+                 </motion.p>
+               </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Premium Sticky Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
