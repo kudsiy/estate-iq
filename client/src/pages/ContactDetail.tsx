@@ -118,6 +118,15 @@ export default function ContactDetail() {
     );
   }
 
+  const { data: subscription } = trpc.subscription.current.useQuery();
+  const isLocked = useMemo(() => {
+    if (!subscription?.workspace) return false;
+    // Lock if trialing and expired (already passed grace period of 3 days which is handled by backend isSubscriptionActive)
+    // But for UI "Soft Lock", we want to show it as soon as the 14 days are up to push for the ETB 999 upgrade.
+    const endsAt = new Date(subscription.workspace.trialEndsAt || 0);
+    return subscription.workspace.subscriptionStatus === 'trialing' && endsAt < new Date();
+  }, [subscription]);
+
   const status = STATUS_META[contact.status ?? "active"];
   const initials = `${contact.firstName[0]}${contact.lastName[0]}`.toUpperCase();
 
@@ -188,8 +197,27 @@ export default function ContactDetail() {
         <div className="lg:col-span-1 space-y-4">
 
           {/* Profile card */}
-          <div style={glassStyle} className="p-6">
-            <div className="flex items-start justify-between mb-4">
+          <div style={glassStyle} className="p-6 relative overflow-hidden">
+            {/* Soft Lock Overlay */}
+            {isLocked && (
+              <div className="absolute inset-0 z-20 backdrop-blur-md bg-background/40 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+                <div className="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center text-accent mb-4">
+                  <Activity className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-black text-foreground mb-2 uppercase tracking-tight">{t("trial.expired")}</h3>
+                <p className="text-[11px] text-muted-foreground font-medium mb-6 leading-relaxed">
+                  {t("trial.day14")}
+                </p>
+                <Button 
+                  onClick={() => setLocation("/billing")}
+                  className="w-full bg-accent text-white hover:bg-accent/90 rounded-xl font-black uppercase tracking-widest text-[10px] py-6 shadow-lg shadow-accent/20"
+                >
+                  {t("trial.upgrade")}
+                </Button>
+              </div>
+            )}
+
+            <div className={`flex items-start justify-between mb-4 ${isLocked ? "opacity-20 grayscale" : ""}`}>
               <div className="flex items-center gap-3">
                 <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-xl font-semibold">
                   {initials}
@@ -215,7 +243,7 @@ export default function ContactDetail() {
               </div>
             </div>
 
-            <div className="space-y-4 text-sm mt-6">
+            <div className={`space-y-4 text-sm mt-6 ${isLocked ? "opacity-20 grayscale" : ""}`}>
               <div className="space-y-2.5">
                 {contact.email && (
                   <div className="flex items-center gap-2.5 text-muted-foreground">

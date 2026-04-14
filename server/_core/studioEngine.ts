@@ -214,7 +214,8 @@ function buildCaptionPrompt(
     ? `${listing.subLocation}, ${listing.subcity}`
     : listing.subcity;
 
-  return `You are an expert Ethiopian real estate social media copywriter. Generate captions for a property listing.
+  return `You are an expert Ethiopian real estate social media copywriter specializing in the Addis Ababa market. 
+Your goal is to generate high-conversion captions that sound like a professional top-tier agent in Addis.
 
 PROPERTY:
 - Title: ${listing.title || "Premium Property"}
@@ -239,26 +240,25 @@ ${brand.telegramChannel ? `- Telegram: ${brand.telegramChannel}` : ""}
 ${brand.instagramHandle ? `- Instagram: @${brand.instagramHandle}` : ""}
 ${brand.tiktokHandle ? `- TikTok: @${brand.tiktokHandle}` : ""}
 
-LANGUAGE: ${brand.languagePreference}
+LANGUAGE STRATEGY: 
+Use a "Natural Mix" for the primary caption. This means using Amharic for descriptions and English for technical real estate terms (e.g., G+1, Master Bedroom, Finishing, CCTV). This is how the most successful agents in Addis communicate on Telegram.
 
 Generate captions in this exact JSON format:
 {
-  "amharic": "Amharic caption with emojis, price, location, CTA, phone",
-  "english": "English caption with emojis, price, location, CTA, phone",
-  "hashtags": ["#EthiopianRealEstate", "#AddisAbaba", ...],
-  "amharicHashtags": ["#ቤትለሽያጭ", "#አዲስአበባ", ...],
-  "tiktok": "Short TikTok-style caption (Amharic + English mixed, emoji-heavy, urgent)"
+  "amharic": "A natural mix of Amharic and technical English. High engagement, emoji-rich, specific location details, clear price, and phone CTA.",
+  "english": "Professional English caption with emojis for international clients or diaspora.",
+  "hashtags": ["#EthiopianRealEstate", "#AddisAbaba", "#RealEstateEthiopia", "#AddisHome", ...],
+  "amharicHashtags": ["#ቤትለሽያጭ", "#አዲስአበባ", "#ሪልስቴት", "#ቤት", ...],
+  "tiktok": "Short TikTok-style caption (Amharic + English mixed, punchy, emoji-heavy, focus on the 'Vibe' or 'Luxury')"
 }
 
 RULES:
-- Amharic caption goes first and is the primary caption
-- Use emojis heavily (🏠📍💰🛏️🚿📐📲💬)
-- Price must be prominent
-- Location must be specific (subcity + sub-location)
-- Include CTA with phone/WhatsApp/Telegram
-- Ethiopian real estate posting style: urgent, professional, emoji-rich
-- Hashtags must include Ethiopian + location-specific tags
-- TikTok caption should be short, punchy, mixed Amharic/English`;
+- The "amharic" field MUST actually be a natural mix (Amharic description + English specs).
+- Use emojis heavily (🏠📍💰🛏️🚿📐📲💬) but keep them professional.
+- Price must be very prominent (e.g., 💰 ዋጋ: [Price]).
+- Location must be specific (e.g., 📍 ቦታ: ${location}).
+- Always include the phone number and WhatsApp link in the CTA.
+- Style: Professional, urgent (e.g. "እንዳያመልጥዎ!"), and premium.`;
 }
 
 // ─── MAIN GENERATION FUNCTIONS ────────────────────────────────────────────────
