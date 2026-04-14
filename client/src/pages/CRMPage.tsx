@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 // ── Leads Inbox Tab ─────────────────────────────────────────────────────────
-function LeadsInbox() {
+function LeadsInbox({ t }: { t: (k: string) => string }) {
   const [, setLocation] = useLocation();
   const { data: leads = [] } = trpc.crm.leads.list.useQuery();
 
@@ -354,7 +354,7 @@ export default function CRMPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="leads"><LeadsInbox /></TabsContent>
+        <TabsContent value="leads"><LeadsInbox t={t} /></TabsContent>
         <TabsContent value="conversations"><Conversations /></TabsContent>
         <TabsContent value="deals"><ClosedDeals /></TabsContent>
       </Tabs>
