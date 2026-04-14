@@ -79,6 +79,8 @@ export default function DesignStudio() {
   const [tiktokPack, setTiktokPack] = useState<any>(null);
   const [isCaptionLoading, setIsCaptionLoading] = useState(false);
   const [isTikTokLoading, setIsTikTokLoading] = useState(false);
+  const [isRebranding, setIsRebranding] = useState(false);
+  const [rebrandSourceUrl, setRebrandSourceUrl] = useState<string | null>(null);
 
   const setField = (k: string, v: any) => setListing(prev => ({ ...prev, [k]: v }));
 
@@ -96,6 +98,11 @@ export default function DesignStudio() {
     languagePreference: activeBrandKit.languagePreference || "both",
   } : null;
 
+  const saveDesignMutation = trpc.crm.designs.create.useMutation({
+    onSuccess: () => toast.success("Saved to Gallery"),
+    onError: (err) => toast.error(err.message || "Failed to save to gallery")
+  });
+
   const handleGenerateAd = async () => {
     if (!brandData) { toast.error("Create a Brand Kit first in Settings"); return; }
     if (!templateRef.current) { toast.error("Template not ready"); return; }
@@ -103,10 +110,40 @@ export default function DesignStudio() {
     try {
       const dataUrl = await toPng(templateRef.current, { quality: 1.0, pixelRatio: 2 });
       setGeneratedImageUrl(dataUrl);
+      
+      // Auto-save to gallery
+      saveDesignMutation.mutate({
+        type: "poster",
+        name: listing.title || "Untitled Design",
+        template: selectedTemplateId,
+        content: listing as any,
+        previewUrl: dataUrl,
+        propertyId: contextId ? parseInt(contextId) : undefined
+      });
+
       toast.success("Ad generated!");
     } catch (e) {
       toast.error("Generation failed. Try again.");
     } finally { setIsGenerating(false); }
+  };
+
+  const rebrandMutation = trpc.studio.aiStudio.rebrand.useMutation({
+    onSuccess: (data: any) => {
+      setGeneratedImageUrl(data.imageUrl);
+      setListing(prev => ({ ...prev, ...data.extractedData }));
+      toast.success("AI Rebrand Complete!");
+    },
+    onError: (err) => toast.error(err.message || "Rebrand failed"),
+    onSettled: () => setIsRebranding(false)
+  });
+
+  const handleRebrand = async () => {
+    if (!rebrandSourceUrl) return;
+    setIsRebranding(true);
+    rebrandMutation.mutate({
+      competitorImageUrl: rebrandSourceUrl,
+      brandKitId: brandData?.id
+    });
   };
 
   const tiktokMutation = trpc.ai.generateTikTokPack.useMutation({
@@ -142,11 +179,15 @@ export default function DesignStudio() {
   };
 
   const handleQueueTikTok = () => {
-    if (!tiktokPack || !contextId) return;
+    if (!tiktokPack || !contextId || !user) return;
+    
+    const trackingLink = `${window.location.origin}/l/${user.id}/${contextId}?platform=tiktok`;
+    const finalContent = `${tiktokPack.hook}\n\n${tiktokPack.description}\n\n🔗 View Details: ${trackingLink}\n\n${tiktokPack.hashtags.join(" ")}`;
+
     socialMutation.mutate({
       platform: "tiktok",
       platforms: ["tiktok"],
-      content: `${tiktokPack.hook}\n\n${tiktokPack.description}\n\n${tiktokPack.hashtags.join(" ")}`,
+      content: finalContent,
       mediaUrl: generatedImageUrl || listing.imageUrl || "",
       mediaType: "image",
       status: "scheduled",
@@ -225,62 +266,99 @@ export default function DesignStudio() {
           {/* LEFT: Controls (4 cols) */}
           <div className="lg:col-span-4 space-y-6 max-h-[calc(100vh-180px)] overflow-y-auto pr-2 scrollbar-none">
             
-            <div style={glassStyle} className="p-6 border-0">
-               <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-                 <Palette className="w-4 h-4 text-accent" /> {t("studio.style")}
-               </h3>
-               <div className="grid grid-cols-2 gap-2">
-                  {LISTING_TEMPLATES.map(tmp => (
-                    <button key={tmp.id} onClick={() => setSelectedTemplateId(tmp.id)}
-                      className={`px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${selectedTemplateId === tmp.id ? "bg-accent text-white border-accent shadow-lg" : "bg-muted/10 border-border/50 text-muted-foreground hover:border-accent/30"}`}>
-                      {tmp.name}
-                    </button>
-                  ))}
-               </div>
-            </div>
-
-            <div style={glassStyle} className="p-6 border-0">
-               <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-                 <Wand2 className="w-4 h-4 text-accent" /> {t("studio.form")}
-               </h3>
-               <div className="space-y-4">
-                  <div>
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Upload Property Photo</Label>
-                    <div className="relative h-40 rounded-2xl border-2 border-dashed border-border/50 hover:border-accent/40 bg-muted/5 transition-all overflow-hidden flex flex-col items-center justify-center group">
-                       {listing.imageUrl ? (
-                         <>
-                           <img src={listing.imageUrl} className="w-full h-full object-cover opacity-60" />
-                           <Button variant="secondary" size="sm" className="absolute h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => inputRef.current?.click()}>Change</Button>
-                         </>
-                       ) : (
-                         <div className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => inputRef.current?.click()}>
-                           <ImageIcon className="w-8 h-8 text-muted-foreground/30 group-hover:text-accent group-hover:scale-110 transition-all" />
-                           <span className="text-[10px] font-black text-muted-foreground uppercase">Pick a photo</span>
-                         </div>
-                       )}
-                       <input type="file" ref={inputRef} className="hidden" onChange={handleImageUpload} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                     <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="Property Title" value={listing.title} onChange={e => setField("title", e.target.value)} />
-                     <div className="grid grid-cols-2 gap-3">
-                        <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="Price (ETB)" value={listing.price} onChange={e => setField("price", e.target.value)} />
-                        <Select value={listing.subcity} onValueChange={v => setField("subcity", v)}>
-                           <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/50 text-xs font-bold uppercase tracking-widest"><SelectValue placeholder="Subcity" /></SelectTrigger>
-                           <SelectContent>
-                              {SUBCITIES.map(s => <SelectItem key={s} value={s} className="uppercase font-black text-[10px]">{t(`subcity.${s}`)||s}</SelectItem>)}
-                           </SelectContent>
-                        </Select>
+            {mode === "create-agency" ? (
+              <div style={glassStyle} className="p-8 border-0">
+                <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-accent" /> Competitor Ad
+                </h3>
+                <p className="text-xs text-muted-foreground mb-6 font-medium leading-relaxed">
+                  Upload an existing property ad (competitor image) and our AI will strip the old branding and replace it with yours.
+                </p>
+                <div className="relative h-64 rounded-[32px] border-2 border-dashed border-accent/20 hover:border-accent/40 bg-accent/5 transition-all overflow-hidden flex flex-col items-center justify-center group mb-8">
+                   {rebrandSourceUrl ? (
+                     <>
+                       <img src={rebrandSourceUrl} className="w-full h-full object-cover" />
+                       <Button variant="secondary" size="sm" className="absolute h-10 rounded-xl font-black uppercase shadow-xl" onClick={() => inputRef.current?.click()}>Change Ad</Button>
+                     </>
+                   ) : (
+                     <div className="flex flex-col items-center gap-4 cursor-pointer" onClick={() => inputRef.current?.click()}>
+                       <Upload className="w-10 h-10 text-accent/30 group-hover:text-accent group-hover:scale-110 transition-all" />
+                       <div className="text-center">
+                          <p className="text-[10px] font-black text-foreground uppercase tracking-widest">Upload Competitor Ad</p>
+                          <p className="text-[9px] text-muted-foreground mt-1">PNG, JPG up to 10MB</p>
+                       </div>
                      </div>
-                  </div>
-               </div>
-            </div>
+                   )}
+                </div>
+                <Button 
+                  onClick={handleRebrand} 
+                  disabled={isRebranding || !rebrandSourceUrl} 
+                  className="w-full h-16 bg-foreground text-background hover:bg-foreground/90 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl gap-3 transition-all"
+                >
+                  {isRebranding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                  AI REBRAND & EXTRACT
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div style={glassStyle} className="p-6 border-0">
+                   <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                     <Palette className="w-4 h-4 text-accent" /> {t("studio.style")}
+                   </h3>
+                   <div className="grid grid-cols-2 gap-2">
+                      {LISTING_TEMPLATES.map(tmp => (
+                        <button key={tmp.id} onClick={() => setSelectedTemplateId(tmp.id)}
+                          className={`px-4 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${selectedTemplateId === tmp.id ? "bg-accent text-white border-accent shadow-lg" : "bg-muted/10 border-border/50 text-muted-foreground hover:border-accent/30"}`}>
+                          {tmp.name}
+                        </button>
+                      ))}
+                   </div>
+                </div>
 
-            <Button onClick={handleGenerateAd} disabled={isGenerating} className="w-full h-14 bg-accent text-white hover:bg-accent/90 rounded-2xl font-black uppercase tracking-widest shadow-2xl shadow-accent/30 gap-3">
-              {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-              {t("studio.generate")}
-            </Button>
+                <div style={glassStyle} className="p-6 border-0">
+                   <h3 className="text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                     <Wand2 className="w-4 h-4 text-accent" /> {t("studio.form")}
+                   </h3>
+                   <div className="space-y-4">
+                      <div>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Upload Property Photo</Label>
+                        <div className="relative h-40 rounded-2xl border-2 border-dashed border-border/50 hover:border-accent/40 bg-muted/5 transition-all overflow-hidden flex flex-col items-center justify-center group">
+                           {listing.imageUrl ? (
+                             <>
+                               <img src={listing.imageUrl} className="w-full h-full object-cover opacity-60" />
+                               <Button variant="secondary" size="sm" className="absolute h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => inputRef.current?.click()}>Change</Button>
+                             </>
+                           ) : (
+                             <div className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => inputRef.current?.click()}>
+                               <ImageIcon className="w-8 h-8 text-muted-foreground/30 group-hover:text-accent group-hover:scale-110 transition-all" />
+                               <span className="text-[10px] font-black text-muted-foreground uppercase">Pick a photo</span>
+                             </div>
+                           )}
+                           <input type="file" ref={inputRef} className="hidden" onChange={handleImageUpload} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                         <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="Property Title" value={listing.title} onChange={e => setField("title", e.target.value)} />
+                         <div className="grid grid-cols-2 gap-3">
+                            <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="Price (ETB)" value={listing.price} onChange={e => setField("price", e.target.value)} />
+                            <Select value={listing.subcity} onValueChange={v => setField("subcity", v)}>
+                               <SelectTrigger className="h-10 rounded-xl bg-background/50 border-border/50 text-xs font-bold uppercase tracking-widest"><SelectValue placeholder="Subcity" /></SelectTrigger>
+                               <SelectContent>
+                                  {SUBCITIES.map(s => <SelectItem key={s} value={s} className="uppercase font-black text-[10px]">{t(`subcity.${s}`)||s}</SelectItem>)}
+                               </SelectContent>
+                            </Select>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+
+                <Button onClick={handleGenerateAd} disabled={isGenerating} className="w-full h-14 bg-accent text-white hover:bg-accent/90 rounded-2xl font-black uppercase tracking-widest shadow-2xl shadow-accent/30 gap-3">
+                  {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                  {t("studio.generate")}
+                </Button>
+              </>
+            )}
           </div>
 
           {/* RIGHT: Preview (8 cols) */}
