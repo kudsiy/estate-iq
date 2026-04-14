@@ -11,6 +11,7 @@ import CRMPage from "./pages/CRMPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import SupplierFeedPage from "./pages/SupplierFeedPage";
 import DesignStudio from "./pages/DesignStudio";
+import DesignGallery from "./pages/DesignGallery";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
@@ -101,6 +102,7 @@ function Router() {
       <Route path="/dashboard">          {guard(<Dashboard />)}                </Route>
       <Route path="/supplier-feed">      {guard(<SupplierFeedPage />)}         </Route>
       <Route path="/studio/:contextId?"> {guard(<DesignStudio />)}             </Route>
+      <Route path="/studio/gallery">     {guard(<DesignGallery />)}            </Route>
       <Route path="/properties">         {guard(<PropertiesPage />)}           </Route>
       <Route path="/crm">                {guard(<CRMPage />)}                  </Route>
       <Route path="/crm/contacts/:id">   {guard(<ContactDetail />)}            </Route>

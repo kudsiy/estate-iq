@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell,
   BarChart, Bar, Legend,
 } from "recharts";
-import { Target, TrendingUp, DollarSign, Sparkles, Activity, Users, Home, Inbox, Bell } from "lucide-react";
+import { Target, TrendingUp, DollarSign, Sparkles, Activity, Users, Home, Inbox, Bell, LayoutGrid } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { useMemo } from "react";
@@ -81,16 +81,8 @@ export default function Dashboard() {
 
   const pipelineData = useMemo(() => {
     const stages = ["lead","contacted","viewing","offer","closed"] as const;
-    const labels: Record<string,string> = { 
-      lead: t("dash.leadVelocity"), 
-      contacted: t("nav.dashboard"), // Placeholder or use common naming
-      viewing: "Viewing", // Should add more keys if needed
-      offer: "Offer", 
-      closed: "Closed" 
-    };
-    // Let's stick to the labels defined in LanguageContext if possible
     return stages.map((s) => ({ name: s.charAt(0).toUpperCase() + s.slice(1), value: deals.filter((d) => d.stage === s).length, color: STAGE_COLORS[s] })).filter((s) => s.value > 0);
-  }, [deals, t]);
+  }, [deals]);
 
   const trendData = useMemo(() => {
     const months = last6Months();
@@ -128,10 +120,10 @@ export default function Dashboard() {
   const quickActions = [
     { label: t("dash.recentContacts"), icon: Users,     path: "/crm/contacts" },
     { label: t("dash.pipeTitle"),      icon: TrendingUp,path: "/crm/deals" },
+    { label: "Design Gallery",         icon: LayoutGrid,path: "/studio/gallery" },
     { label: t("nav.properties"),      icon: Home,      path: "/properties" },
     { label: t("nav.supplyFeed"),      icon: Inbox,     path: "/supplier-feed" },
     { label: t("nav.studio"),          icon: Sparkles,  path: "/studio" },
-    { label: t("nav.analytics"),       icon: Activity,  path: "/analytics" },
   ];
 
   // ── Trial Intelligence ──────────────────────────────────────────────────
@@ -157,6 +149,35 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
+      {/* ── Launch Day Celebration ────────────────────────────── */}
+      <div 
+        className="mb-10 p-10 rounded-[2.5rem] border border-accent/20 relative overflow-hidden animate-in fade-in zoom-in duration-1000"
+        style={{
+          background: "linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(30,41,59,0.8) 100%)",
+        }}
+      >
+        <div className="absolute top-0 right-0 p-8 opacity-20 rotate-12">
+          <Sparkles className="w-32 h-32 text-accent" />
+        </div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="bg-accent/20 text-accent text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-[0.3em] border border-accent/20">Launch Day • April 14</span>
+              <div className="h-px w-12 bg-accent/30" />
+            </div>
+            <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter uppercase italic leading-none mb-6">
+              Welcome to the Era of Intelligence.
+            </h2>
+            <p className="text-xl text-white/50 font-medium leading-relaxed max-w-2xl">
+              Scaling Addis Ababa’s Real Estate Market with AI. Today we officially transition from manual effort to intelligent automation.
+            </p>
+          </div>
+          <Button onClick={() => setLocation("/studio")} className="bg-accent text-white hover:bg-accent/90 px-10 py-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-accent/20 transition-all hover:scale-105 active:scale-95">
+             Explore the Studio →
+          </Button>
+        </div>
+      </div>
+
       {/* ── Page heading ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
         <div>
