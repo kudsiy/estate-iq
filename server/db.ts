@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql, gte, lte, ne, desc, count, avg } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertBuyerProfile,
@@ -210,6 +210,24 @@ export async function getWorkspaceByApiKey(apiKey: string) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(workspaces).where(eq(workspaces.apiKey, apiKey)).limit(1);
+  return result[0];
+}
+
+export async function getWorkspaceByTrackingToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(workspaces).where(eq(workspaces.trackingToken, token)).limit(1);
+  return result[0];
+}
+
+export async function getLeadByFingerprintId(workspaceId: number, fingerprintId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.workspaceId, workspaceId), eq(leads.fingerprintId, fingerprintId)))
+    .limit(1);
   return result[0];
 }
 
@@ -945,4 +963,283 @@ export async function deleteBuyerProfile(scope: Scope, id: number) {
     .delete(buyerProfiles)
     .where(and(eq(buyerProfiles.id, id), eq(buyerProfiles.workspaceId, scope.workspaceId)));
   return true;
+}
+
+export async function getBehavioralStats(scope: Scope) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const now = new Date();
+  const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const riskThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  // 1. Rolling 7-day totals
+  const totalLeads7d = await db
+    .select({ count: count() })
+    .from(leads)
+    .where(and(
+      eq(leads.workspaceId, scope.workspaceId),
+      gte(leads.createdAt, last7Days)
+    ));
+
+  const handledLeads7d = await db
+    .select({ count: count() })
+    .from(leads)
+    .where(and(
+      eq(leads.workspaceId, scope.workspaceId),
+      gte(leads.createdAt, last7Days),
+      inArray(leads.status, ["contacted", "qualified", "converted"])
+    ));
+
+  const ignoredLeads7d = await db
+    .select({ count: count() })
+    .from(leads)
+    .where(and(
+      eq(leads.workspaceId, scope.workspaceId),
+      gte(leads.createdAt, last7Days),
+      eq(leads.status, "ignored")
+    ));
+
+  // 2. Late Responses (Contacted > 24h OR still New > 24h)
+  // This is a bit complex with current schema as we don't store firstContactedAt easily.
+  // We'll approximate: still 'new' > 24h is definitely late.
+  const missedLeads = await db
+    .select({ count: count() })
+    .from(leads)
+    .where(and(
+      eq(leads.workspaceId, scope.workspaceId),
+      eq(leads.status, "new"),
+      lte(leads.createdAt, riskThreshold)
+    ));
+
+  // For historically late, we'd need event tracking. 
+  // We'll count current "missed" as late for now + any marked contacted > 24h in events
+  const lateEvents = await db
+    .select({ count: count() })
+    .from(contactEvents)
+    .where(and(
+      eq(contactEvents.workspaceId, scope.workspaceId),
+      eq(contactEvents.type, "status_change"),
+      gte(contactEvents.createdAt, last7Days)
+      // Comparison with lead.createdAt would happen in a join if we had leadId in events
+    ));
+
+  // 3. At Risk by Property
+  const atRiskByProperty = await db
+    .select({
+      propertyId: leads.propertyId,
+      propertyName: properties.title,
+      count: count()
+    })
+    .from(leads)
+    .innerJoin(properties, eq(leads.propertyId, properties.id))
+    .where(and(
+      eq(leads.workspaceId, scope.workspaceId),
+      eq(leads.status, "new"),
+      lte(leads.createdAt, riskThreshold)
+    ))
+    .groupBy(leads.propertyId, properties.title);
+
+  return {
+    totalLeads7d: totalLeads7d[0].count,
+    handledLeads7d: handledLeads7d[0].count,
+    ignoredLeads7d: ignoredLeads7d[0].count,
+    missedLeads: missedLeads[0].count,
+    atRiskByProperty,
+    contactRate: totalLeads7d[0].count > 0 ? (handledLeads7d[0].count / totalLeads7d[0].count) : 0,
+  };
+}
+
+export async function getPropertyInsights(scope: Scope) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = new Date();
+  const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
+
+  // 1. Get interactions in last hour per property
+  const interactionDensity = await db
+    .select({
+      propertyId: leads.propertyId,
+      count: count()
+    })
+    .from(leads)
+    .where(and(
+      eq(leads.workspaceId, scope.workspaceId),
+      gte(leads.createdAt, lastHour)
+    ))
+    .groupBy(leads.propertyId);
+
+  // 2. Get total handles and conversions per property (all time/rolling)
+  const stats = await db
+    .select({
+      propertyId: properties.id,
+      title: properties.title,
+      totalLeads: count(leads.id),
+      contactedCount: sql<number>`count(case when ${leads.status} in ('contacted', 'qualified', 'converted') then 1 end)`,
+      dealsCount: sql<number>`count(case when ${leads.status} = 'converted' then 1 end)`,
+    })
+    .from(properties)
+    .leftJoin(leads, eq(properties.id, leads.propertyId))
+    .where(eq(properties.workspaceId, scope.workspaceId))
+    .groupBy(properties.id, properties.title);
+
+  // Calculate averages for HOT logic
+  const validInteractions = interactionDensity.filter(i => i.propertyId !== null);
+  const totalInteractionsLastHour = validInteractions.reduce((sum, i) => sum + i.count, 0);
+  const activePropertyCount = stats.length || 1;
+  const avgInteractions = totalInteractionsLastHour / activePropertyCount;
+
+  return stats.map(s => {
+    const density = interactionDensity.find(i => i.propertyId === s.propertyId)?.count || 0;
+    const isHot = density >= 2 && density >= 2 * avgInteractions;
+    
+    // Determine behavioral messages
+    let insight = "This property is performing normally.";
+    const contactRate = s.totalLeads > 0 ? (s.contactedCount / s.totalLeads) : 0;
+    const dealRate = s.totalLeads > 0 ? (s.dealsCount / s.totalLeads) : 0;
+
+    if (s.dealsCount > 5 || (s.totalLeads > 10 && dealRate > 0.2)) {
+      insight = "This property is converting well — focus here";
+    } else if (s.totalLeads > 5 && contactRate < 0.4) {
+      insight = "You are getting interest but not responding fast enough";
+    } else if (s.contactedCount > 5 && dealRate < 0.05) {
+      insight = "People are asking but not converting — price or quality may be off";
+    }
+
+    return {
+      ...s,
+      isHot,
+      insight,
+      interactionDensity: density
+    };
+  });
+}
+
+/**
+ * Hardened Lead Tracking (Patches 1, 9, 15, 21, FIX 1)
+ * Implements: 
+ * - DB Transactions with Row Locking (.forUpdate())
+ * - Dual-Identity Upsert (Strict + 2-min Fallback)
+ * - Atomic Shield (ON DUPLICATE KEY UPDATE)
+ * - Score Inflation Control (Cap at 50)
+ * - Timeline Preservation (Min createdAt, Max lastInteractionAt)
+ */
+export async function trackLeadInteraction(params: {
+  workspaceId: number;
+  propertyId: number;
+  fingerprintId: string;
+  userAgent: string;
+  source: string;
+  scoreIncrement: number;
+  leadData: any;
+  ownerUserId: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return await db.transaction(async (tx) => {
+    // Step A: Strict match (Fingerprint + Property) — keeps row lock
+    let existing = await tx
+      .select()
+      .from(leads)
+      .where(and(
+        eq(leads.workspaceId, params.workspaceId),
+        eq(leads.fingerprintId, params.fingerprintId),
+        eq(leads.propertyId, params.propertyId)
+      ))
+      .limit(1)
+      .for("update");
+
+    // Step B: Fallback match — NO row lock (PATCH 1)
+    // Adds source match to prevent shared-WiFi collisions (PATCH 3)
+    if (existing.length === 0) {
+      const twoMinsAgo = new Date(Date.now() - 2 * 60 * 1000);
+      existing = await tx
+        .select()
+        .from(leads)
+        .where(and(
+          eq(leads.workspaceId, params.workspaceId),
+          eq(leads.propertyId, params.propertyId),
+          eq(leads.source, params.source as any),
+          sql`${leads.leadData}->>'$.ua' = ${params.userAgent}`,
+          gte(leads.createdAt, twoMinsAgo)
+        ))
+        .orderBy(desc(leads.createdAt))
+        .limit(1);
+    }
+
+    const now = new Date();
+
+    if (existing.length > 0) {
+      const lead = existing[0];
+
+      // PATCH 2: Anti-spam score control — throttle rapid repeat clicks
+      const lastInteractedAt = lead.lastInteractionAt
+        ? new Date(lead.lastInteractionAt).getTime()
+        : 0;
+      const msSinceLast = Date.now() - lastInteractedAt;
+
+      let increment = params.scoreIncrement;
+      if (msSinceLast < 30000) {
+        increment = 0; // <30s: ignore spam clicks
+      } else if (msSinceLast < 120000) {
+        increment = 1; // <2min: reduced weight
+      }
+
+      const currentScore = lead.score || 0;
+      const newScore = Math.min(currentScore + increment, 50);
+
+      // Preserve earliest createdAt, take latest interaction
+      const preservedCreatedAt = lead.createdAt && lead.createdAt < now ? lead.createdAt : now;
+      const latestInteractionAt = lead.lastInteractionAt && lead.lastInteractionAt > now ? lead.lastInteractionAt : now;
+
+      await tx
+        .update(leads)
+        .set({
+          score: newScore,
+          lastInteractionAt: latestInteractionAt,
+          createdAt: preservedCreatedAt,
+          leadData: {
+            ...((lead.leadData as object) || {}),
+            ...params.leadData,
+            lastInteractionIp: "masked",
+            lastInteractionAt: now.toISOString()
+          }
+        })
+        .where(eq(leads.id, lead.id));
+
+      // Update Workspace Health Signal
+      await tx.update(workspaces).set({ lastTrackingEventAt: now }).where(eq(workspaces.id, params.workspaceId));
+
+      return { id: lead.id, type: "updated" };
+    } else {
+      // Absolute Atomic Insert (Final Safety Layer)
+      await tx.insert(leads).values({
+        userId: params.ownerUserId,
+        workspaceId: params.workspaceId,
+        propertyId: params.propertyId,
+        source: params.source as any,
+        status: "new",
+        score: params.scoreIncrement,
+        fingerprintId: params.fingerprintId,
+        lastInteractionAt: now,
+        createdAt: now,
+        leadData: {
+          ...params.leadData,
+          ua: params.userAgent
+        }
+      }).onDuplicateKeyUpdate({
+        set: {
+          score: sql`LEAST(score + ${params.scoreIncrement}, 50)`,
+          lastInteractionAt: now,
+        }
+      });
+
+      // Update Workspace Health Signal
+      await tx.update(workspaces).set({ lastTrackingEventAt: now }).where(eq(workspaces.id, params.workspaceId));
+
+      return { type: "inserted" };
+    }
+  });
 }

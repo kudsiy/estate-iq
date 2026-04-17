@@ -8,6 +8,7 @@ import {
   json,
   decimal,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/mysql-core";
 
 /**
@@ -69,7 +70,9 @@ export const workspaces = mysqlTable("workspaces", {
     .default("monthly")
     .notNull(),
   apiKey: varchar("apiKey", { length: 64 }).unique(),
+  trackingToken: varchar("trackingToken", { length: 64 }).unique(),
   socialConfig: json("socialConfig"),
+  lastTrackingEventAt: timestamp("lastTrackingEventAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -186,6 +189,8 @@ export const leads = mysqlTable("leads", {
     "tiktok",
     "manual",
     "tracking_link",
+    "call",
+    "telegram",
   ]).notNull(),
   leadData: json("leadData"),
   status: mysqlEnum("status", [
@@ -194,10 +199,18 @@ export const leads = mysqlTable("leads", {
     "qualified",
     "converted",
     "lost",
+    "ignored",
   ]).default("new"),
   score: int("score").default(0),
+  fingerprintId: varchar("fingerprintId", { length: 64 }),
+  lastInteractionAt: timestamp("lastInteractionAt").defaultNow(),
+  rawMessage: text("rawMessage"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => {
+  return [
+    uniqueIndex("leads_fingerprint_property_idx").on(table.fingerprintId, table.propertyId),
+  ];
 });
 
 export type Lead = typeof leads.$inferSelect;
@@ -390,7 +403,8 @@ export const contactEvents = mysqlTable("contactEvents", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   workspaceId: int("workspaceId").notNull(),
-  contactId: int("contactId").notNull(),
+  contactId: int("contactId"),
+  leadId: int("leadId"),
   dealId: int("dealId"),
   type: mysqlEnum("type", [
     "note",

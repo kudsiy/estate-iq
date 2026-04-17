@@ -57,44 +57,83 @@ export default function PropertyTrackingPage() {
     { uniqueId: listingId ?? "" },
     { enabled: !!listingId }
   );
+  
+  const trackMutation = trpc.tracking.trackInteraction.useMutation();
 
-  const captureMutation = trpc.crm.leads.createWithCascade.useMutation({
-    onSuccess: () => {
-      setSubmitted(true);
-      toast.success(t("status.updated"));
-    },
-    onError: (err) => {
-      toast.error(err.message || "Failed to send enquiry");
-    }
-  });
+  const handleInteraction = (source: "whatsapp" | "call") => {
+    if (!property) return;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!listingId || !property) return;
-    
     const searchParams = new URLSearchParams(window.location.search);
-    const platform = searchParams.get("platform");
-    const creativeId = searchParams.get("creativeId");
-
-    captureMutation.mutate({
+    const token = searchParams.get("token") || "";
+    
+    // LOCKED SPEC: PUBLIC TRACKING
+    const payload = {
+      token,
       propertyId: property.id,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      phone: form.phone,
-      email: form.email || null,
-      notes: form.notes || null,
-      source: "tracking_link",
-      leadData: { 
-        ...(platform ? { platform } : {}), 
-        ...(creativeId ? { creativeId } : {}) 
-      }
+      source,
+    };
+
+    const trackingUrl = "/api/trpc/tracking.trackInteraction?batch=1";
+    const body = JSON.stringify({
+      "0": { json: payload }
     });
+
+    // Layer 1: sendBeacon
+    let sent = false;
+    if (navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      sent = navigator.sendBeacon(trackingUrl, blob);
+    }
+
+    // Layer 2: keepalive fetch
+    if (!sent) {
+      fetch(trackingUrl, {
+        method: "POST",
+        body,
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+      }).catch(() => {
+        // Layer 3: localStorage Queue (FIFO, max 50, 24h)
+        try {
+          const queue = JSON.parse(localStorage.getItem("pending_tracking_events") || "[]");
+          const now = Date.now();
+          // Filter expired (>24h)
+          const validQueue = queue.filter((e: any) => now - e.timestamp < 86400000);
+          
+          validQueue.push({ ...payload, timestamp: now });
+          
+          // FIFO: drop oldest if > 50
+          if (validQueue.length > 50) validQueue.shift();
+          
+          localStorage.setItem("pending_tracking_events", JSON.stringify(validQueue));
+        } catch (e) {
+          // Device Safety: Silent self-heal
+          localStorage.removeItem("pending_tracking_events");
+        }
+      });
+    }
   };
 
   const handleWhatsApp = () => {
     if (!property) return;
-    const message = encodeURIComponent(`Hello, I'm interested in the listing "${property.title}" (ID: ${property.uniqueListingId}). Could you provide more details?`);
+    
+    // Fire and forget
+    handleInteraction("whatsapp");
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const sourceLabel = searchParams.get("sourceLabel") || `Direct Link`;
+    const sourceText = sourceLabel !== "Direct Link" ? ` | Source:${sourceLabel}` : "";
+    const message = encodeURIComponent(`I'm interested in Property ID:${property.uniqueListingId}${sourceText}`);
+    
+    // Instant redirect
     window.open(`https://wa.me/251911223344?text=${message}`, "_blank");
+  };
+
+  const handleCall = () => {
+    if (!property) return;
+    handleInteraction("call");
+    // Instant redirect
+    window.open(`tel:+251911223344`, "_self");
   };
 
   const [showHeartbeat, setShowHeartbeat] = useState(false);
@@ -380,46 +419,28 @@ export default function PropertyTrackingPage() {
                    <p className="text-accent text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Reserved Access Authorization</p>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 ml-1">Architectural Identity</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                       <Input placeholder="First" required className="bg-white/5 border-white/5 h-14 rounded-2xl text-sm italic font-bold focus:bg-white/10 transition-all px-6" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} />
-                       <Input placeholder="Last" required className="bg-white/5 border-white/5 h-14 rounded-2xl text-sm italic font-bold focus:bg-white/10 transition-all px-6" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 ml-1">Direct Connectivity</Label>
-                    <Input placeholder="+251 91..." required className="bg-white/5 border-white/5 h-14 rounded-2xl text-sm italic font-bold focus:bg-white/10 transition-all px-6" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 ml-1">Consultation Directives</Label>
-                    <Textarea 
-                      placeholder="Briefly outline your specific requirements..."
-                      className="bg-white/5 border-white/5 min-h-[140px] rounded-[32px] p-8 text-sm italic font-medium resize-none shadow-none focus:bg-white/10 transition-all"
-                      value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}
-                    />
-                  </div>
+                <div className="space-y-6 mt-8">
+                  <Button 
+                    onClick={handleWhatsApp}
+                    className="w-full bg-[#25D366] hover:bg-[#25D366]/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-[#25D366]/40 border-b-8 border-black/20 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4"
+                  >
+                    <MessageCircle className="w-6 h-6" /> 
+                    Connect on WhatsApp
+                  </Button>
 
                   <Button 
-                    className="w-full bg-accent hover:bg-accent/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/40 border-b-8 border-black/20 mt-6 active:translate-y-1 active:border-b-0 transition-all"
-                    disabled={captureMutation.isPending}
+                    onClick={handleCall}
+                    className="w-full bg-accent hover:bg-accent/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/40 border-b-8 border-black/20 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4"
                   >
-                    {captureMutation.isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : "Initiate Secure Request"}
+                    <Phone className="w-6 h-6" /> 
+                    Call Directly
                   </Button>
 
-                  <div className="flex items-center gap-6 py-4 opacity-20">
-                     <div className="h-px bg-white/50 flex-1" />
-                     <span className="text-[9px] font-black uppercase tracking-widest tracking-[0.5em]">OR</span>
-                     <div className="h-px bg-white/50 flex-1" />
-                  </div>
-
-                  <Button type="button" variant="ghost" className="w-full h-16 rounded-2xl border border-white/5 text-[10px] font-black uppercase tracking-wider gap-4 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-all text-white/40 group" onClick={handleWhatsApp}>
-                    <MessageCircle className="w-6 h-6 text-[#25D366] transition-transform group-hover:scale-110" /> Connect via Global WhatsApp
-                  </Button>
-                </form>
+                  <p className="text-center text-[10px] uppercase font-black tracking-widest text-white/30 mt-4 leading-relaxed pt-6 border-t border-white/5">
+                    Forms are slow. We prefer direct conversations.<br/>
+                    Tap above to connect with the leading agent right away.
+                  </p>
+                </div>
               </div>
             )}
           </motion.div>

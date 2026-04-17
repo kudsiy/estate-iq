@@ -12,8 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Mail, Phone, MessageCircle, Edit2, Trash2,
-  TrendingUp, Calendar, DollarSign, Tag, User, Save, X, MapPin, Home, Activity
+  TrendingUp, Calendar, DollarSign, Tag, User, Save, X, MapPin, Home, Activity, Flame, ShieldCheck,
 } from "lucide-react";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
@@ -23,6 +22,7 @@ const STATUS_META: Record<string, { bg: string; text: string }> = {
   inactive:  { bg: "bg-gray-100 dark:bg-gray-800",       text: "text-gray-600 dark:text-gray-400"   },
   converted: { bg: "bg-blue-50 dark:bg-blue-900/20",   text: "text-blue-700 dark:text-blue-400"   },
   lost:      { bg: "bg-red-50 dark:bg-red-900/20",      text: "text-red-600 dark:text-red-400"    },
+  ignored:   { bg: "bg-orange-50 dark:bg-orange-900/20",  text: "text-orange-600 dark:text-orange-400" },
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -71,48 +71,67 @@ export default function ContactDetail() {
   const [, setLocation] = useLocation();
   const { t } = useLanguage();
   const { theme } = useTheme();
-  const id = Number(params.id);
+  const isLeadView = params.id?.startsWith("lead:");
+  const leadIdNum = isLeadView ? Number(params.id?.split(":")[1]) : null;
 
-  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
-
-  const [editing, setEditing] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [noteText, setNoteText] = useState("");
-  const [editForm, setEditForm] = useState<any>(null);
-
-  const { data: contact, refetch } = trpc.crm.contacts.getById.useQuery(id, {
+  const { data: contact, refetch: refetchContact } = trpc.crm.contacts.getById.useQuery(id, {
+    enabled: !!id && !isLeadView,
     onSuccess: (data: any) => {
       if (data && !editForm) setEditForm({ ...data });
       if (data) setNoteText(data.notes ?? "");
     },
   } as any);
 
+  const { data: leadRaw, refetch: refetchLead } = trpc.crm.leads.getById.useQuery(leadIdNum!, {
+    enabled: !!leadIdNum && isLeadView,
+  });
+
+  // Polyfill lead for detail view
+  const entity = useMemo(() => {
+    if (contact) return { ...contact, entityType: "contact" };
+    if (leadRaw) {
+      const data = (leadRaw.leadData ?? {}) as any;
+      return {
+        ...leadRaw,
+        firstName: data.firstName || "New",
+        lastName: data.lastName || "Lead",
+        email: data.email,
+        phone: data.phone,
+        whatsappNumber: data.phone,
+        entityType: "lead",
+        status: leadRaw.status,
+      };
+    }
+    return null;
+  }, [contact, leadRaw]);
+
   const { data: allDeals = [] }   = trpc.crm.deals.list.useQuery();
   const { data: properties = [] } = trpc.crm.properties.list.useQuery();
   const { data: allLeads = [] }   = trpc.crm.leads.list.useQuery();
-  const { data: contactEvents = [], refetch: refetchEvents } = trpc.crm.contacts.listEvents.useQuery(id);
+  const { data: contactEvents = [], refetch: refetchEvents } = trpc.crm.contacts.listEvents.useQuery(id, { enabled: !!id && !isLeadView });
 
   const contactDeals = allDeals.filter((d) => d.contactId === id);
   const contactLeads = allLeads.filter((lead) => lead.contactId === id);
 
-  const updateMutation = trpc.crm.contacts.update.useMutation({
-    onSuccess: () => { toast.success("Contact updated"); setEditing(false); refetch(); refetchEvents(); },
-    onError:   () => toast.error("Update failed"),
-  });
-  const deleteMutation = trpc.crm.contacts.delete.useMutation({
-    onSuccess: () => { toast.success("Contact deleted"); setLocation("/crm/contacts"); },
-    onError:   () => toast.error("Delete failed"),
-  });
-  const saveNotes = trpc.crm.contacts.update.useMutation({
-    onSuccess: () => { toast.success("Notes saved"); refetch(); refetchEvents(); },
-    onError:   () => toast.error("Save failed"),
+  const updateLeadMutation = trpc.crm.leads.update.useMutation({
+    onSuccess: (data, vars) => {
+      if (vars.data.status === "contacted") {
+        toast.success("Good job!", { description: "Fast follow-up increases your chance of closing this deal." });
+      } else {
+        toast.success("Lead updated");
+      }
+      refetchContact();
+      refetchLead();
+      refetchEvents();
+    },
+    onError: () => toast.error("Update failed"),
   });
 
-  if (!contact) {
+  if (!entity) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-          Loading contact…
+        <div className="flex items-center justify-center h-64 text-muted-foreground text-sm font-black uppercase tracking-widest opacity-40">
+          Loading {isLeadView ? "lead" : "contact"}…
         </div>
       </DashboardLayout>
     );
@@ -127,8 +146,16 @@ export default function ContactDetail() {
     return subscription.workspace.subscriptionStatus === 'trialing' && endsAt < new Date();
   }, [subscription]);
 
-  const status = STATUS_META[contact.status ?? "active"];
-  const initials = `${contact.firstName[0]}${contact.lastName[0]}`.toUpperCase();
+  const status = STATUS_META[entity.status ?? "active"];
+  const initials = `${entity.firstName?.[0] || "L"}${entity.lastName?.[0] || "E"}`.toUpperCase();
+
+  const handleUpdateStatus = (newStatus: string) => {
+    if (isLeadView && leadIdNum) {
+      updateLeadMutation.mutate({ id: leadIdNum, data: { status: newStatus as any } });
+    } else {
+      updateMutation.mutate({ id, data: { status: newStatus as any } });
+    }
+  };
 
   const handleSave = () => {
     if (!editForm) return;
@@ -185,6 +212,38 @@ export default function ContactDetail() {
 
   return (
     <DashboardLayout>
+      {/* Urgency Banner */}
+      {entity.status === "new" && (
+        <div className="mb-6 p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <Flame className="w-5 h-5 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-foreground tracking-tight underline decoration-orange-500/30">⚠️ This lead is not marked yet</p>
+              <p className="text-[11px] text-muted-foreground font-medium">Respond immediately to build trust and increase conversion.</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              className="bg-accent hover:bg-accent/90 text-white rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest"
+              onClick={() => handleUpdateStatus("contacted")}
+            >
+              Mark as Contacted
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="rounded-xl px-4 py-2 font-black text-[10px] uppercase tracking-widest hover:bg-orange-500/10 border-orange-500/20"
+              onClick={() => handleUpdateStatus("ignored")}
+            >
+              Ignore
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Back nav */}
       <button onClick={() => setLocation("/crm/contacts")}
         className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors font-medium">

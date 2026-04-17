@@ -108,6 +108,9 @@ export default function DealPipeline() {
     notes: "",
   });
 
+  const [pendingCloseDealId, setPendingCloseDealId] = useState<number | null>(null);
+  const [pendingCloseValue, setPendingCloseValue] = useState("");
+
 
 
   const { data: deals, refetch } = trpc.crm.deals.list.useQuery();
@@ -238,11 +241,34 @@ export default function DealPipeline() {
 
     const deal = deals?.find((d) => d.id === dealId);
     if (deal && deal.stage !== newStage) {
+      handleStageChange(dealId, newStage);
+    }
+  };
+
+  const handleStageChange = useCallback((dealId: number, targetStage: string) => {
+    if (targetStage === "closed") {
+      const deal = deals?.find(d => d.id === dealId);
+      setPendingCloseValue(deal?.value ? String(deal.value) : "");
+      setPendingCloseDealId(dealId);
+    } else {
       updateMutation.mutate({
         id: dealId,
-        data: { stage: newStage as "lead" | "contacted" | "viewing" | "offer" | "closed" },
+        data: { stage: targetStage as any },
       });
     }
+  }, [deals, updateMutation]);
+
+  const submitCloseDeal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingCloseDealId) return;
+    updateMutation.mutate({
+      id: pendingCloseDealId,
+      data: { 
+        stage: "closed", 
+        value: pendingCloseValue ? Number(pendingCloseValue) : undefined 
+      }
+    });
+    setPendingCloseDealId(null);
   };
 
   const handleWhatsApp = (contact: any, property?: any) => {
@@ -599,6 +625,43 @@ export default function DealPipeline() {
         </DndContext>
       </div>
 
+      {/* ── Revenue Attribution Modal ──────────────────────────────────────────── */}
+      <Dialog open={!!pendingCloseDealId} onOpenChange={(open) => !open && setPendingCloseDealId(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="w-5 h-5" />
+              Close Deal
+            </DialogTitle>
+            <DialogDescription>
+              Congratulations on closing this deal! Please confirm the final deal value.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitCloseDeal} className="space-y-4 pt-4">
+            <div>
+              <Label htmlFor="close-value">Final Deal Value (ETB)</Label>
+              <Input
+                id="close-value"
+                type="number"
+                value={pendingCloseValue}
+                onChange={(e) => setPendingCloseValue(e.target.value)}
+                placeholder="0"
+                required
+                className="mt-2 text-lg font-bold"
+              />
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => setPendingCloseDealId(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? "Saving..." : "Confirm & Close"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Deal detail modal ──────────────────────────────────────────── */}
       {selectedDealId && (() => {
         const deal = deals?.find((d) => d.id === selectedDealId);
@@ -649,7 +712,7 @@ export default function DealPipeline() {
                     <p className="text-xs text-muted-foreground mb-1">Stage</p>
                     <Select
                       value={deal.stage ?? "lead"}
-                      onValueChange={(v) => updateMutation.mutate({ id: deal.id, data: { stage: v as "lead" | "contacted" | "viewing" | "offer" | "closed" } })}
+                      onValueChange={(v) => handleStageChange(deal.id, v)}
                     >
                       <SelectTrigger className="h-8 text-sm border-0 bg-transparent p-0 font-medium">
                         <SelectValue />
@@ -760,26 +823,26 @@ export default function DealPipeline() {
                     </h4>
                     {deal.stage === "lead" && (
                       <Button className="w-full justify-start gap-2 h-9 text-sm font-medium" variant="outline"
-                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "contacted" } })}>
+                        onClick={() => handleStageChange(deal.id, "contacted")}>
                         <MessageCircle className="w-4 h-4 text-blue-500" /> Mark as Contacted
                       </Button>
                     )}
                     {deal.stage === "contacted" && (
                       <Button className="w-full justify-start gap-2 h-9 text-sm font-medium" variant="outline"
-                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "viewing" } })}>
+                        onClick={() => handleStageChange(deal.id, "viewing")}>
                         <Calendar className="w-4 h-4 text-purple-500" /> Schedule Property Viewing
                       </Button>
                     )}
                     {deal.stage === "viewing" && (
                       <Button className="w-full justify-start gap-2 h-9 text-sm font-medium" variant="outline"
-                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "offer" } })}>
+                        onClick={() => handleStageChange(deal.id, "offer")}>
                         <DollarSign className="w-4 h-4 text-orange-500" /> Log Offer Received
                       </Button>
                     )}
                     {deal.stage === "offer" && (
                       <Button className="w-full justify-start gap-2 h-9 text-sm font-medium bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
                         variant="outline"
-                        onClick={() => updateMutation.mutate({ id: deal.id, data: { stage: "closed" } })}>
+                        onClick={() => handleStageChange(deal.id, "closed")}>
                         <CheckCircle className="w-4 h-4 text-green-600" /> Finalize Handover & Close
                       </Button>
                     )}

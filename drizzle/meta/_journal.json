@@ -57,6 +57,20 @@
       "when": 1775513537568,
       "tag": "0007_easy_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1776278699104,
+      "tag": "0008_melted_prodigy",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1776371334947,
+      "tag": "0009_violet_sunspot",
+      "breakpoints": true
     }
   ]
 }
