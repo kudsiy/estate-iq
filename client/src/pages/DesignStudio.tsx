@@ -192,7 +192,12 @@ export default function DesignStudio() {
     setIsCaptionLoading(true);
     try {
       const result = generateCaption(listing as any, brandData as any);
-      setCaption(result);
+      const trackingLink = `${window.location.origin}/l/${user?.id || 0}/${contextId || 123}?platform=manual&sourceLabel=Studio_Manual_${contextId || 123}`;
+      const forcedCTA = `📞 Call or WhatsApp now: ${brandData.whatsappNumber || brandData.phoneNumber || ""} — Ref: ${contextId || "N/A"}`;
+      
+      const combinedWithTracking = `${result.combined}\n\n${forcedCTA}\n🔗 View Details: ${trackingLink}`;
+      setCaption({ ...result, combined: combinedWithTracking });
+      
       if (contextId) tiktokMutation.mutate({ propertyId: parseInt(contextId) });
       toast.success("Captions ready!");
     } catch { toast.error("Caption failed"); }
@@ -201,8 +206,10 @@ export default function DesignStudio() {
 
   const handleQueueTikTok = () => {
     if (!tiktokPack || !contextId || !user) return;
-    const trackingLink = `${window.location.origin}/l/${user.id}/${contextId}?platform=tiktok`;
-    const finalContent = `${tiktokPack.hook}\n\n${tiktokPack.description}\n\n🔗 View Details: ${trackingLink}\n\n${tiktokPack.hashtags.join(" ")}`;
+    const trackingLink = `${window.location.origin}/l/${user.id}/${contextId}?platform=tiktok&sourceLabel=Studio_TikTok_${contextId}`;
+    const phone = brandData?.whatsappNumber || brandData?.phoneNumber || "";
+    const forcedCTA = `📞 Call or WhatsApp now: ${phone} — Ref: ${contextId}`;
+    const finalContent = `${tiktokPack.hook}\n\n${tiktokPack.description}\n\n${forcedCTA}\n🔗 View Details: ${trackingLink}\n\n${tiktokPack.hashtags.join(" ")}`;
     socialMutation.mutate({
       platform: "tiktok", platforms: ["tiktok"],
       content: finalContent,
@@ -236,7 +243,7 @@ export default function DesignStudio() {
           { time: "8-12s", action: "Feature highlight: " + (listing.finishingLevel || "finishing"), text: listing.description?.slice(0, 60) || "Luxury finishing throughout" },
           { time: "12-15s", action: "CTA with brand logo", text: `📞 ${brandData.phoneNumber || "Contact Us"} — ${listing.price ? "ETB " + listing.price : "Price Available"}` },
         ],
-        caption: `${listing.title || "Premium Property"} | ${listing.subcity || "Addis Ababa"} | ETB ${listing.price || "POA"}\n\n${listing.description || "Contact for details"}\n\n📞 ${brandData.phoneNumber}\n📍 ${listing.subcity}`,
+        caption: `${listing.title || "Premium Property"} | ${listing.subcity || "Addis Ababa"} | ETB ${listing.price || "POA"}\n\n${listing.description || "Contact for details"}\n\n📞 Call or WhatsApp now: ${brandData.whatsappNumber || brandData.phoneNumber || ""} — Ref: ${contextId || "N/A"}\n🔗 View Details: ${window.location.origin}/l/${user?.id || 0}/${contextId || 123}?platform=${platform}&sourceLabel=Studio_${platform}_${contextId || 123}\n📍 ${listing.subcity}`,
         format: fmt,
         hashtags: [`#AddisAbaba`, `#EthiopiaRealEstate`, `#${listing.subcity || "Bole"}Property`, `#${listing.propertyType || "Apartment"}`, `#EstateIQ`, `#${platform}`],
       });
@@ -557,23 +564,23 @@ export default function DesignStudio() {
             {/* ══ AD PREVIEW ══ */}
             {mode === "create-ad" && (
               <>
-                <div style={glassStyle} className="p-10 border-0 flex items-center justify-center min-h-[600px]">
-                  {generatedImageUrl ? (
-                    <div className="relative animate-in fade-in zoom-in duration-700 max-w-[500px] w-full">
-                      <img src={generatedImageUrl} className="w-full rounded-2xl shadow-2xl ring-1 ring-white/10" />
-                      <div className="absolute top-4 right-4 flex gap-2">
-                        <Button size="icon" className="w-10 h-10 rounded-xl bg-accent text-white hover:scale-105 transition-transform" onClick={() => { const a = document.createElement("a"); a.href = generatedImageUrl; a.download = "estate-iq-ad.png"; a.click(); }}>
-                          <Download className="w-5 h-5" />
-                        </Button>
-                      </div>
+                <div style={glassStyle} className="p-10 border-0 flex items-center justify-center min-h-[600px] overflow-hidden relative">
+                  {/* Live Rendered Preview */}
+                  <div className="relative shadow-2xl rounded-none ring-1 ring-white/10 bg-background" style={{ width: 1080 * 0.4, height: 1350 * 0.4, overflow: "hidden" }}>
+                    <div className="pointer-events-none" style={{ width: 1080, height: 1350, transform: "scale(0.4)", transformOrigin: "top left" }}>
+                      {(() => {
+                        const Tpl = LISTING_TEMPLATES.find(x => x.id === selectedTemplateId)?.component || LISTING_TEMPLATES[0].component;
+                        return <Tpl data={{ ...listing, location: t(`subcity.${listing.subcity}`) || listing.subcity, image: listing.imageUrl } as any} brand={brandData as any} />;
+                      })()}
                     </div>
-                  ) : (
-                    <div className="w-[400px] aspect-[4/5] bg-background/40 rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 text-center border border-dashed border-border/50 group">
-                      <div className="w-20 h-20 rounded-3xl bg-accent/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <Eye className="w-10 h-10 text-accent/30" />
-                      </div>
-                      <p className="text-xl font-black text-foreground mb-2">Live Canvas</p>
-                      <p className="text-sm text-muted-foreground font-medium max-w-[280px]">Fill the property details on the left and click Generate to create your premium ad.</p>
+                  </div>
+
+                  {/* Overlaid Download Button if Generated */}
+                  {generatedImageUrl && (
+                    <div className="absolute top-12 right-12 flex gap-2">
+                      <Button size="icon" className="w-10 h-10 rounded-xl bg-accent text-white hover:scale-105 shadow-xl transition-transform" onClick={() => { const a = document.createElement("a"); a.href = generatedImageUrl; a.download = "estate-iq-ad.png"; a.click(); }}>
+                        <Download className="w-5 h-5" />
+                      </Button>
                     </div>
                   )}
 

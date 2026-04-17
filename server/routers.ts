@@ -12,6 +12,7 @@ import {
 } from "./_core/trpc";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { createHash } from "crypto";
 import { registerRoute, isRegistered, getMock } from "./_core/studio_registry";
 
 // Register real AI handlers
@@ -88,6 +89,9 @@ import {
   updateSupplierListing,
   updateUserProfile,
   updateWorkspace,
+  getPropertyInsights,
+  getWorkspaceByTrackingToken,
+  getLeadByFingerprintId,
 } from "./db";
 
 const platformEnum = z.enum(["telegram", "facebook", "instagram", "tiktok"]);
@@ -140,6 +144,49 @@ const atLeastOne = <T extends z.ZodRawShape>(shape: T) =>
     .refine(data => Object.keys(data).length > 0, {
       message: "At least one field is required",
     });
+
+// ── Hardened Tracking Protection ──────────────────────────────────────────
+
+const trackingRateLimit = new Map<string, { count: number; lastReset: number }>();
+const duplicateWindow = new Map<string, number>();
+
+function isRateLimited(ip: string, ua: string): boolean {
+  const key = `rl_${ip}_${ua}`;
+  const now = Date.now();
+  const limit = trackingRateLimit.get(key);
+  if (!limit || now - limit.lastReset > 60000) {
+    trackingRateLimit.set(key, { count: 1, lastReset: now });
+    return false;
+  }
+  if (limit.count >= 10) return true;
+  limit.count++;
+  return false;
+}
+
+function isDuplicate(ip: string, propertyId: number): boolean {
+  const key = `dup_${ip}_${propertyId}`;
+  const now = Date.now();
+  const last = duplicateWindow.get(key);
+  if (last && now - last < 10000) return true;
+  duplicateWindow.set(key, now);
+  
+  // Cleanup old entries occasionally
+  if (duplicateWindow.size > 5000) {
+    const threshold = now - 10000;
+    for (const [k, v] of duplicateWindow.entries()) {
+      if (v < threshold) duplicateWindow.delete(k);
+    }
+  }
+  return false;
+}
+
+function generateFingerprint(ip: string, ua: string, propertyId: number): string {
+  const hourBucket = Math.floor(Date.now() / 3600000);
+  return createHash("sha256")
+    .update(`${ip}-${ua}-${propertyId}-${hourBucket}`)
+    .digest("hex")
+    .slice(0, 32);
+}
 
 const contactUpdateSchema = atLeastOne({
   firstName: z.string().trim().min(1),
@@ -222,10 +269,12 @@ const leadInputSchema = z.object({
     "tiktok",
     "manual",
     "tracking_link",
+    "call",
+    "telegram"
   ]),
   leadData: z.record(z.string(), z.unknown()).optional(),
   status: z
-    .enum(["new", "contacted", "qualified", "converted", "lost"])
+    .enum(["new", "contacted", "qualified", "converted", "lost", "ignored"])
     .optional(),
   score: z.number().int().min(0).max(100).optional(),
 });
@@ -235,7 +284,7 @@ const leadUpdateSchema = atLeastOne({
   propertyId: z.number().int().positive().nullable(),
   convertedDealId: z.number().int().positive().nullable(),
   leadData: z.record(z.string(), z.unknown()),
-  status: z.enum(["new", "contacted", "qualified", "converted", "lost"]),
+  status: z.enum(["new", "contacted", "qualified", "converted", "lost", "ignored"]),
   score: z.number().int().min(0).max(100),
 });
 
@@ -1281,6 +1330,76 @@ export const appRouter = router({
       }),
   }),
 
+  tracking: router({
+    trackInteraction: publicProcedure
+      .input(z.object({
+        actionType: z.enum(["whatsapp_click", "call_click"]),
+        propertyId: z.number().int().positive(),
+        token: z.string(),
+        sourceId: z.string().optional(),
+        platform: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const ip = ctx.req.ip || ctx.req.headers["x-forwarded-for"]?.toString() || "unknown";
+        const ua = ctx.req.headers["user-agent"] || "unknown";
+
+        // 1. Rate Limiting (Soft)
+        if (isRateLimited(ip, ua)) return { success: true, limited: true };
+
+        // 2. Duplicate Suppression
+        if (isDuplicate(ip, input.propertyId)) return { success: true, duplicate: true };
+
+        // 3. Token Resolution
+        const workspace = await getWorkspaceByTrackingToken(input.token);
+        if (!workspace) return { success: true, invalid: true };
+
+        const property = await getPropertyById({ workspaceId: workspace.id, userId: workspace.ownerUserId }, input.propertyId);
+        if (!property) return { success: true, invalidProperty: true };
+
+        const fingerprintId = generateFingerprint(ip, ua);
+        const sourceMap = {
+          "whatsapp_click": "whatsapp" as const,
+          "call_click": "call" as const,
+        };
+        const scoreMap = {
+          "whatsapp_click": 7,
+          "call_click": 6,
+        };
+
+        // 4. Lead Capture / Update logic
+        const existingLead = await getLeadByFingerprintId(workspace.id, fingerprintId);
+
+        if (existingLead && existingLead.status === "new") {
+          await updateLead({ workspaceId: workspace.id, userId: workspace.ownerUserId }, existingLead.id, {
+            score: (existingLead.score || 0) + scoreMap[input.actionType],
+            lastInteractionAt: new Date(),
+          });
+          return { success: true, updated: true };
+        }
+
+        await createLead({
+          userId: workspace.ownerUserId,
+          workspaceId: workspace.id,
+          propertyId: input.propertyId,
+          source: sourceMap[input.actionType],
+          status: "new",
+          score: scoreMap[input.actionType],
+          fingerprintId,
+          lastInteractionAt: new Date(),
+          leadData: { 
+            action: input.actionType,
+            sourceId: input.sourceId,
+            platform: input.platform || "manual",
+            ua,
+            ip: "masked", // Privacy
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        return { success: true };
+      }),
+  }),
+
   crm: router({
     contacts: router({
       list: protectedProcedure.query(async ({ ctx }) => {
@@ -1634,7 +1753,9 @@ export const appRouter = router({
             });
 
           const uniqueId = nanoid(10);
-          const trackingLink = `https://app.estateiq.et/l/${ctx.user.id}/${uniqueId}`;
+          const workspace = await getWorkspaceById(scope.workspaceId);
+          const token = workspace?.trackingToken || "";
+          const trackingLink = `https://app.estateiq.et/l/${ctx.user.id}/${uniqueId}?token=${token}`;
 
           await updateProperty(scope, input.id, {
             uniqueListingId: uniqueId,
@@ -1694,20 +1815,81 @@ export const appRouter = router({
         }),
       update: mutatingProcedure
         .input(
-          z.object({ id: z.number().int().positive(), data: leadUpdateSchema })
+          z.object({ id: z.number().int().positive(), status: z.enum(["new", "contacted", "qualified", "converted", "lost", "ignored"]).optional(), leadData: z.record(z.string(), z.unknown()).optional(), score: z.number().int().min(0).max(100).optional() })
         )
         .mutation(async ({ ctx, input }) => {
-          const updated = await updateLead(
-            getScope(ctx.user),
-            input.id,
-            input.data
-          );
+          const scope = getScope(ctx.user);
+          const existing = await getLeadById(scope, input.id);
+          if (!existing)
+            throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found" });
+
+          const prevStatus = existing.status;
+          const newStatus = input.status;
+
+          // ── Tiered Confidence Scoring (Patches 8 & 10 & FIX 2) ──────────────
+          let contactConfidence: "strong" | "medium" | "weak" | undefined;
+          let updatedLeadData = { ...((existing.leadData as object) || {}), ...(input.leadData || {}) } as any;
+
+          if (newStatus === "contacted" && prevStatus !== "contacted") {
+            // Check if real interaction was tracked (source is whatsapp or call)
+            const hasTrackedInteraction = existing.source === "whatsapp" || existing.source === "call";
+            const hasNote = !!(input.leadData?.triageNote || updatedLeadData?.triageNote);
+
+            if (hasTrackedInteraction) {
+              contactConfidence = "strong";
+            } else if (hasNote) {
+              contactConfidence = "medium";
+            } else {
+              contactConfidence = "weak";
+              // Sliding 24h window accumulation (Patch FIX 2)
+              const window24h = 24 * 60 * 60 * 1000;
+              const now = Date.now();
+              const rawSuspect = updatedLeadData?.weakContactHistory as Array<number> | undefined;
+              const recentWeakActions = (rawSuspect || []).filter((t: number) => now - t < window24h);
+              recentWeakActions.push(now); // Add current action
+
+              updatedLeadData.weakContactHistory = recentWeakActions;
+
+              // Flag as suspicious if 5+ weak actions in 24h (sliding window)
+              if (recentWeakActions.length >= 5) {
+                updatedLeadData.isSuspicious = true;
+                updatedLeadData.suspiciousFlaggedAt = new Date().toISOString();
+              }
+
+              // PATCH 6: Ratio-based detection — catches spread-over-time gaming
+              const totalActions = (updatedLeadData.contactActions?.length || 0) + 1;
+              const totalWeak = recentWeakActions.length;
+              if (totalActions > 10 && totalWeak / totalActions > 0.6) {
+                updatedLeadData.isSuspicious = true;
+                updatedLeadData.suspiciousFlaggedAt = new Date().toISOString();
+              }
+            }
+
+            if (contactConfidence) {
+              updatedLeadData.contactConfidence = contactConfidence;
+            }
+          }
+
+          const updated = await updateLead(scope, input.id, {
+            ...(input.status && { status: input.status }),
+            ...(input.score !== undefined && { score: Math.min(input.score, 50) }),
+            leadData: updatedLeadData,
+          });
+
           if (!updated)
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Lead not found",
+            throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found" });
+
+          if (newStatus && prevStatus !== newStatus) {
+            await createContactEvent({
+              userId: ctx.user.id,
+              workspaceId: scope.workspaceId,
+              leadId: input.id,
+              type: "status_change",
+              label: `Lead status updated to ${newStatus}`,
+              metadata: { old: prevStatus, new: newStatus, confidence: contactConfidence },
             });
-          return { success: true } as const;
+          }
+          return { success: true, contactConfidence } as const;
         }),
       delete: mutatingProcedure
         .input(z.number().int().positive())
@@ -1943,6 +2125,15 @@ export const appRouter = router({
 
           return { success: true, leadId, contactId, dealId };
         }),
+
+      analytics: router({
+        getBehavioralStats: protectedProcedure.query(async ({ ctx }) => {
+          return getBehavioralStats(getScope(ctx.user));
+        }),
+        getPropertyInsights: protectedProcedure.query(async ({ ctx }) => {
+          return getPropertyInsights(getScope(ctx.user));
+        }),
+      }),
     }),
     public: router({
       getProperty: publicProcedure
@@ -2665,6 +2856,52 @@ Use ETB as the default currency for Ethiopia.`;
           return generateCaption(listing, brandData);
         }),
     }),
+  }),
+  tracking: router({
+    trackInteraction: publicProcedure
+      .input(
+        z.object({
+          token: z.string(),
+          propertyId: z.number(),
+          source: z.enum(["whatsapp", "call"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const workspace = await getWorkspaceByTrackingToken(input.token);
+          if (!workspace) return { success: true };
+
+          const ip = (ctx.req.headers["x-forwarded-for"]?.toString() || ctx.req.ip || "unknown").split(",")[0].trim();
+          const ua = ctx.req.headers["user-agent"] || "unknown";
+
+          if (isRateLimited(ip, ua)) return { success: true };
+          if (isDuplicate(ip, input.propertyId)) return { success: true };
+
+          const fingerprintId = generateFingerprint(ip, ua, input.propertyId);
+          const scoreMap = { whatsapp: 7, call: 6 };
+
+          const { trackLeadInteraction } = await import("./db.js");
+          await trackLeadInteraction({
+            workspaceId: workspace.id,
+            propertyId: input.propertyId,
+            fingerprintId,
+            userAgent: ua,
+            source: input.source,
+            scoreIncrement: scoreMap[input.source],
+            ownerUserId: workspace.ownerUserId,
+            leadData: {
+              action: `${input.source}_click`,
+              ip: "masked",
+              ua,
+              timestamp: new Date().toISOString(),
+            },
+          });
+
+          return { success: true };
+        } catch {
+          return { success: true };
+        }
+      }),
   }),
 });
 

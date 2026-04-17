@@ -104,7 +104,7 @@ function PhotoStrip({ photos, onChange, theme }: { photos: string[]; onChange: (
 
 // ── Property Card ─────────────────────────────────────────────────────────────
 
-function PropertyCard({ property, onEdit, onDelete, leadCount, t, glassStyle }: { property: any; onEdit: () => void; onDelete: () => void; leadCount: number; t: any; glassStyle: any }) {
+function PropertyCard({ property, onEdit, onDelete, leads, deals, t, glassStyle }: { property: any; onEdit: () => void; onDelete: () => void; leads: any[]; deals: any[]; t: any; glassStyle: any }) {
   const photos = (property.photos as string[]) || [];
   const status = STATUS_META[property.status as PropertyStatus] || STATUS_META.available;
 
@@ -174,17 +174,44 @@ function PropertyCard({ property, onEdit, onDelete, leadCount, t, glassStyle }: 
            </div>
         </div>
 
-        <div className="mt-auto pt-4 border-t border-border/40 flex items-center justify-between">
-           <div className="text-lg font-black text-accent tracking-tight">
-             {formatETB(property.price)}
+        <div className="mt-4 pt-4 border-t border-border/40">
+           {/* Funnel Visibility */}
+           <div className="grid grid-cols-4 gap-1 mb-3">
+             <div className="flex flex-col items-center">
+               <span className="text-[14px] font-black">{leads.length}</span>
+               <span className="text-[8px] uppercase tracking-widest text-muted-foreground text-center">Interactions</span>
+             </div>
+             <div className="flex flex-col items-center">
+               <span className="text-[14px] font-black">{leads.filter(l => ['contacted', 'qualified', 'converted'].includes(l.status)).length}</span>
+               <span className="text-[8px] uppercase tracking-widest text-muted-foreground text-center">Contacted</span>
+             </div>
+             <div className="flex flex-col items-center">
+               <span className="text-[14px] font-black">{leads.filter(l => ['qualified', 'converted'].includes(l.status)).length}</span>
+               <span className="text-[8px] uppercase tracking-widest text-muted-foreground text-center">Qualified</span>
+             </div>
+             <div className="flex flex-col items-center">
+               <span className="text-[14px] font-black text-green-600">{deals.filter(d => d.stage === 'closed').length}</span>
+               <span className="text-[8px] uppercase tracking-widest text-muted-foreground text-center">Closed</span>
+             </div>
            </div>
-           <div className="flex items-center -space-x-2">
-              <div className="w-7 h-7 rounded-full bg-accent/20 border border-background flex items-center justify-center text-[10px] font-black text-accent">
-                {leadCount}
-              </div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground pl-3">
-                {t("dash.activeLeads")}
-              </div>
+           
+           {/* Platform Breakdown */}
+           <div className="flex gap-1.5 flex-wrap">
+             {Object.entries(leads.reduce((acc, l) => { 
+                const plat = (l.source === 'tracking_link' ? (l.leadData?.platform || 'link') : l.source); 
+                acc[plat] = (acc[plat] || 0) + 1; 
+                return acc; 
+              }, {} as Record<string, number>)).map(([p, count]) => (
+                <span key={p} className="text-[8px] px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase font-bold tracking-wider">
+                  {p}: {count}
+                </span>
+              ))}
+           </div>
+           
+           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/20">
+             <div className="text-lg font-black text-accent tracking-tight">
+               {formatETB(property.price)}
+             </div>
            </div>
         </div>
       </div>
@@ -208,6 +235,7 @@ export default function PropertiesPage() {
 
   const { data: properties = [], refetch } = trpc.crm.properties.list.useQuery();
   const { data: leads = [] } = trpc.crm.leads.list.useQuery();
+  const { data: deals = [] } = trpc.crm.deals.list.useQuery();
 
   const createMutation = trpc.crm.properties.create.useMutation({
     onSuccess: () => { toast.success("Property added!"); setModalOpen(false); refetch(); },
@@ -340,7 +368,8 @@ export default function PropertiesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filtered.map((p) => (
               <PropertyCard key={p.id} property={p} t={t} glassStyle={glassStyle}
-                leadCount={leads.filter((l) => l.propertyId === p.id).length}
+                leads={leads.filter((l) => l.propertyId === p.id)}
+                deals={deals.filter((d) => d.propertyId === p.id)}
                 onEdit={() => setEditTarget({ ...p, initialForm: { ...p, price: p.price ? String(p.price) : "", bedrooms: String(p.bedrooms||""), bathrooms: String(p.bathrooms||""), squareFeet: String(p.squareFeet||""), photos: (p.photos as any) || [] } })}
                 onDelete={() => { if (confirm("Delete property?")) deleteMutation.mutate(p.id); }} />
             ))}

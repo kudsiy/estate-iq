@@ -8,10 +8,10 @@ import {
   PieChart, Pie, Cell,
   BarChart, Bar, Legend,
 } from "recharts";
-import { Target, TrendingUp, DollarSign, Sparkles, Activity, Users, Home, Inbox, Bell, LayoutGrid } from "lucide-react";
-import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
+import { toast } from "sonner";
+import { Flame, ShieldCheck, AlertCircle, Info, TrendingDown, BellIcon } from "lucide-react";
 import { UsageProgress } from "@/components/UsageProgress";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -72,10 +72,16 @@ export default function Dashboard() {
   const { data: supplierListings = [] }= trpc.supplierFeed.list.useQuery();
   const { data: buyerProfiles = [] }   = trpc.matching.profiles.list.useQuery();
   const { data: subscription }         = trpc.subscription.current.useQuery();
+  const { data: leads = [] }           = trpc.crm.leads.list.useQuery();
+  const { data: stats }                = trpc.crm.analytics.getBehavioralStats.useQuery();
+
+  // Behavioral Alert Logic
+  const topCriticalProp = stats?.atRiskByProperty?.sort((a, b) => b.count - a.count)[0];
 
   const activeLeads        = contacts.filter((c) => c.status === "active").length;
   const closedDeals        = deals.filter((d) => d.stage === "closed").length;
-  const totalDealValue     = deals.reduce((s, d) => s + (Number(d.value) || 0), 0);
+  const unhandledLeads     = leads.filter((l) => l.status === "new").length;
+  const totalDealValue     = deals.filter((d) => d.stage === "closed").reduce((s, d) => s + (Number(d.value) || 0), 0);
   const unreadNotifications= notifications.filter((n) => !n.isRead).length;
   const supplierNeedsReview= supplierListings.filter((i) => i.status === "new").length;
 
@@ -83,6 +89,30 @@ export default function Dashboard() {
     const stages = ["lead","contacted","viewing","offer","closed"] as const;
     return stages.map((s) => ({ name: s.charAt(0).toUpperCase() + s.slice(1), value: deals.filter((d) => d.stage === s).length, color: STAGE_COLORS[s] })).filter((s) => s.value > 0);
   }, [deals]);
+
+  const todaysActivities = useMemo(() => {
+    const today = new Date();
+    const isToday = (d: Date) => d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+    
+    const leadsToday = leads.filter(l => isToday(new Date(l.createdAt)));
+    const whatsappClicks = leadsToday.filter(l => l.source === 'whatsapp').length;
+    const telegramClicks = leadsToday.filter(l => l.source === 'telegram').length;
+    const callClicks = leadsToday.filter(l => l.source === 'call').length;
+    const otherClicks = leadsToday.filter(l => !['whatsapp', 'call', 'telegram'].includes(l.source)).length;
+    const contactedToday = leadsToday.filter(l => l.status === 'contacted').length;
+
+    const activities = [];
+    if (whatsappClicks > 0) activities.push(`🔥 ${whatsappClicks} new WhatsApp clicks`);
+    if (telegramClicks > 0) activities.push(`📱 ${telegramClicks} new leads from Telegram`);
+    if (callClicks > 0) activities.push(`📞 ${callClicks} new direct calls`);
+    if (otherClicks > 0) activities.push(`✨ ${otherClicks} interactions from tracking links`);
+    if (contactedToday > 0) activities.push(`✅ ${contactedToday} lead(s) marked as contacted`);
+    
+    const closedToday = deals.filter(d => d.stage === 'closed' && d.closedAt && isToday(new Date(d.closedAt))).length;
+    if (closedToday > 0) activities.push(`🎉 ${closedToday} deal(s) closed today!`);
+
+    return activities;
+  }, [leads, deals]);
 
   const trendData = useMemo(() => {
     const months = last6Months();
@@ -111,9 +141,9 @@ export default function Dashboard() {
   const recentContacts = contacts.slice(0, 5);
 
   const kpis = [
-    { icon: Target,    label: t("dash.leadVelocity"), value: activeLeads,           sub: `${contacts.length} ${t("dash.captured")}`, trend: "+12.5%", trendUp: true },
+    { icon: Target,    label: t("dash.leadVelocity"), value: activeLeads,           sub: `${unhandledLeads} unhandled leads`, trend: "+12.5%", trendUp: true },
     { icon: TrendingUp,label: t("dash.convRate"),     value: deals.length > 0 ? `${Math.round((closedDeals/deals.length)*100)}%` : "0%", sub: t("dash.efficiency"), trend: "+4.2%", trendUp: true },
-    { icon: DollarSign,label: t("dash.pipeValue"),    value: totalDealValue > 0 ? formatBirr(totalDealValue) : `0 ETB`, sub: t("dash.activeAssets"), trend: "+ETB 2.4M", trendUp: true },
+    { icon: DollarSign,label: "Closed Revenue",    value: totalDealValue > 0 ? formatBirr(totalDealValue) : `0 ETB`, sub: "Total closed pipeline value", trend: "+ETB 2.4M", trendUp: true },
     { icon: Sparkles,  label: t("dash.marketing"),    value: socialPosts.length > 0 ? "4.2x" : "—",                     sub: t("dash.aiImpact"), trend: "Optimised", trendUp: true },
   ];
 
@@ -147,6 +177,9 @@ export default function Dashboard() {
     return { days, stage, messageKey };
   }, [subscription]);
 
+  // Handle Ignored Lead Warning
+  const showIgnoredWarning = stats && stats.ignoredLeads7d > (stats.totalLeads7d * 0.3);
+
   return (
     <DashboardLayout>
       {/* ── Launch Day Celebration ────────────────────────────── */}
@@ -177,6 +210,43 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* ── Behavioral Lock-in Layer: Immediate Action ──────────────────────────── */}
+      {topCriticalProp && (
+        <div className="mb-10 p-6 rounded-[2rem] bg-orange-500/10 border border-orange-500/20 flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
+           <div className="flex items-center gap-5">
+             <div className="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center shadow-inner">
+               <Flame className="w-8 h-8 text-orange-500" />
+             </div>
+             <div>
+               <h3 className="text-xl font-black text-foreground tracking-tight underline decoration-orange-500/30">
+                 {topCriticalProp.count} leads from {topCriticalProp.propertyName} are getting cold
+               </h3>
+               <p className="text-sm text-muted-foreground font-medium">Action trigger: fast follow-up increases your chance of closing this deal.</p>
+             </div>
+           </div>
+           <Button 
+             onClick={() => setLocation("/crm")}
+             className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-6 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-orange-500/20 shrink-0"
+           >
+             Handle Now
+           </Button>
+        </div>
+      )}
+
+      {showIgnoredWarning && (
+        <div className="mb-10 p-6 rounded-[2rem] bg-muted/40 border border-border flex items-center justify-between gap-6 animate-in fade-in zoom-in duration-700">
+           <div className="flex items-center gap-5">
+             <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+               <TrendingDown className="w-8 h-8 text-muted-foreground/60" />
+             </div>
+             <div>
+               <h3 className="text-xl font-black text-foreground tracking-tight">You ignored many leads this week</h3>
+               <p className="text-sm text-muted-foreground font-medium">Ignored rate: {Math.round(((stats?.ignoredLeads7d || 0) / (stats?.totalLeads7d || 1)) * 100)}%. Review your lead quality settings.</p>
+             </div>
+           </div>
+        </div>
+      )}
 
       {/* ── Page heading ─────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
@@ -255,8 +325,40 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Resource Hub (Sovereign Capacity) ─────────────────────────── */}
+      {/* ── Resource Hub (Sovereign Capacity) & Today's Activity ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* Today's Activity Feed */}
+        <div style={{...glassStyle, background: theme === "dark" ? "linear-gradient(145deg, rgba(30,41,59,0.7), rgba(15,23,42,0.9))" : "rgba(255,255,255,0.7)"}} className="p-8 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Activity className="w-20 h-20 text-accent rotate-12" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-xl font-black text-foreground mb-1">Today's Activity</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-6">Live Retention Engine</p>
+            
+            {todaysActivities.length === 0 ? (
+              <p className="text-sm font-bold text-muted-foreground py-4">No recent activity today. Share your tracking links!</p>
+            ) : (
+              <div className="space-y-3">
+                {todaysActivities.map((act, i) => (
+                  <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-accent/5 border border-accent/10">
+                    <p className="text-sm font-bold text-foreground leading-tight">{act}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {(closedDeals > 0) && (
+              <div className="mt-6 pt-4 border-t border-accent/10">
+                <p className="text-xs text-muted-foreground font-medium">
+                  You closed <strong>{closedDeals}</strong> deals this month. Estimated value: <strong>{formatBirr(totalDealValue)}</strong>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div style={glassStyle} className="p-8 lg:col-span-2">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -416,6 +518,51 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Behavioral Summary Panel */}
+        <div style={glassStyle} className="lg:col-span-12 p-8 font-outfit relative overflow-hidden">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-lg font-black text-foreground uppercase tracking-widest flex items-center gap-2">
+                <Activity className="w-4 h-4 text-accent" />
+                Weekly Performance Summary
+              </h3>
+              <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1 opacity-60">Rolling 7-day behavior scan</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Contact Rate", value: `${Math.round((stats?.contactRate || 0) * 100)}%`, sub: "Integrity focus", color: "text-accent" },
+              { label: "Missed Leads", value: stats?.missedLeads || 0, sub: "Waiting > 24h", color: stats?.missedLeads > 0 ? "text-orange-500" : "text-green-500" },
+              { label: "Ignored Rate", value: stats?.totalLeads7d > 0 ? `${Math.round((stats?.ignoredLeads7d / stats?.totalLeads7d) * 100)}%` : "0%", sub: "Quality control", color: "text-muted-foreground" },
+              { label: "Late Responses", value: stats?.missedLeads || 0, sub: "Response delays", color: "text-muted-foreground" },
+            ].map((item, i) => (
+              <div key={i} className="p-5 rounded-2xl bg-muted/30 border border-border/50">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 mb-1">{item.label}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-2xl font-black tracking-tighter ${item.color}`}>{item.value}</span>
+                  <span className="text-[10px] font-bold text-muted-foreground/40">{item.sub}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {stats?.missedLeads > 0 && (
+            <div className="mt-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/10">
+              <p className="text-[11px] font-bold text-orange-500/80 leading-relaxed">
+                👉 You responded late to {stats.missedLeads} leads — faster replies win deals in Addis Ababa.
+              </p>
+            </div>
+          )}
+          {stats?.contactRate > 0.8 && (
+            <div className="mt-6 p-4 rounded-xl bg-green-500/5 border border-green-500/10">
+              <p className="text-[11px] font-bold text-green-500/80 leading-relaxed">
+                🏆 Excellent work! High contact rates lead to 3x more conversions.
+              </p>
             </div>
           )}
         </div>

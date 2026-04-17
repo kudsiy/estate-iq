@@ -247,57 +247,14 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
              </div>
 
              <div className="flex items-center gap-4">
-                <button onClick={() => setLocation("/notifications")} className="h-10 px-4 rounded-xl bg-white/5 border border-white/5 flex items-center gap-3 hover:bg-white/10 transition-all relative group">
+                 <button onClick={() => setLocation("/notifications")} className="h-10 px-4 rounded-xl bg-white/5 border border-white/5 flex items-center gap-3 hover:bg-white/10 transition-all relative group">
                    <Bell className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
                    {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent text-[9px] font-black text-white flex items-center justify-center shadow-lg shadow-accent/20">{unreadCount}</span>}
                 </button>
-                <Button onClick={() => setLocation("/billing")} className="h-10 px-6 rounded-xl bg-accent text-white font-black text-[9px] uppercase tracking-[0.1em] shadow-xl shadow-accent/20">
-                   <Zap className="w-3.5 h-3.5 mr-2" /> Upgrade
-                </Button>
              </div>
           </header>
 
           {/* Premium Banners Container */}
-          <AnimatePresence>
-            {current && (() => {
-              const days = current.daysRemaining ?? 0;
-              const isActive = current.isActive;
-              const isGrace = current.isGracePeriod;
-              const isTrial = current.workspace?.subscriptionStatus === "trial";
-
-              if (!isActive && !isGrace) {
-                return (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="p-4 bg-red-500/10 border-b border-red-500/20 backdrop-blur-xl">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-6 px-4">
-                      <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-red-500" /></div>
-                         <div>
-                            <p className="text-xs font-black uppercase text-red-500 italic tracking-tighter">{isTrial ? "Trial protocol terminated" : "Sovereignty expired"}</p>
-                            <p className="text-[10px] font-bold text-red-500/60 uppercase tracking-widest">Workspace Lockdown Active — Reactivate to continue growth</p>
-                         </div>
-                      </div>
-                      <Button onClick={() => setLocation("/billing")} className="h-9 px-6 rounded-xl bg-red-500 text-white font-black uppercase text-[9px] tracking-widest shadow-xl shadow-red-500/20 hover:bg-red-600 transition-all">Restore Pipeline</Button>
-                    </div>
-                  </motion.div>
-                );
-              }
-
-              if (isTrial && days <= 7 && days > 0) {
-                 return (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="p-3 bg-accent/10 border-b border-accent/20 backdrop-blur-xl">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4">
-                      <div className="flex items-center gap-4">
-                         <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center"><Sparkles className="w-4 h-4 text-accent" /></div>
-                         <p className="text-[10px] font-black uppercase tracking-widest text-accent italic">Maintenance protocol: {days} days of trial remaining • Secure your legacy now.</p>
-                      </div>
-                      <Button onClick={() => setLocation("/billing")} className="h-8 px-5 rounded-lg bg-accent text-white font-black uppercase text-[8px] tracking-[0.2em] shadow-xl shadow-accent/20">Upgrade Now</Button>
-                    </div>
-                  </motion.div>
-                 );
-              }
-              return null;
-            })()}
-          </AnimatePresence>
 
           <main className={`flex-1 p-10 bg-transparent min-h-screen ${language === 'am' ? 'font-ethiopic' : 'font-sans'}`}>
              {children}

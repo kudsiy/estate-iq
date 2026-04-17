@@ -109,3 +109,13 @@
 .glass-card {
   @apply bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-black/5 dark:border-white/5;
 }
+
+@keyframes pulse-highlight {
+  0% { box-shadow: 0 0 0 0 oklch(0.35 0.15 260 / 0.4); }
+  70% { box-shadow: 0 0 0 10px oklch(0.35 0.15 260 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(0.35 0.15 260 / 0); }
+}
+
+.pulse-highlight {
+  animation: pulse-highlight 2s infinite;
+}
