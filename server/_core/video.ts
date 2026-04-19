@@ -1,4 +1,4 @@
-import { DesignState } from "../../shared/types"; // Assuming shared types exist
+// Assuming shared types exist
 import { nanoid } from "nanoid";
 
 /**

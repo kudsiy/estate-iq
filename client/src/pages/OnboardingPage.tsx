@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CheckCircle2, Zap, Target, Send, Shield, Sparkles, Facebook, Instagram, MessageCircle, Video } from "lucide-react";
+import { Building2, CheckCircle2, Zap, Target, Send, Shield, Sparkles, Facebook, Instagram, MessageCircle, Video, Palette, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -159,7 +159,7 @@ export default function OnboardingPage() {
                    <div className="flex flex-col sm:flex-row gap-4 pt-4">
                       <Button 
                         disabled={completeMutation.isPending || !form.companyName.trim()}
-                        onClick={() => completeMutation.mutate({...form, companyName: form.companyName.trim()})}
+                        onClick={() => completeMutation.mutate({...form, companyName: form.companyName.trim(), selectedPlatforms: form.selectedPlatforms as any})}
                         className="h-16 px-12 rounded-2xl bg-accent text-white font-black uppercase tracking-widest text-xs shadow-2xl shadow-accent/40 group overflow-hidden relative"
                       >
                          <span className="relative z-10 flex items-center gap-2">{completeMutation.isPending ? "Calibrating..." : t("on.complete")} <Zap className="w-4 h-4 group-hover:animate-bounce" /></span>

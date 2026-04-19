@@ -13,6 +13,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   TrendingUp, Calendar, DollarSign, Tag, User, Save, X, MapPin, Home, Activity, Flame, ShieldCheck,
+  ArrowLeft, Edit2, Trash2, Mail, Phone, MessageCircle
 } from "lucide-react";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
@@ -73,6 +74,34 @@ export default function ContactDetail() {
   const { theme } = useTheme();
   const isLeadView = params.id?.startsWith("lead:");
   const leadIdNum = isLeadView ? Number(params.id?.split(":")[1]) : null;
+  const id = params.id ? (!isLeadView ? Number(params.id) : 0) : 0;
+
+  const [editForm, setEditForm] = useState<any>(null);
+  const [noteText, setNoteText] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const updateMutation = trpc.crm.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success("Contact updated");
+      setEditing(false);
+      refetchContact();
+    },
+  });
+
+  const deleteMutation = trpc.crm.contacts.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Contact deleted");
+      setLocation("/crm/contacts");
+    },
+  });
+
+  const saveNotes = trpc.crm.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success("Notes saved");
+      refetchContact();
+    },
+  });
 
   const { data: contact, refetch: refetchContact } = trpc.crm.contacts.getById.useQuery(id, {
     enabled: !!id && !isLeadView,
@@ -115,7 +144,7 @@ export default function ContactDetail() {
 
   const updateLeadMutation = trpc.crm.leads.update.useMutation({
     onSuccess: (data, vars) => {
-      if (vars.data.status === "contacted") {
+      if (vars.status === "contacted") {
         toast.success("Good job!", { description: "Fast follow-up increases your chance of closing this deal." });
       } else {
         toast.success("Lead updated");
@@ -142,16 +171,18 @@ export default function ContactDetail() {
     if (!subscription?.workspace) return false;
     // Lock if trialing and expired (already passed grace period of 3 days which is handled by backend isSubscriptionActive)
     // But for UI "Soft Lock", we want to show it as soon as the 14 days are up to push for the ETB 999 upgrade.
-    const endsAt = new Date(subscription.workspace.trialEndsAt || 0);
-    return subscription.workspace.subscriptionStatus === 'trialing' && endsAt < new Date();
+    const endsAt = new Date((subscription as any).workspace.trialEndsAt || 0);
+    return (subscription as any).workspace.subscriptionStatus === 'trial' && endsAt < new Date();
   }, [subscription]);
+
+  const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
   const status = STATUS_META[entity.status ?? "active"];
   const initials = `${entity.firstName?.[0] || "L"}${entity.lastName?.[0] || "E"}`.toUpperCase();
 
   const handleUpdateStatus = (newStatus: string) => {
     if (isLeadView && leadIdNum) {
-      updateLeadMutation.mutate({ id: leadIdNum, data: { status: newStatus as any } });
+      updateLeadMutation.mutate({ id: leadIdNum, status: newStatus as any });
     } else {
       updateMutation.mutate({ id, data: { status: newStatus as any } });
     }

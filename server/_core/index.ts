@@ -174,7 +174,22 @@ async function startServer() {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
-  // ── Email/Password Auth ──
+  // ── OTP Auth ──
+  app.post("/api/auth/otp/send", async (req, res) => {
+    try {
+      const { phone } = req.body as { phone?: string };
+      if (!phone) return res.status(400).json({ error: "Phone required" });
+      
+      const { sendOtp } = await import("./otp.js");
+      await sendOtp(phone.trim());
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[OTP] Send error:", e);
+      return res.status(500).json({ error: "Failed to send code. Try again." });
+    }
+  });
+
+  // ── Login ──
   app.post("/api/auth/login", async (req, res) => {
     try {
       const bcrypt = await import("bcryptjs");
@@ -183,25 +198,40 @@ async function startServer() {
       const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
       const db = await import("../db.js");
 
-      const { email, password } = req.body as {
+      const { email, phone, password, otp } = req.body as {
         email?: string;
+        phone?: string;
         password?: string;
+        otp?: string;
       };
-      if (!email || !password)
-        return res.status(400).json({ error: "Email and password required" });
 
-      const user = await db.getUserByEmail(email.toLowerCase().trim());
+      if ((!email && !phone) || !password) {
+        return res.status(400).json({ error: "Phone/email and password required" });
+      }
+
+      // If phone login, verify OTP
+      if (phone) {
+        if (!otp) return res.status(400).json({ error: "Verification code required" });
+        const { verifyOtp } = await import("./otp.js");
+        const valid = verifyOtp(phone.trim(), otp.trim());
+        if (!valid) return res.status(401).json({ error: "Incorrect or expired code. Request a new one." });
+      }
+
+      const user = phone
+        ? await db.getUserByPhone(phone.trim())
+        : await db.getUserByEmail(email!.toLowerCase().trim());
+
       if (!user || !user.passwordHash)
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid credentials or account not found" });
 
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid)
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid credentials" });
 
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
-        name: user.name || email,
+        name: user.name || email || phone || "User",
         expiresInMs: ONE_YEAR_MS,
       });
       const cookieOptions = getSessionCookieOptions(req);
@@ -216,6 +246,7 @@ async function startServer() {
     }
   });
 
+  // ── Register ──
   app.post("/api/auth/register", async (req, res) => {
     try {
       const bcrypt = await import("bcryptjs");
@@ -225,39 +256,53 @@ async function startServer() {
       const db = await import("../db.js");
       const { nanoid } = await import("nanoid");
 
-      const { name, email, password } = req.body as {
+      const { name, phone, email, password, otp } = req.body as {
         name?: string;
+        phone?: string;
         email?: string;
         password?: string;
+        otp?: string;
       };
-      if (!email || !password || !name)
-        return res
-          .status(400)
-          .json({ error: "Name, email and password required" });
-      if (password.length < 8)
-        return res
-          .status(400)
-          .json({ error: "Password must be at least 8 characters" });
 
-      const existing = await db.getUserByEmail(email.toLowerCase().trim());
-      if (existing)
-        return res
-          .status(409)
-          .json({ error: "An account with this email already exists" });
+      if (!name) return res.status(400).json({ error: "Name required" });
+      if (!phone && !email) return res.status(400).json({ error: "Phone or email required" });
+      if (!password || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      // If phone provided, verify OTP before creating account
+      if (phone) {
+        if (!otp) return res.status(400).json({ error: "Verification code required" });
+        const { verifyOtp } = await import("./otp.js");
+        const valid = verifyOtp(phone.trim(), otp.trim());
+        if (!valid) return res.status(401).json({ error: "Incorrect or expired code. Request a new one." });
+      }
+
+      // Duplicate checks
+      if (email) {
+        const existing = await db.getUserByEmail(email.toLowerCase().trim());
+        if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+      }
+      if (phone) {
+        const existing = await db.getUserByPhone(phone.trim());
+        if (existing) return res.status(409).json({ error: "An account with this phone number already exists" });
+      }
 
       const passwordHash = await bcrypt.hash(password, 12);
-      const openId = `email:${nanoid(16)}`;
+      const openId = `${phone ? "phone" : "email"}:${nanoid(16)}`;
 
       await db.upsertUser({
         openId,
         name: name.trim(),
-        email: email.toLowerCase().trim(),
-        loginMethod: "email",
+        email: email ? email.toLowerCase().trim() : undefined,
+        phone: phone ? phone.trim() : undefined,
+        loginMethod: phone ? "phone" : "email",
         lastSignedIn: new Date(),
       });
 
       // Store password hash
-      const newUser = await db.getUserByEmail(email.toLowerCase().trim());
+      const newUser = phone 
+        ? await db.getUserByPhone(phone.trim()) 
+        : await db.getUserByEmail(email!.toLowerCase().trim());
+        
       if (newUser) {
         await db.setUserPasswordHash(newUser.id, passwordHash);
       }

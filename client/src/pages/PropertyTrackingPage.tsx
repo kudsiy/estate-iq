@@ -281,7 +281,7 @@ export default function PropertyTrackingPage() {
            >
               <div className="flex flex-wrap items-center gap-4 mb-8">
                  <span className="px-4 py-1.5 rounded-full bg-accent text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-accent/30">
-                    {property.status === 'active' ? t("status.active") : property.status}
+                    {property.status === 'available' ? t("status.available") : property.status}
                  </span>
                  {vibes.map((v, i) => (
                     <span key={i} className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] backdrop-blur-xl">
@@ -301,7 +301,7 @@ export default function PropertyTrackingPage() {
                  </div>
                  <div className="space-y-1">
                     <p className="font-black text-white">{property.address}</p>
-                    <p className="text-sm opacity-50 font-bold uppercase tracking-widest">{t(`subcity.${property.subcity.toLowerCase()}`)}</p>
+                    <p className="text-sm opacity-50 font-bold uppercase tracking-widest">{t(`subcity.${(property.subcity || '').toLowerCase()}`)}</p>
                  </div>
               </div>
            </motion.div>
@@ -373,7 +373,7 @@ export default function PropertyTrackingPage() {
              <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
                 <div className="p-6 rounded-[24px] bg-white/5 border border-white/5 hover:bg-white/10 transition-all group">
                    <MapPin className="w-6 h-6 text-accent mb-4 group-hover:scale-110 transition-transform" />
-                   <p className="text-xs font-black uppercase tracking-widest text-white mb-1">{t(`subcity.${property.subcity.toLowerCase()}`)}</p>
+                   <p className="text-xs font-black uppercase tracking-widest text-white mb-1">{t(`subcity.${(property.subcity || '').toLowerCase()}`)}</p>
                    <p className="text-[9px] text-white/30 font-bold uppercase tracking-tighter">Prime District</p>
                 </div>
                 <div className="p-6 rounded-[24px] bg-white/5 border border-white/5 hover:bg-white/10 transition-all group">

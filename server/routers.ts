@@ -92,6 +92,7 @@ import {
   getPropertyInsights,
   getWorkspaceByTrackingToken,
   getLeadByFingerprintId,
+  getBehavioralStats,
 } from "./db";
 
 const platformEnum = z.enum(["telegram", "facebook", "instagram", "tiktok"]);
@@ -173,7 +174,7 @@ function isDuplicate(ip: string, propertyId: number): boolean {
   // Cleanup old entries occasionally
   if (duplicateWindow.size > 5000) {
     const threshold = now - 10000;
-    for (const [k, v] of duplicateWindow.entries()) {
+    for (const [k, v] of Array.from(duplicateWindow.entries())) {
       if (v < threshold) duplicateWindow.delete(k);
     }
   }
@@ -1330,76 +1331,6 @@ export const appRouter = router({
       }),
   }),
 
-  tracking: router({
-    trackInteraction: publicProcedure
-      .input(z.object({
-        actionType: z.enum(["whatsapp_click", "call_click"]),
-        propertyId: z.number().int().positive(),
-        token: z.string(),
-        sourceId: z.string().optional(),
-        platform: z.string().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const ip = ctx.req.ip || ctx.req.headers["x-forwarded-for"]?.toString() || "unknown";
-        const ua = ctx.req.headers["user-agent"] || "unknown";
-
-        // 1. Rate Limiting (Soft)
-        if (isRateLimited(ip, ua)) return { success: true, limited: true };
-
-        // 2. Duplicate Suppression
-        if (isDuplicate(ip, input.propertyId)) return { success: true, duplicate: true };
-
-        // 3. Token Resolution
-        const workspace = await getWorkspaceByTrackingToken(input.token);
-        if (!workspace) return { success: true, invalid: true };
-
-        const property = await getPropertyById({ workspaceId: workspace.id, userId: workspace.ownerUserId }, input.propertyId);
-        if (!property) return { success: true, invalidProperty: true };
-
-        const fingerprintId = generateFingerprint(ip, ua);
-        const sourceMap = {
-          "whatsapp_click": "whatsapp" as const,
-          "call_click": "call" as const,
-        };
-        const scoreMap = {
-          "whatsapp_click": 7,
-          "call_click": 6,
-        };
-
-        // 4. Lead Capture / Update logic
-        const existingLead = await getLeadByFingerprintId(workspace.id, fingerprintId);
-
-        if (existingLead && existingLead.status === "new") {
-          await updateLead({ workspaceId: workspace.id, userId: workspace.ownerUserId }, existingLead.id, {
-            score: (existingLead.score || 0) + scoreMap[input.actionType],
-            lastInteractionAt: new Date(),
-          });
-          return { success: true, updated: true };
-        }
-
-        await createLead({
-          userId: workspace.ownerUserId,
-          workspaceId: workspace.id,
-          propertyId: input.propertyId,
-          source: sourceMap[input.actionType],
-          status: "new",
-          score: scoreMap[input.actionType],
-          fingerprintId,
-          lastInteractionAt: new Date(),
-          leadData: { 
-            action: input.actionType,
-            sourceId: input.sourceId,
-            platform: input.platform || "manual",
-            ua,
-            ip: "masked", // Privacy
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        return { success: true };
-      }),
-  }),
-
   crm: router({
     contacts: router({
       list: protectedProcedure.query(async ({ ctx }) => {
@@ -1492,6 +1423,17 @@ export const appRouter = router({
             });
           return { success: true } as const;
         }),
+      events: protectedProcedure.query(async ({ ctx }) => {
+        const dbLib = await import("./db.js");
+        const db = await dbLib.getDb();
+        if (!db) throw new (await import("@trpc/server")).TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+        const schema = await import("../drizzle/schema.js");
+        const { eq, desc } = await import("drizzle-orm");
+        
+        return db.select().from(schema.contactEvents)
+          .where(eq(schema.contactEvents.workspaceId, ctx.user.workspaceId!))
+          .orderBy(desc(schema.contactEvents.createdAt));
+      }),
       listEvents: protectedProcedure
         .input(z.number().int().positive())
         .query(async ({ ctx, input }) => {
@@ -2125,14 +2067,14 @@ export const appRouter = router({
 
           return { success: true, leadId, contactId, dealId };
         }),
+    }),
 
-      analytics: router({
-        getBehavioralStats: protectedProcedure.query(async ({ ctx }) => {
-          return getBehavioralStats(getScope(ctx.user));
-        }),
-        getPropertyInsights: protectedProcedure.query(async ({ ctx }) => {
-          return getPropertyInsights(getScope(ctx.user));
-        }),
+    analytics: router({
+      getBehavioralStats: protectedProcedure.query(async ({ ctx }) => {
+        return getBehavioralStats(getScope(ctx.user));
+      }),
+      getPropertyInsights: protectedProcedure.query(async ({ ctx }) => {
+        return getPropertyInsights(getScope(ctx.user));
       }),
     }),
     public: router({

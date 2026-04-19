@@ -5,6 +5,7 @@ const dbMocks = vi.hoisted(() => ({
   createBuyerProfile: vi.fn(),
   createBrandKit: vi.fn(),
   createContact: vi.fn(),
+  createContactEvent: vi.fn(),
   createDeal: vi.fn(),
   createDesign: vi.fn(),
   createLead: vi.fn(),
@@ -98,6 +99,12 @@ function createAuthContext(): { ctx: TrpcContext } {
 describe("crm routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    dbMocks.getWorkspaceById.mockResolvedValue({ 
+      id: 10, 
+      subscriptionStatus: 'active', 
+      plan: 'pro',
+      currentPeriodEndsAt: new Date(Date.now() + 100000000)
+    });
   });
 
   it("scopes contact list queries to the authenticated workspace", async () => {
@@ -119,6 +126,7 @@ describe("crm routes", () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
     dbMocks.updateDeal.mockResolvedValue(true);
+    dbMocks.getDealById.mockResolvedValue({ id: 7, contactId: 100, stage: "negotiation" });
 
     await caller.crm.deals.update({
       id: 7,
