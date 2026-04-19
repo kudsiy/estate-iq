@@ -47,7 +47,7 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
   const [showPressureReminder, setShowPressureReminder] = useState(false);
   const lastPressureShownAt = useRef<number>(0);
   const lastActivityAt = useRef<number>(Date.now());
-  const pressureTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const pressureTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   // Track user activity for humanzied pressure
   useEffect(() => {
@@ -465,6 +465,7 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
 // ── Conversations Tab ────────────────────────────────────────────────────────
 function Conversations() {
   const [, setLocation] = useLocation();
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -683,8 +684,8 @@ export default function CRMPage() {
 
   // State for Quick Capture
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [quickAddForm, setQuickAddForm] = useState({
-    platform: "tiktok" as const,
+  const [quickAddForm, setQuickAddForm] = useState<{ platform: "tiktok" | "facebook" | "instagram" | "telegram", propertyId: string, text: string }>({
+    platform: "tiktok",
     propertyId: "",
     text: ""
   });
@@ -760,7 +761,7 @@ export default function CRMPage() {
                 <form onSubmit={handleQuickAdd} className="space-y-4 pt-4">
                   <div>
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source Platform</Label>
-                    <Select value={quickAddForm.platform} onValueChange={v => setQuickAddForm(f => ({ ...f, platform: v }))}>
+                    <Select value={quickAddForm.platform} onValueChange={v => setQuickAddForm(f => ({ ...f, platform: v as any }))}>
                       <SelectTrigger className="h-12 mt-2 rounded-xl text-sm font-medium"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="telegram">Telegram</SelectItem>

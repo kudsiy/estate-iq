@@ -11,7 +11,8 @@ import {
 import { useLocation } from "wouter";
 import { useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { Flame, ShieldCheck, AlertCircle, Info, TrendingDown, BellIcon } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { Flame, ShieldCheck, AlertCircle, Info, TrendingDown, BellIcon, Target, TrendingUp, DollarSign, Sparkles, Users, LayoutGrid, Home, Inbox, Activity, Bell } from "lucide-react";
 import { UsageProgress } from "@/components/UsageProgress";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -76,30 +77,30 @@ export default function Dashboard() {
   const { data: stats }                = trpc.crm.analytics.getBehavioralStats.useQuery();
 
   // Behavioral Alert Logic
-  const topCriticalProp = stats?.atRiskByProperty?.sort((a, b) => b.count - a.count)[0];
+  const topCriticalProp = stats?.atRiskByProperty?.sort((a: any, b: any) => b.count - a.count)[0];
 
-  const activeLeads        = contacts.filter((c) => c.status === "active").length;
-  const closedDeals        = deals.filter((d) => d.stage === "closed").length;
-  const unhandledLeads     = leads.filter((l) => l.status === "new").length;
-  const totalDealValue     = deals.filter((d) => d.stage === "closed").reduce((s, d) => s + (Number(d.value) || 0), 0);
-  const unreadNotifications= notifications.filter((n) => !n.isRead).length;
-  const supplierNeedsReview= supplierListings.filter((i) => i.status === "new").length;
+  const activeLeads        = contacts.filter((c: any) => c.status === "active").length;
+  const closedDeals        = deals.filter((d: any) => d.stage === "closed").length;
+  const unhandledLeads     = leads.filter((l: any) => l.status === "new").length;
+  const totalDealValue     = deals.filter((d: any) => d.stage === "closed").reduce((s: any, d: any) => s + (Number(d.value) || 0), 0);
+  const unreadNotifications= notifications.filter((n: any) => !n.isRead).length;
+  const supplierNeedsReview= supplierListings.filter((i: any) => i.status === "new").length;
 
   const pipelineData = useMemo(() => {
     const stages = ["lead","contacted","viewing","offer","closed"] as const;
-    return stages.map((s) => ({ name: s.charAt(0).toUpperCase() + s.slice(1), value: deals.filter((d) => d.stage === s).length, color: STAGE_COLORS[s] })).filter((s) => s.value > 0);
+    return stages.map((s) => ({ name: s.charAt(0).toUpperCase() + s.slice(1), value: deals.filter((d: any) => d.stage === s).length, color: STAGE_COLORS[s] })).filter((s) => s.value > 0);
   }, [deals]);
 
   const todaysActivities = useMemo(() => {
     const today = new Date();
     const isToday = (d: Date) => d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
     
-    const leadsToday = leads.filter(l => isToday(new Date(l.createdAt)));
-    const whatsappClicks = leadsToday.filter(l => l.source === 'whatsapp').length;
-    const telegramClicks = leadsToday.filter(l => l.source === 'telegram').length;
-    const callClicks = leadsToday.filter(l => l.source === 'call').length;
-    const otherClicks = leadsToday.filter(l => !['whatsapp', 'call', 'telegram'].includes(l.source)).length;
-    const contactedToday = leadsToday.filter(l => l.status === 'contacted').length;
+    const leadsToday = leads.filter((l: any) => isToday(new Date(l.createdAt)));
+    const whatsappClicks = leadsToday.filter((l: any) => l.source === 'whatsapp').length;
+    const telegramClicks = leadsToday.filter((l: any) => l.source === 'telegram').length;
+    const callClicks = leadsToday.filter((l: any) => l.source === 'call').length;
+    const otherClicks = leadsToday.filter((l: any) => !['whatsapp', 'call', 'telegram'].includes(l.source)).length;
+    const contactedToday = leadsToday.filter((l: any) => l.status === 'contacted').length;
 
     const activities = [];
     if (whatsappClicks > 0) activities.push(`🔥 ${whatsappClicks} new WhatsApp clicks`);
@@ -108,7 +109,7 @@ export default function Dashboard() {
     if (otherClicks > 0) activities.push(`✨ ${otherClicks} interactions from tracking links`);
     if (contactedToday > 0) activities.push(`✅ ${contactedToday} lead(s) marked as contacted`);
     
-    const closedToday = deals.filter(d => d.stage === 'closed' && d.closedAt && isToday(new Date(d.closedAt))).length;
+    const closedToday = deals.filter((d: any) => d.stage === 'closed' && d.closedAt && isToday(new Date(d.closedAt))).length;
     if (closedToday > 0) activities.push(`🎉 ${closedToday} deal(s) closed today!`);
 
     return activities;
@@ -120,17 +121,17 @@ export default function Dashboard() {
       const inMonth = (date: Date) => date.getMonth() === monthNum && date.getFullYear() === year;
       return {
         month:       label,
-        leads:       contacts.filter((c) => inMonth(new Date(c.createdAt))).length,
-        deals:       deals.filter((d) => inMonth(new Date(d.createdAt))).length,
-        conversions: deals.filter((d) => d.stage === "closed" && d.closedAt && inMonth(new Date(d.closedAt))).length,
+        leads:       contacts.filter((c: any) => inMonth(new Date(c.createdAt))).length,
+        deals:       deals.filter((d: any) => inMonth(new Date(d.createdAt))).length,
+        conversions: deals.filter((d: any) => d.stage === "closed" && d.closedAt && inMonth(new Date(d.closedAt))).length,
       };
     });
   }, [contacts, deals]);
 
   const engagementData = useMemo(() => {
     return ["Facebook","Instagram","TikTok"].map((platform) => {
-      const matched = socialPosts.filter((p) => ((p.platforms as string[]) || []).map((x) => x.toLowerCase()).includes(platform.toLowerCase()));
-      const totals = matched.reduce((acc, p) => {
+      const matched = socialPosts.filter((p: any) => ((p.platforms as string[]) || []).map((x: any) => x.toLowerCase()).includes(platform.toLowerCase()));
+      const totals = matched.reduce((acc: any, p: any) => {
         const m = (p.engagementMetrics as any) || {};
         return { engagement: acc.engagement + (m.likes||0) + (m.comments||0) + (m.shares||0), leads: acc.leads + (m.leads||0) };
       }, { engagement: 0, leads: 0 });
@@ -277,7 +278,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Trial Urgency Tracker ────────────────────────────────────── */}
-      {trialInfo && subscription?.workspace?.subscriptionStatus === 'trialing' && (
+      {trialInfo && subscription?.workspace?.subscriptionStatus === 'trial' && (
         <div 
           className="mb-8 p-6 rounded-[2rem] border animate-in fade-in slide-in-from-top-4 duration-700"
           style={{
@@ -537,8 +538,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: "Contact Rate", value: `${Math.round((stats?.contactRate || 0) * 100)}%`, sub: "Integrity focus", color: "text-accent" },
-              { label: "Missed Leads", value: stats?.missedLeads || 0, sub: "Waiting > 24h", color: stats?.missedLeads > 0 ? "text-orange-500" : "text-green-500" },
-              { label: "Ignored Rate", value: stats?.totalLeads7d > 0 ? `${Math.round((stats?.ignoredLeads7d / stats?.totalLeads7d) * 100)}%` : "0%", sub: "Quality control", color: "text-muted-foreground" },
+              { label: "Missed Leads", value: stats?.missedLeads || 0, sub: "Waiting > 24h", color: (stats?.missedLeads ?? 0) > 0 ? "text-orange-500" : "text-green-500" },
+              { label: "Ignored Rate", value: (stats?.totalLeads7d ?? 0) > 0 ? `${Math.round(((stats?.ignoredLeads7d ?? 0) / (stats?.totalLeads7d ?? 1)) * 100)}%` : "0%", sub: "Quality control", color: "text-muted-foreground" },
               { label: "Late Responses", value: stats?.missedLeads || 0, sub: "Response delays", color: "text-muted-foreground" },
             ].map((item, i) => (
               <div key={i} className="p-5 rounded-2xl bg-muted/30 border border-border/50">
@@ -551,14 +552,14 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {stats?.missedLeads > 0 && (
+          {(stats?.missedLeads ?? 0) > 0 && (
             <div className="mt-6 p-4 rounded-xl bg-orange-500/5 border border-orange-500/10">
               <p className="text-[11px] font-bold text-orange-500/80 leading-relaxed">
-                👉 You responded late to {stats.missedLeads} leads — faster replies win deals in Addis Ababa.
+                👉 You responded late to {stats?.missedLeads ?? 0} leads — faster replies win deals in Addis Ababa.
               </p>
             </div>
           )}
-          {stats?.contactRate > 0.8 && (
+          {(stats?.contactRate ?? 0) > 0.8 && (
             <div className="mt-6 p-4 rounded-xl bg-green-500/5 border border-green-500/10">
               <p className="text-[11px] font-bold text-green-500/80 leading-relaxed">
                 🏆 Excellent work! High contact rates lead to 3x more conversions.
@@ -613,7 +614,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentContacts.map((contact) => (
+              {recentContacts.map((contact: any) => (
                 <div key={contact.id} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-black flex-shrink-0">
@@ -658,7 +659,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {notifications.slice(0, 3).map((item) => (
+              {notifications.slice(0, 3).map((item: any) => (
                 <div key={item.id} className="p-3 rounded-2xl bg-muted/40 border border-border">
                   <p className="text-sm font-bold text-foreground">{item.title}</p>
                   <p className="text-xs text-muted-foreground mt-1 font-medium leading-relaxed">{item.message}</p>

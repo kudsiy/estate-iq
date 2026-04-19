@@ -203,7 +203,7 @@ function PropertyCard({ property, onEdit, onDelete, leads, deals, t, glassStyle 
                 return acc; 
               }, {} as Record<string, number>)).map(([p, count]) => (
                 <span key={p} className="text-[8px] px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase font-bold tracking-wider">
-                  {p}: {count}
+                  {p}: {String(count)}
                 </span>
               ))}
            </div>

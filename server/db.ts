@@ -182,6 +182,17 @@ export async function getUserByEmail(email: string) {
   return result[0];
 }
 
+export async function getUserByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.phone, phone))
+    .limit(1);
+  return result[0] ?? null;
+}
+
 export async function setUserPasswordHash(userId: number, passwordHash: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

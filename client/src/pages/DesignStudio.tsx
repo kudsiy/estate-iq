@@ -142,7 +142,7 @@ export default function DesignStudio() {
     onError: () => toast.error("Failed to generate TikTok content"),
   });
 
-  const socialMutation = trpc.marketing.social.create.useMutation({
+  const socialMutation = trpc.crm.socialMediaPosts.create.useMutation({
     onSuccess: () => toast.success("Queued for dispatch!"),
     onError: (err) => toast.error(err.message || "Failed to queue post"),
   });
@@ -211,12 +211,11 @@ export default function DesignStudio() {
     const forcedCTA = `📞 Call or WhatsApp now: ${phone} — Ref: ${contextId}`;
     const finalContent = `${tiktokPack.hook}\n\n${tiktokPack.description}\n\n${forcedCTA}\n🔗 View Details: ${trackingLink}\n\n${tiktokPack.hashtags.join(" ")}`;
     socialMutation.mutate({
-      platform: "tiktok", platforms: ["tiktok"],
+      platforms: ["tiktok"] as any[],
       content: finalContent,
       mediaUrl: generatedImageUrl || listing.imageUrl || "",
       mediaType: "image", status: "scheduled",
-      scheduledFor: new Date().toISOString(),
-      propertyId: parseInt(contextId),
+      scheduledTime: new Date(),
     });
   };
 
@@ -760,14 +759,12 @@ export default function DesignStudio() {
                                   if (!contextId || !user) return;
                                   const trackingLink = `${window.location.origin}/l/${user.id}/${contextId}?platform=${platformId}`;
                                   socialMutation.mutate({
-                                    platform: platformId,
-                                    platforms: [platformId],
+                                    platforms: [platformId as any],
                                     content: `${generatedScript.caption}\n\n🔗 ${trackingLink}\n\n${generatedScript.hashtags.join(" ")}`,
                                     mediaUrl: listing.imageUrl || "",
                                     mediaType: "image",
                                     status: "scheduled",
-                                    scheduledFor: new Date().toISOString(),
-                                    propertyId: parseInt(contextId),
+                                    scheduledTime: new Date(),
                                   });
                                 }}
                               >

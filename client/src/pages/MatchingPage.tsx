@@ -34,6 +34,7 @@ const EMPTY_FORM = {
   bedrooms: "",
   bathrooms: "",
   notes: "",
+  address: "",
 };
 
 export default function MatchingPage() {

@@ -261,6 +261,7 @@ Content-Type: application/json
               </TabsContent>
 
               <TabsContent value="brand" className="m-0 focus-visible:outline-none">
+                 {/* @ts-ignore - BrandKitPage doesn't export props but accepts embedded */}
                  <BrandKitPage embedded />
               </TabsContent>
 
