@@ -227,19 +227,19 @@ export default function BillingPage() {
               <div className="space-y-6">
                  <div>
                     <Label className="text-[9px] font-black uppercase tracking-widest text-accent mb-2 block">Telebirr / CBE Birr / M-Pesa</Label>
-                    <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">0911 22 33 44</p>
+                    <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">0991 95 55 55</p>
                     <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">Beneficiary: ESTATE IQ TECH PLC</p>
                  </div>
                  <div>
                     <Label className="text-[9px] font-black uppercase tracking-widest text-accent mb-2 block">Commercial Bank of Ethiopia (CBE)</Label>
-                    <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">1000 4455 6677 8</p>
+                    <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">1000 1058 7320 8</p>
                  </div>
                  <div className="pt-4 border-t border-white/5">
                     <p className="text-[10px] font-bold text-foreground/60 leading-relaxed uppercase tracking-tight italic">
                        After payment, please send a screenshot of the transaction to our activation hub on WhatsApp:
                     </p>
                     <a 
-                      href="https://wa.me/251911223344" 
+                      href="https://wa.me/251991955555" 
                       target="_blank" 
                       rel="noreferrer"
                       className="mt-4 flex items-center justify-center gap-3 w-full h-12 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#25D366]/20 transition-all"
@@ -266,17 +266,23 @@ export default function BillingPage() {
                     <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-4">
                        <div>
                           <p className="text-[8px] font-black uppercase tracking-widest text-accent mb-1">Step 1: Transfer Funds</p>
-                          <p className="text-sm font-black text-foreground">0911 22 33 44 (Telebirr)</p>
+                          <p className="text-sm font-black text-foreground">0991 95 55 55 (Telebirr)</p>
                        </div>
                        <div>
                           <p className="text-[8px] font-black uppercase tracking-widest text-accent mb-1">Step 2: Notify Engine</p>
                           <p className="text-[10px] font-bold text-muted-foreground leading-tight uppercase">Send screenshot on WhatsApp for instant activation.</p>
                        </div>
+                       <p style={{ fontSize: 12, color: "#6b7280", marginTop: 12 }}>
+                          ለክፍያ ጥያቄዎች:{" "}
+                          <a href="https://wa.me/251991955555" style={{ color: "#25D366", fontWeight: 600 }}>
+                            WhatsApp ያግኙን
+                          </a>
+                        </p>
                     </div>
 
                     <Button 
                       onClick={() => {
-                        window.open("https://wa.me/251911223344", "_blank");
+                        window.open("https://wa.me/251991955555", "_blank");
                         setShowPaymentModal(false);
                       }}
                       className="w-full h-14 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-accent/40"
