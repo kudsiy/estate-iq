@@ -63,27 +63,29 @@ export function PremiumUpgradeModal({ open, onOpenChange, feature }: PremiumUpgr
           </div>
 
           <div className="mt-12 space-y-6 relative z-10">
+             <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4">
+                <p className="text-[10px] font-black uppercase text-accent tracking-[0.2em]">Manual Payment Activation</p>
+                <div className="space-y-3">
+                   <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Telebirr</span>
+                      <span className="text-xs font-black text-foreground tracking-widest">[your number]</span>
+                   </div>
+                   <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">CBE Account</span>
+                      <span className="text-xs font-black text-foreground tracking-widest">[your account]</span>
+                   </div>
+                </div>
+             </div>
+
              <Button 
                className="w-full h-16 rounded-2.5xl bg-accent hover:bg-accent/90 text-white font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/40 border-b-4 border-black/20 hover:translate-y-px active:translate-y-1 transition-all"
-               onClick={() => checkoutMutation.mutate({ plan: "pro" })}
-               disabled={checkoutMutation.isPending}
+               onClick={() => window.open(`https://wa.me/251XXXXXXXXX?text=Hello, I have made a payment for Estate IQ Pro.`, '_blank')}
              >
-               {checkoutMutation.isPending ? (
-                 <span className="flex items-center gap-3">
-                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                   Authorizing...
-                 </span>
-               ) : t("pro.upgrade")}
+               Confirm via WhatsApp
              </Button>
              
-             <div className="flex items-center justify-center gap-8 opacity-30 grayscale hover:grayscale-0 transition-all duration-700">
-                <div className="text-[9px] font-black italic tracking-tighter">CHAPA PAY</div>
-                <div className="text-[9px] font-black italic tracking-tighter">TELEBIRR</div>
-                <div className="text-[9px] font-black italic tracking-tighter">CBE BIRR</div>
-             </div>
-             
              <p className="text-[10px] text-center text-muted-foreground font-black uppercase tracking-[0.1em] flex items-center justify-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-green-500" /> {t("pro.secure")}
+                <ShieldCheck className="w-4 h-4 text-green-500" /> {t("pro.secure")} — Active within 1 hour
              </p>
           </div>
         </div>

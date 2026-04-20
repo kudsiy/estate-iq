@@ -13,8 +13,10 @@ import { toast } from "sonner";
 import {
   Plus, Search, MapPin, Bed, Bath, Maximize2, DollarSign,
   Edit2, Trash2, Image as ImageIcon, LayoutGrid, Map as MapIcon,
-  Home, TrendingUp, CheckCircle, Clock, X, Users, Activity
+  Home, TrendingUp, CheckCircle, Clock, X, Users, Activity,
+  Smartphone, MessageCircle
 } from "lucide-react";
+import { compressImage } from "@/lib/image";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
 
@@ -36,16 +38,17 @@ const getGlassStyle = (theme: string): React.CSSProperties => ({
   boxShadow: theme === "dark" ? "0 20px 40px rgba(0,0,0,0.4)" : "0 10px 15px -3px rgba(0,0,0,0.1)",
 });
 
-const ADDIS_SUBCITIES = [
-  "bole", "yeka", "arada", "kirkos", "lideta", "gullele", "akaky", 
-  "addis_ketema", "kolfe", "nifas_silk", "lemi_kura"
+const NEIGHBORHOODS = [
+  "Ayat", "CMC", "Summit", "Bole Main", "Bulgaria", 
+  "Megenagna", "Sarbet", "Jemo", "Signal", "Kality",
+  "Mexico", "Gelan", "4 Kilo", "Sidist Kilo"
 ];
 
 const EMPTY_FORM = {
   title: "", description: "", address: "", city: "Addis Ababa",
   subcity: "", price: "", bedrooms: "", bathrooms: "", squareFeet: "",
   status: "available" as PropertyStatus, photos: [] as string[],
-  latitude: "", longitude: "",
+  latitude: "", longitude: "", sellerPhone: "",
 };
 
 function formatETB(val: number | string | null | undefined) {
@@ -62,12 +65,10 @@ function PhotoStrip({ photos, onChange, theme }: { photos: string[]; onChange: (
   const inputRef = useRef<HTMLInputElement>(null);
   const glassStyle = getGlassStyle(theme);
 
-  const addPhotos = (files: FileList) => {
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => onChange([...photos, reader.result as string]);
-      reader.readAsDataURL(file);
-    });
+  const addPhotos = async (files: FileList) => {
+    const promises = Array.from(files).map(file => compressImage(file));
+    const newPhotos = await Promise.all(promises);
+    onChange([...photos, ...newPhotos]);
   };
 
   return (
@@ -105,6 +106,12 @@ function PhotoStrip({ photos, onChange, theme }: { photos: string[]; onChange: (
 // ── Property Card ─────────────────────────────────────────────────────────────
 
 function PropertyCard({ property, onEdit, onDelete, leads, deals, t, glassStyle }: { property: any; onEdit: () => void; onDelete: () => void; leads: any[]; deals: any[]; t: any; glassStyle: any }) {
+  const formatWhatsApp = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("251")) return digits;
+    if (digits.startsWith("0")) return "251" + digits.slice(1);
+    return "251" + digits;
+  };
   const photos = (property.photos as string[]) || [];
   const status = STATUS_META[property.status as PropertyStatus] || STATUS_META.available;
 
@@ -112,7 +119,7 @@ function PropertyCard({ property, onEdit, onDelete, leads, deals, t, glassStyle 
     <div style={glassStyle} className="overflow-hidden group flex flex-col h-full border-0">
       <div className="relative h-48 overflow-hidden bg-muted/20">
         {photos[0] ? (
-          <img src={photos[0]} alt={property.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+          <img src={photos[0]} alt={property.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30">
             <Home className="w-10 h-10 mb-2" />
@@ -208,10 +215,38 @@ function PropertyCard({ property, onEdit, onDelete, leads, deals, t, glassStyle 
               ))}
            </div>
            
-           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/20">
+           <div className="mt-4 flex items-center justify-between">
              <div className="text-lg font-black text-accent tracking-tight">
                {formatETB(property.price)}
              </div>
+           </div>
+
+           {/* Seller Contact — Visible to Agents */}
+           <div className="mt-4 pt-4 border-t border-border/20 flex flex-wrap gap-2">
+              {property.sellerPhone ? (
+                <>
+                  <a 
+                    href={`tel:${property.sellerPhone}`}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background border border-border/50 text-[9px] font-black uppercase tracking-widest text-foreground hover:bg-accent hover:text-white transition-all shadow-sm"
+                  >
+                    <Smartphone className="w-3 h-3" />
+                    {property.sellerPhone}
+                  </a>
+                  <a 
+                    href={`https://wa.me/${formatWhatsApp(property.sellerPhone)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#25D366]/10 border border-[#25D366]/20 text-[9px] font-black uppercase tracking-widest text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all shadow-sm"
+                  >
+                    <MessageCircle className="w-3 h-3" />
+                    WA
+                  </a>
+                </>
+              ) : (
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-40 italic">
+                  Contact not available
+                </span>
+              )}
            </div>
         </div>
       </div>
@@ -225,7 +260,7 @@ export default function PropertiesPage() {
   const [view, setView] = useState<"grid" | "map">("grid");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterSubcity, setFilterSubcity] = useState("all");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
 
@@ -261,9 +296,9 @@ export default function PropertiesPage() {
     const q = search.toLowerCase();
     const matchSearch = !q || p.title.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || (p.subcity ?? "").toLowerCase().includes(q);
     const matchStatus = filterStatus === "all" || p.status === filterStatus;
-    const matchSubcity = filterSubcity === "all" || p.subcity === filterSubcity;
-    return matchSearch && matchStatus && matchSubcity;
-  }), [properties, search, filterStatus, filterSubcity]);
+    const matchNeighborhood = !selectedNeighborhood || (p.title + p.address + (p.subcity || "")).toLowerCase().includes(selectedNeighborhood.toLowerCase());
+    return matchSearch && matchStatus && matchNeighborhood;
+  }), [properties, search, filterStatus, selectedNeighborhood]);
 
   const handleSave = (form: typeof EMPTY_FORM) => {
     const payload = {
@@ -274,6 +309,7 @@ export default function PropertiesPage() {
       squareFeet: form.squareFeet || undefined,
       subcity: form.subcity || undefined,
       description: form.description || undefined,
+      sellerPhone: form.sellerPhone || undefined,
       photos: form.photos.length ? form.photos : undefined,
     };
     if (editTarget) updateMutation.mutate({ id: editTarget.id, data: payload as any });
@@ -329,24 +365,24 @@ export default function PropertiesPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterSubcity} onValueChange={setFilterSubcity}>
+          <Select value={selectedNeighborhood || "all"} onValueChange={v => setSelectedNeighborhood(v === "all" ? null : v)}>
             <SelectTrigger style={glassStyle} className="h-11 border-0 w-full lg:w-48 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest">
-              <SelectValue placeholder="Subcity" />
+              <SelectValue placeholder="Neighborhood" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All Areas</SelectItem>
-              {ADDIS_SUBCITIES.map(s => (
-                <SelectItem key={s} value={s} className="text-xs uppercase font-black">{t(`subcity.${s}`)||s}</SelectItem>
+              {NEIGHBORHOODS.map(s => (
+                <SelectItem key={s} value={s} className="text-xs uppercase font-black">{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <div style={glassStyle} className="p-1 border-0 rounded-2xl flex shrink-0">
              {(["grid", "map"] as const).map(v => (
-               <button key={v} onClick={() => setView(v)}
-                className={`w-11 h-9 rounded-xl flex items-center justify-center transition-all ${view === v ? "bg-accent text-white shadow-lg" : "text-muted-foreground hover:bg-muted/30"}`}>
-                 {v === "grid" ? <LayoutGrid className="w-4 h-4" /> : <MapIcon className="w-4 h-4" />}
-               </button>
-             ))}
+                <button key={v} onClick={() => setView(v)}
+                 className={`w-11 h-9 rounded-xl flex items-center justify-center transition-all ${view === v ? "bg-accent text-white shadow-lg" : "text-muted-foreground hover:bg-muted/30"}`}>
+                  {v === "grid" ? <LayoutGrid className="w-4 h-4" /> : <MapIcon className="w-4 h-4" />}
+                </button>
+              ))}
           </div>
         </div>
       </div>
@@ -360,7 +396,7 @@ export default function PropertiesPage() {
             <h3 className="text-xl font-black text-foreground mb-2">No properties found</h3>
             <p className="text-sm text-muted-foreground max-w-xs font-medium mb-8">No property listings match your current filters or search criteria.</p>
             <Button variant="outline" className="rounded-xl px-6 h-10 text-[10px] font-black uppercase tracking-widest"
-                    onClick={() => { setSearch(""); setFilterStatus("all"); setFilterSubcity("all"); }}>
+            onClick={() => { setSearch(""); setFilterStatus("all"); setSelectedNeighborhood(null); }}>
                Clear Filters
             </Button>
           </div>
@@ -384,7 +420,6 @@ export default function PropertiesPage() {
         </div>
       )}
 
-      {/* Simplified Modal calls for space */}
       <PropertyModal open={modalOpen || !!editTarget} theme={theme}
         onClose={() => { setModalOpen(false); setEditTarget(null); }}
         initial={editTarget ? editTarget.initialForm : null}
@@ -418,7 +453,7 @@ function PropertyModal({ open, onClose, initial, onSave, isSaving, theme, t }: a
                     <Select value={form.subcity} onValueChange={v => set("subcity", v)}>
                       <SelectTrigger className="h-10 rounded-xl bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {ADDIS_SUBCITIES.map(s => <SelectItem key={s} value={s}>{t(`subcity.${s}`)||s}</SelectItem>)}
+                        {NEIGHBORHOODS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
                  </div>
@@ -435,6 +470,10 @@ function PropertyModal({ open, onClose, initial, onSave, isSaving, theme, t }: a
                <div>
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 inline-block">Price (ETB)</Label>
                   <Input type="number" className="h-10 rounded-xl bg-background/50 font-bold" value={form.price} onChange={e => set("price", e.target.value)} />
+               </div>
+               <div>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-accent mb-1.5 inline-block font-bold">Seller/Supplier Phone</Label>
+                  <Input className="h-10 rounded-xl bg-background/50 font-bold border-accent/20" placeholder="09..." value={form.sellerPhone} onChange={e => set("sellerPhone", e.target.value)} />
                </div>
             </div>
             

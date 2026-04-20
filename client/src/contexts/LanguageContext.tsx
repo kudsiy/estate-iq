@@ -255,7 +255,7 @@ const translations: Record<Language, Record<string, string>> = {
     "bill.roiDesc": "One mid-range deal (ETB 60k+ commission) covers 5 years of Estate IQ Pro. The platform pays for itself within your first deal.",
     "bill.tiers": "Available Tiers",
     "bill.help": "Financial Assistance",
-    "bill.helpDesc": "We accept Telebirr, CBE Birr, and Visa via Chapa. For manual activation, contact dedicated support.",
+    "bill.helpDesc": "We accept Telebirr, CBE Birr, and CBE Bank Transfers. Send a screenshot to our activation hub for immediate account provisioning.",
 
     // Notifications
     "notif.title": "Operational Manifest",
@@ -368,7 +368,7 @@ const translations: Record<Language, Record<string, string>> = {
     "pro.feature4": "Priority Social Hub Scheduling",
     "pro.feature5": "Multi-Seat Agency Collaboration",
     "pro.upgrade": "Upgrade for ETB 999/mo",
-    "pro.secure": "Secure Payment via Chapa",
+    "pro.secure": "Direct Manual Activation",
 
     // Public Tracking Page
     "track.secure": "Secure this Listing",
@@ -741,7 +741,7 @@ const translations: Record<Language, Record<string, string>> = {
     "pro.feature4": "ቀዳሚ የማህበራዊ ሚዲያ ስርጭት አገልግሎት",
     "pro.feature5": "የበርካታ ሰራተኞች የትብብር ስራ ቦታ",
     "pro.upgrade": "በወር 999 ብር ይመዝገቡ",
-    "pro.secure": "ደህንነቱ የተጠበቀ ክፍያ በቻፓ (Chapa)",
+    "pro.secure": "ቀጥተኛ በእጅ ማግበር",
 
     // Public Tracking Page
     "track.secure": "ይህንን ዝርዝር ይያዙ",

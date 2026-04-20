@@ -13,17 +13,18 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   TrendingUp, Calendar, DollarSign, Tag, User, Save, X, MapPin, Home, Activity, Flame, ShieldCheck,
-  ArrowLeft, Edit2, Trash2, Mail, Phone, MessageCircle
+  ArrowLeft, Edit2, Trash2, Mail, Phone, MessageCircle, Plus
 } from "lucide-react";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
 
-const STATUS_META: Record<string, { bg: string; text: string }> = {
-  active:    { bg: "bg-green-50 dark:bg-green-900/20",  text: "text-green-700 dark:text-green-400"  },
-  inactive:  { bg: "bg-gray-100 dark:bg-gray-800",       text: "text-gray-600 dark:text-gray-400"   },
-  converted: { bg: "bg-blue-50 dark:bg-blue-900/20",   text: "text-blue-700 dark:text-blue-400"   },
-  lost:      { bg: "bg-red-50 dark:bg-red-900/20",      text: "text-red-600 dark:text-red-400"    },
-  ignored:   { bg: "bg-orange-50 dark:bg-orange-900/20",  text: "text-orange-600 dark:text-orange-400" },
+const STATUS_META: Record<string, { bg: string; text: string; label: string }> = {
+  new:        { bg: "bg-blue-50 dark:bg-blue-900/20",    text: "text-blue-700 dark:text-blue-400",    label: "New" },
+  contacted:  { bg: "bg-purple-50 dark:bg-purple-900/20", text: "text-purple-700 dark:text-purple-400", label: "Contacted" },
+  interested: { bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-700 dark:text-emerald-400", label: "Interested" },
+  closed:     { bg: "bg-green-50 dark:bg-green-900/20",   text: "text-green-700 dark:text-green-400",  label: "Closed" },
+  lost:       { bg: "bg-red-50 dark:bg-red-900/20",      text: "text-red-600 dark:text-red-400",    label: "Lost" },
+  active:     { bg: "bg-gray-100 dark:bg-gray-800",       text: "text-gray-600 dark:text-gray-400",   label: "Active" },
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -96,9 +97,17 @@ export default function ContactDetail() {
     },
   });
 
-  const saveNotes = trpc.crm.contacts.update.useMutation({
+  const addNoteMutation = trpc.crm.contacts.addEvent.useMutation({
     onSuccess: () => {
-      toast.success("Notes saved");
+      toast.success("Note added to timeline");
+      setNoteText("");
+      refetchEvents();
+    },
+  });
+
+  const saveFollowUpMutation = trpc.crm.contacts.update.useMutation({
+    onSuccess: () => {
+      toast.success("Follow-up date set");
       refetchContact();
     },
   });
@@ -129,6 +138,7 @@ export default function ContactDetail() {
         whatsappNumber: data.phone,
         entityType: "lead",
         status: leadRaw.status,
+        followUpDate: null,
       };
     }
     return null;
@@ -166,18 +176,18 @@ export default function ContactDetail() {
     );
   }
 
-  const { data: subscription } = trpc.subscription.current.useQuery();
+  const { data: subscription } = trpc.subscription.get.useQuery();
   const isLocked = useMemo(() => {
-    if (!subscription?.workspace) return false;
-    // Lock if trialing and expired (already passed grace period of 3 days which is handled by backend isSubscriptionActive)
+    if (!subscription) return false;
+    // Lock if trial and expired (already passed grace period of 3 days which is handled by backend isSubscriptionActive)
     // But for UI "Soft Lock", we want to show it as soon as the 14 days are up to push for the ETB 999 upgrade.
-    const endsAt = new Date((subscription as any).workspace.trialEndsAt || 0);
-    return (subscription as any).workspace.subscriptionStatus === 'trial' && endsAt < new Date();
+    const endsAt = new Date((subscription as any).trialEndsAt || 0);
+    return (subscription as any).subscriptionStatus === 'trial' && endsAt < new Date();
   }, [subscription]);
 
   const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
 
-  const status = STATUS_META[entity.status ?? "active"];
+  const status = STATUS_META[entity.status ?? "new"] || STATUS_META.new;
   const initials = `${entity.firstName?.[0] || "L"}${entity.lastName?.[0] || "E"}`.toUpperCase();
 
   const handleUpdateStatus = (newStatus: string) => {
@@ -205,8 +215,18 @@ export default function ContactDetail() {
     }});
   };
 
-  const handleSaveNotes = () => {
-    saveNotes.mutate({ id, data: { notes: noteText } });
+  const handleAddNote = () => {
+    if (!noteText.trim()) return;
+    addNoteMutation.mutate({
+      contactId: id,
+      type: "note",
+      label: "Agent Note",
+      description: noteText,
+    });
+  };
+
+  const handleSetFollowUp = (date: string) => {
+    saveFollowUpMutation.mutate({ id, data: { followUpDate: new Date(date) as any } });
   };
 
   const timeline = [
@@ -314,11 +334,20 @@ export default function ContactDetail() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-foreground">
-                    {contact.firstName} {contact.lastName}
+                    {entity.firstName} {entity.lastName}
                   </h1>
-                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${status.bg} ${status.text}`}>
-                    {t(`status.${contact.status}`)}
-                  </span>
+                  <Select value={entity.status || "new"} onValueChange={handleUpdateStatus}>
+                    <SelectTrigger className={`h-6 w-auto border-0 p-0 bg-transparent shadow-none focus:ring-0`}>
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${status.bg} ${status.text} cursor-pointer hover:opacity-80 transition-opacity`}>
+                        {status.label}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(STATUS_META).filter(([k]) => k !== 'active' && k !== 'inactive').map(([key, meta]) => (
+                        <SelectItem key={key} value={key} className="text-[10px] font-black uppercase tracking-widest">{meta.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -343,42 +372,51 @@ export default function ContactDetail() {
                     </a>
                   </div>
                 )}
-                {contact.phone && (
+                {entity.phone && (
                   <div className="flex items-center gap-2.5 text-muted-foreground">
                     <Phone className="w-4 h-4 shrink-0 text-accent/60" />
-                    <a href={`tel:${contact.phone}`} className="hover:text-accent transition-colors font-medium">
-                      {contact.phone}
+                    <a href={`tel:${entity.phone}`} className="hover:text-accent transition-colors font-medium">
+                      {entity.phone}
                     </a>
                   </div>
                 )}
-                {contact.whatsappNumber && (
+                {entity.whatsappNumber && (
                   <div className="flex items-center gap-2.5 text-muted-foreground">
                     <MessageCircle className="w-4 h-4 shrink-0 text-emerald-500" />
-                    <a href={`https://wa.me/${contact.whatsappNumber.replace(/\D/g, "")}`}
+                    <a href={`https://wa.me/${entity.whatsappNumber.replace(/\D/g, "")}`}
                       target="_blank" rel="noreferrer"
                       className="hover:text-accent transition-colors">
-                      {contact.whatsappNumber}
+                      {entity.whatsappNumber}
                     </a>
                   </div>
                 )}
               </div>
 
-              <div className="pt-4 border-t border-border/50 space-y-2.5">
+              <div className="pt-4 border-t border-border/50 space-y-4">
+                <div>
+                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2 block">Follow-up Date</Label>
+                   <Input 
+                      type="date" 
+                      className="h-10 rounded-xl bg-background/50 border-border/50 text-xs font-bold"
+                      value={entity.followUpDate ? new Date(entity.followUpDate).toISOString().split('T')[0] : ""}
+                      onChange={(e) => handleSetFollowUp(e.target.value)}
+                   />
+                </div>
                 <div className="flex items-center gap-2.5 text-muted-foreground">
                   <Tag className="w-4 h-4 shrink-0" />
-                  <span className="capitalize font-medium text-foreground">{contact.type}</span>
-                  {contact.source && <span className="text-muted-foreground/60">· {contact.source}</span>}
+                  <span className="capitalize font-medium text-foreground">{(entity as any).type}</span>
+                  {(entity as any).source && <span className="text-muted-foreground/60">· {(entity as any).source}</span>}
                 </div>
-                {(contact.subcity || contact.woreda) && (
+                {((entity as any).subcity || (entity as any).woreda) && (
                   <div className="flex items-center gap-2.5 text-muted-foreground">
                     <MapPin className="w-4 h-4 shrink-0" />
-                    <span className="capitalize">{[t(`subcity.${contact.subcity}`)||contact.subcity, contact.woreda].filter(Boolean).join(", Woreda ")}</span>
+                    <span className="capitalize">{[t(`subcity.${(entity as any).subcity}`)||(entity as any).subcity, (entity as any).woreda].filter(Boolean).join(", Woreda ")}</span>
                   </div>
                 )}
-                {contact.propertyInterest && (
+                {(entity as any).propertyInterest && (
                   <div className="flex items-center gap-2.5 text-muted-foreground">
                     <Home className="w-4 h-4 shrink-0" />
-                    <span className="capitalize">{t("crm.propertyInterest")}: {contact.propertyInterest}</span>
+                    <span className="capitalize">{t("crm.propertyInterest")}: {(entity as any).propertyInterest}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2.5 text-muted-foreground">
@@ -402,13 +440,12 @@ export default function ContactDetail() {
             />
             <Button 
                size="sm" 
-               variant="outline" 
-               className="mt-3 w-full h-8 text-[10px] uppercase font-black tracking-widest gap-1.5 rounded-xl border-accent/20 bg-accent/5 hover:bg-accent hover:text-white transition-all"
-               onClick={handleSaveNotes} 
-               disabled={saveNotes.isPending}
+               className="mt-3 w-full h-10 text-[10px] uppercase font-black tracking-widest gap-1.5 rounded-xl bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20 transition-all"
+               onClick={handleAddNote} 
+               disabled={addNoteMutation.isPending || !noteText.trim()}
             >
-              <Save className="w-3.5 h-3.5" />
-              {saveNotes.isPending ? t("crm.saving") : t("crm.saveNotes")}
+              <Plus className="w-3.5 h-3.5" />
+              {addNoteMutation.isPending ? "Adding…" : "Add to Timeline"}
             </Button>
           </div>
         </div>

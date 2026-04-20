@@ -105,7 +105,7 @@ export async function handleExternalLead(req: Request, res: Response) {
       phone: input.phone,
       whatsappNumber: input.phone,
       type: "buyer",
-      status: "active",
+      status: "new",
       source: input.source,
       notes: input.notes ?? null,
     });
@@ -181,7 +181,7 @@ export async function handleSocialLeadInbound(params: {
       phone,
       whatsappNumber: phone,
       type: "buyer",
-      status: "active",
+      status: "new",
       source: source as any,
       notes,
     });

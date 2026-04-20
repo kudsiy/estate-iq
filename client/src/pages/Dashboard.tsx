@@ -175,7 +175,7 @@ export default function Dashboard() {
     else if (days === 1) { stage = 'final'; messageKey = 'trial.day13'; }
     else { stage = 'expired'; messageKey = 'trial.day14'; }
 
-    return { days, stage, messageKey };
+    return { days, stage, messageKey, isExpired: days <= 0 };
   }, [subscription]);
 
   // Handle Ignored Lead Warning
@@ -278,51 +278,79 @@ export default function Dashboard() {
       </div>
 
       {/* ── Trial Urgency Tracker ────────────────────────────────────── */}
-      {trialInfo && subscription?.workspace?.subscriptionStatus === 'trial' && (
+      {trialInfo && (subscription?.workspace?.subscriptionStatus === 'trial' || trialInfo.isExpired) && (
         <div 
-          className="mb-8 p-6 rounded-[2rem] border animate-in fade-in slide-in-from-top-4 duration-700"
+          className="mb-8 p-8 rounded-[2.5rem] border animate-in fade-in slide-in-from-top-4 duration-700 relative overflow-hidden"
           style={{
-            background: trialInfo.days <= 4 
-              ? "linear-gradient(145deg, rgba(239,68,68,0.1), rgba(15,23,42,0.9))" 
-              : "linear-gradient(145deg, rgba(124,58,237,0.1), rgba(15,23,42,0.9))",
-            borderColor: trialInfo.days <= 4 ? "rgba(239,68,68,0.2)" : "rgba(124,58,237,0.2)"
+            background: trialInfo.isExpired 
+              ? "linear-gradient(145deg, rgba(239,68,68,0.15), rgba(15,23,42,0.95))"
+              : trialInfo.days <= 4 
+                ? "linear-gradient(145deg, rgba(239,68,68,0.1), rgba(15,23,42,0.9))" 
+                : "linear-gradient(145deg, rgba(124,58,237,0.1), rgba(15,23,42,0.9))",
+            borderColor: (trialInfo.isExpired || trialInfo.days <= 4) ? "rgba(239,68,68,0.3)" : "rgba(124,58,237,0.2)"
           }}
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-start gap-5">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+          {trialInfo.isExpired && <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12"><AlertCircle className="w-24 h-24 text-red-500" /></div>}
+          
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative z-10">
+            <div className="flex items-start gap-6">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-2xl ${
+                trialInfo.isExpired ? "bg-red-500 text-white shadow-red-500/20" :
                 trialInfo.days <= 4 ? "bg-red-500/20 text-red-500" : "bg-accent/20 text-accent"
               }`}>
-                {trialInfo.days <= 4 ? <Activity className="w-7 h-7" /> : <Sparkles className="w-7 h-7" />}
+                {trialInfo.isExpired ? <AlertCircle className="w-8 h-8" /> : trialInfo.days <= 4 ? <Activity className="w-8 h-8" /> : <Sparkles className="w-8 h-8" />}
               </div>
               <div>
-                <h3 className="text-lg font-black text-foreground mb-1">
-                  {t(`trial.${trialInfo.stage}`)} — {trialInfo.days} {t("trial.daysRemaining")}
+                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">
+                  {trialInfo.isExpired ? "Your trial has ended" : `${t(`trial.${trialInfo.stage}`)} — ${trialInfo.days} ${t("trial.daysRemaining")}`}
                 </h3>
-                <p className="text-sm text-muted-foreground font-medium max-w-xl">
-                  {t(trialInfo.messageKey)}
-                </p>
+                {trialInfo.isExpired ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-white/70 font-medium max-w-xl leading-relaxed">
+                      To continue accessing your data and generating new leads, please send payment to one of the accounts below:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                          <p className="text-[10px] font-black uppercase text-accent mb-1 tracking-widest">Telebirr</p>
+                          <p className="text-sm font-black text-white tracking-widest">[your number]</p>
+                       </div>
+                       <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                          <p className="text-[10px] font-black uppercase text-accent mb-1 tracking-widest">CBE Account</p>
+                          <p className="text-sm font-black text-white tracking-widest">[your account]</p>
+                       </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/60 font-medium max-w-xl leading-relaxed">
+                    {t(trialInfo.messageKey)}
+                  </p>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {trialInfo.stage === 'welcome' ? (
-                <Button onClick={() => setLocation("/properties")} className="bg-accent text-white hover:bg-accent/90 rounded-xl font-black uppercase tracking-widest text-[10px] px-8 py-6">
-                  {t("trial.getStarted")}
-                </Button>
-              ) : (
-                <Button onClick={() => setLocation("/billing")} className="bg-foreground text-background hover:bg-foreground/90 rounded-xl font-black uppercase tracking-widest text-[10px] px-8 py-6">
-                  {t("trial.upgrade")}
-                </Button>
+            
+            <div className="flex flex-col gap-3 shrink-0">
+              <Button 
+                onClick={() => window.open(`https://wa.me/251XXXXXXXXX?text=Hello Estate IQ Support, I have made a payment for my account activation.`, '_blank')}
+                className={`h-14 px-10 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl transition-all hover:scale-105 active:scale-95 ${
+                  trialInfo.isExpired ? "bg-accent text-white shadow-accent/40" : "bg-white text-slate-900 shadow-white/10"
+                }`}
+              >
+                {trialInfo.isExpired ? "WhatsApp Confirmation" : t("trial.upgrade")}
+              </Button>
+              {trialInfo.isExpired && (
+                <p className="text-[9px] text-center text-white/40 font-black uppercase tracking-widest">Activate after payment</p>
               )}
             </div>
           </div>
           
-          <div className="mt-6 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-1000 ${trialInfo.days <= 4 ? "bg-red-500" : "bg-accent"}`}
-              style={{ width: `${(trialInfo.days / 14) * 100}%` }}
-            />
-          </div>
+          {!trialInfo.isExpired && (
+            <div className="mt-8 h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ${trialInfo.days <= 4 ? "bg-red-500" : "bg-accent"}`}
+                style={{ width: `${(trialInfo.days / 14) * 100}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
