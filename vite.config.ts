@@ -174,10 +174,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          'vendor': ['react', 'react-dom'],
           'vendor-radix': ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
           'vendor-utils': ['lucide-react', 'date-fns', 'clsx', 'tailwind-merge'],
-          'vendor-motion': ['framer-motion'],
-          'vendor-charts': ['recharts'],
+          'charts': ['recharts'],
+          'motion': ['framer-motion'],
+          'trpc': ['@trpc/client', '@trpc/react-query'],
         }
       }
     },
