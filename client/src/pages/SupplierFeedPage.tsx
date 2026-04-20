@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
-import { CheckCircle2, Inbox, Palette, Plus, UploadCloud, Building2, MapPin, DollarSign, Activity, Search, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Inbox, Palette, Plus, UploadCloud, Building2, MapPin, DollarSign, Activity, Search, ShieldAlert, Smartphone, MessageCircle } from "lucide-react";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
 
@@ -44,6 +44,14 @@ export default function SupplierFeedPage() {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
+
+  const NEIGHBORHOODS = [
+    "Ayat", "CMC", "Summit", "Bole Main", "Bulgaria", 
+    "Megenagna", "Sarbet", "Jemo", "Signal", "Kality",
+    "Mexico", "Gelan", "4 Kilo", "Sidist Kilo"
+  ];
 
   const { data: listings = [] } = trpc.supplierFeed.list.useQuery();
   const createMutation = trpc.supplierFeed.create.useMutation({
@@ -72,6 +80,40 @@ export default function SupplierFeedPage() {
     return { fresh, dups, total: listings.length };
   }, [listings]);
 
+  const filteredListings = useMemo(() => {
+    let result = listings;
+    
+    const query = searchTerm.toLowerCase().trim();
+    if (query) {
+      result = result.filter(item => 
+        item.title.toLowerCase().includes(query) ||
+        item.address.toLowerCase().includes(query) ||
+        (item.subcity || "").toLowerCase().includes(query)
+      );
+    }
+
+    if (selectedNeighborhood) {
+      const neighbor = selectedNeighborhood.toLowerCase();
+      result = result.filter(item => 
+        item.title.toLowerCase().includes(neighbor) ||
+        item.address.toLowerCase().includes(neighbor) ||
+        (item.subcity || "").toLowerCase().includes(neighbor)
+      );
+    }
+
+    return result;
+  }, [listings, searchTerm, selectedNeighborhood]);
+
+  const inferPropertyType = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes("villa") || t.includes("g+")) return "Villa";
+    if (t.includes("apartment") || t.includes("condo")) return "Apartment";
+    if (t.includes("office")) return "Office";
+    if (t.includes("land") || t.includes("square")) return "Land";
+    if (t.includes("commercial") || t.includes("shop")) return "Commercial";
+    return "Apartment"; // Default fallback
+  };
+
   const handleSubmit = () => {
     if (!form.sourceName || !form.title || !form.address) {
       toast.error("Required fields missing");
@@ -83,6 +125,13 @@ export default function SupplierFeedPage() {
       bedrooms: form.bedrooms ? Number(form.bedrooms) : undefined,
       bathrooms: form.bathrooms ? Number(form.bathrooms) : undefined,
     });
+  };
+
+  const formatWhatsApp = (phone: string) => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("251")) return digits;
+    if (digits.startsWith("0")) return "251" + digits.slice(1);
+    return "251" + digits;
   };
 
   return (
@@ -168,11 +217,36 @@ export default function SupplierFeedPage() {
       </div>
 
       <div style={glassStyle} className="overflow-hidden border-0">
-         <div className="px-8 py-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em]">{t("sup.review")}</h3>
-            <div className="relative w-64">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-               <Input className="h-9 pl-9 rounded-xl bg-background/20 text-[10px] font-bold uppercase tracking-widest placeholder:text-muted-foreground/30 border-0" placeholder="Filter Intel..." />
+         <div className="px-8 py-6 border-b border-white/5 bg-white/5 space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-[0.2em]">{t("sup.review")}</h3>
+              <div className="relative w-64">
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                 <Input 
+                   className="h-9 pl-9 rounded-xl bg-background/20 text-[10px] font-bold uppercase tracking-widest placeholder:text-muted-foreground/30 border-0" 
+                   placeholder="Search neighborhoods or title..." 
+                   value={searchTerm}
+                   onChange={e => setSearchTerm(e.target.value)}
+                 />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+               <button 
+                 onClick={() => setSelectedNeighborhood(null)}
+                 className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${!selectedNeighborhood ? 'bg-accent text-white shadow-lg' : 'bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+               >
+                 All Areas
+               </button>
+               {NEIGHBORHOODS.map(n => (
+                 <button 
+                   key={n}
+                   onClick={() => setSelectedNeighborhood(selectedNeighborhood === n ? null : n)}
+                   className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${selectedNeighborhood === n ? 'bg-accent text-white shadow-lg' : 'bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+                 >
+                   {n}
+                 </button>
+               ))}
             </div>
          </div>
          
@@ -183,14 +257,21 @@ export default function SupplierFeedPage() {
                 <p className="text-sm font-black uppercase tracking-widest">No Intelligence Detected</p>
                 <p className="text-[10px] font-bold uppercase tracking-widest mt-2">{t("sup.sub")}</p>
               </div>
-            ) : (
+             ) : (
               <div className="space-y-4">
-                {listings.map((listing) => (
+                {filteredListings.length === 0 ? (
+                  <div className="py-20 text-center opacity-40">
+                    <p className="text-[10px] font-bold uppercase tracking-widest italic">No matches for current search criteria</p>
+                  </div>
+                ) : filteredListings.map((listing) => (
                   <div key={listing.id} className="p-6 rounded-[24px] bg-background/30 border border-white/5 group hover:bg-background/50 transition-all hover:-translate-y-1 shadow-xl hover:shadow-2xl">
                     <div className="flex flex-col lg:flex-row gap-6 lg:items-center justify-between">
                        <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-3 mb-2">
                              <h4 className="text-lg font-black tracking-tighter uppercase italic">{listing.title}</h4>
+                             <span className="bg-white/5 text-white/40 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                                {new Date(listing.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                             </span>
                              <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${listing.status === 'new' ? 'bg-accent text-white' : 'bg-muted text-muted-foreground'}`}>{listing.status}</span>
                              {listing.duplicatePropertyId && (
                                <span className="bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest flex items-center gap-1">
@@ -199,9 +280,44 @@ export default function SupplierFeedPage() {
                              )}
                           </div>
                           <div className="flex flex-wrap gap-4 text-xs font-medium text-muted-foreground mb-4">
-                             <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-accent" /> {listing.address}, {listing.subcity || "District Unknown"}</div>
-                             <div className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-accent" /> {listing.sourceName}</div>
+                             <div className="flex items-center gap-1.5 bg-accent/10 text-accent px-2 py-1 rounded-lg">
+                                <MapPin className="w-3.5 h-3.5" /> 
+                                {listing.subcity || "Addis Ababa"}
+                             </div>
+                             <div className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-accent" /> {inferPropertyType(listing.title)}</div>
                              <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-accent" /> ETB {Number(listing.price || 0).toLocaleString()}</div>
+                             <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-accent/40" /> {listing.address}</div>
+                             {listing.bedrooms && (
+                               <div className="flex items-center gap-1.5 font-black italic">{listing.bedrooms} Beds</div>
+                             )}
+                          </div>
+                          
+                          {/* Sourcing Contact — Direct Access for Agents */}
+                          <div className="flex items-center gap-3 pt-3 border-t border-white/5">
+                             {listing.supplierContact ? (
+                               <>
+                                  <a 
+                                    href={`tel:${listing.supplierContact}`}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background/50 border border-white/5 text-[10px] font-black uppercase tracking-widest text-foreground hover:bg-accent hover:text-white transition-all"
+                                  >
+                                    <Smartphone className="w-3.5 h-3.5" />
+                                    {listing.supplierContact}
+                                  </a>
+                                  <a 
+                                    href={`https://wa.me/${formatWhatsApp(listing.supplierContact)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 text-[10px] font-black uppercase tracking-widest text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    WhatsApp
+                                  </a>
+                               </>
+                             ) : (
+                               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50 italic px-2">
+                                  Contact not available
+                               </span>
+                             )}
                           </div>
                        </div>
                        

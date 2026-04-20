@@ -3,10 +3,12 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CreditCard, Star, Zap, TrendingUp, AlertTriangle, Check, Info, ArrowUpRight, Layout, Activity, Sparkles, Image as ImageIcon, Video, ShieldCheck, HelpCircle } from "lucide-react";
+import { CreditCard, Star, Zap, TrendingUp, AlertTriangle, Check, Info, ArrowUpRight, Layout, Activity, Sparkles, Image as ImageIcon, Video, ShieldCheck, HelpCircle, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
@@ -28,12 +30,13 @@ export default function BillingPage() {
   const { data: plans = [] } = trpc.subscription.plans.useQuery();
   const { data: usage } = trpc.billing.getUsage.useQuery();
   
-  const checkoutMutation = trpc.billing.createCheckoutSession.useMutation({
-    onSuccess: (data: any) => {
-      window.location.href = data.checkoutUrl;
-    },
-    onError: (error: any) => toast.error(error.message || "Checkout failed"),
-  });
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+
+  const handleUpgradeClick = (plan: any) => {
+    setSelectedPlan(plan);
+    setShowPaymentModal(true);
+  };
 
   const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
   const isTrial = usage?.status === "trial";
@@ -46,9 +49,9 @@ export default function BillingPage() {
           <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">{t("bill.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1 font-medium">{t("bill.sub")}</p>
         </div>
-        <div className="flex items-center gap-3 bg-accent/10 border border-accent/20 px-6 py-2.5 rounded-2xl">
-           <ShieldCheck className="w-5 h-5 text-accent" />
-           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">Payment Secured via Chapa</span>
+        <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2.5 rounded-2xl">
+           <ShieldCheck className="w-5 h-5 text-emerald-500" />
+           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">Manual Activation Model</span>
         </div>
       </div>
 
@@ -157,7 +160,9 @@ export default function BillingPage() {
                      </li>
                    ))}
                 </ul>
-                <Button className="w-full h-14 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-accent/30 border-b-4 border-black/20 hover:translate-y-px transition-all">
+                <Button 
+                  onClick={() => handleUpgradeClick({ key: 'pro', name: 'Pro Sovereignty', price: 999 })}
+                  className="w-full h-14 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-accent/30 border-b-4 border-black/20 hover:translate-y-px transition-all">
                    Deploy Pro Access Now
                 </Button>
              </div>
@@ -208,8 +213,7 @@ export default function BillingPage() {
                    {plan.key !== planName && (
                      <Button 
                        className="w-full h-12 bg-white/5 hover:bg-accent hover:text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-none transition-all"
-                       onClick={() => checkoutMutation.mutate({ plan: plan.key as any })}
-                       disabled={checkoutMutation.isPending}
+                       onClick={() => handleUpgradeClick(plan)}
                      >
                         Upgrade Membership
                      </Button>
@@ -219,16 +223,69 @@ export default function BillingPage() {
            </div>
 
            <div style={glassStyle} className="p-8 border-0 bg-background/40">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-6 italic">{t("bill.help")}</h4>
-              <p className="text-[11px] text-white/50 leading-relaxed italic mb-8 uppercase tracking-tighter pr-4">
-                 {t("bill.helpDesc")}
-              </p>
-              <div className="flex items-center gap-6 opacity-40 transition-all hover:opacity-100 cursor-pointer">
-                 <div className="text-[10px] font-black italic tracking-tighter">TELEBIRR</div>
-                 <div className="text-[10px] font-black italic tracking-tighter">CBE BIRR</div>
-                 <div className="text-[10px] font-black italic tracking-tighter">CHAPA PAY</div>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-6 italic">Direct Payment Hub</h4>
+              <div className="space-y-6">
+                 <div>
+                    <Label className="text-[9px] font-black uppercase tracking-widest text-accent mb-2 block">Telebirr / CBE Birr / M-Pesa</Label>
+                    <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">0911 22 33 44</p>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">Beneficiary: ESTATE IQ TECH PLC</p>
+                 </div>
+                 <div>
+                    <Label className="text-[9px] font-black uppercase tracking-widest text-accent mb-2 block">Commercial Bank of Ethiopia (CBE)</Label>
+                    <p className="text-xl font-black text-foreground tabular-nums tracking-tighter">1000 4455 6677 8</p>
+                 </div>
+                 <div className="pt-4 border-t border-white/5">
+                    <p className="text-[10px] font-bold text-foreground/60 leading-relaxed uppercase tracking-tight italic">
+                       After payment, please send a screenshot of the transaction to our activation hub on WhatsApp:
+                    </p>
+                    <a 
+                      href="https://wa.me/251911223344" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="mt-4 flex items-center justify-center gap-3 w-full h-12 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#25D366]/20 transition-all"
+                    >
+                       <MessageCircle className="w-4 h-4" /> Message Activation Hub
+                    </a>
+                 </div>
               </div>
            </div>
+
+           <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+              <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-sm">
+                 <div style={getGlassStyle(theme)} className="p-8 space-y-6">
+                    <div className="text-center space-y-2">
+                       <div className="w-16 h-16 bg-accent rounded-3xl flex items-center justify-center shadow-2xl shadow-accent/20 mx-auto mb-4">
+                          <Zap className="w-8 h-8 text-white" />
+                       </div>
+                       <h3 className="text-2xl font-black tracking-tighter uppercase italic text-foreground">Confirm Upgrade</h3>
+                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          Plan: {selectedPlan?.name} · ETB {selectedPlan?.price?.toLocaleString()}
+                       </p>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                       <div>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-accent mb-1">Step 1: Transfer Funds</p>
+                          <p className="text-sm font-black text-foreground">0911 22 33 44 (Telebirr)</p>
+                       </div>
+                       <div>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-accent mb-1">Step 2: Notify Engine</p>
+                          <p className="text-[10px] font-bold text-muted-foreground leading-tight uppercase">Send screenshot on WhatsApp for instant activation.</p>
+                       </div>
+                    </div>
+
+                    <Button 
+                      onClick={() => {
+                        window.open("https://wa.me/251911223344", "_blank");
+                        setShowPaymentModal(false);
+                      }}
+                      className="w-full h-14 bg-accent hover:bg-accent/90 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-accent/40"
+                    >
+                       I've Paid — Activate Now
+                    </Button>
+                 </div>
+              </DialogContent>
+           </Dialog>
         </div>
       </div>
     </DashboardLayout>

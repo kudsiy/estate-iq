@@ -21,6 +21,7 @@ registerRoute("extractor.parseListing");
 registerRoute("videoEngine.render");
 
 import { createChapaCheckoutSession } from "./_core/chapa";
+import { saveBase64Image } from "./storage";
 import {
   PLAN_LIMITS,
   PLAN_PRICES,
@@ -127,7 +128,8 @@ const contactInputSchema = z.object({
   phone: z.string().trim().min(1).optional(),
   whatsappNumber: z.string().trim().min(1).optional(),
   type: z.enum(["buyer", "seller", "both"]),
-  status: z.enum(["active", "inactive", "converted", "lost"]).optional(),
+  status: z.enum(["new", "contacted", "interested", "closed", "lost"]).optional(),
+  followUpDate: z.date().optional(),
   source: z.string().trim().min(1).optional(),
   tags: z.array(z.string()).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
@@ -196,7 +198,8 @@ const contactUpdateSchema = atLeastOne({
   phone: z.string().trim().min(1).nullable(),
   whatsappNumber: z.string().trim().min(1).nullable(),
   type: z.enum(["buyer", "seller", "both"]),
-  status: z.enum(["active", "inactive", "converted", "lost"]),
+  status: z.enum(["new", "contacted", "interested", "closed", "lost"]),
+  followUpDate: z.date().nullable(),
   source: z.string().trim().min(1).nullable(),
   tags: z.array(z.string()),
   customFields: z.record(z.string(), z.unknown()),
@@ -241,6 +244,7 @@ const propertyInputSchema = z.object({
   squareFeet: z.union([z.number(), z.string()]).optional().transform(v => v?.toString()),
   photos: z.array(z.string()).optional(),
   status: z.enum(["available", "sold", "rented", "pending"]).optional(),
+  sellerPhone: z.string().optional(),
 });
 
 const propertyUpdateSchema = atLeastOne({
@@ -257,6 +261,7 @@ const propertyUpdateSchema = atLeastOne({
   squareFeet: z.union([z.number(), z.string()]).nullable().transform(v => v?.toString()),
   photos: z.array(z.string()),
   status: z.enum(["available", "sold", "rented", "pending"]),
+  sellerPhone: z.string().nullable(),
 });
 
 const leadInputSchema = z.object({
@@ -1634,10 +1639,12 @@ export const appRouter = router({
             const properties = await getPropertiesByScope(scope);
             return properties.length;
           });
+          const photos = input.photos ? await Promise.all(input.photos.map(async p => p.startsWith('data:') ? await saveBase64Image(p) : p)) : undefined;
           const id = await createProperty({
             userId: ctx.user.id,
             workspaceId: scope.workspaceId,
             ...input,
+            photos,
             price: input.price?.toString(),
             latitude: input.latitude?.toString(),
             longitude: input.longitude?.toString(),
@@ -1653,8 +1660,10 @@ export const appRouter = router({
           })
         )
         .mutation(async ({ ctx, input }) => {
+          const photos = input.data.photos ? await Promise.all(input.data.photos.map(async p => p.startsWith('data:') ? await saveBase64Image(p) : p)) : undefined;
           const data = {
             ...input.data,
+            photos,
             price: input.data.price?.toString() ?? undefined,
             latitude: input.data.latitude?.toString() ?? undefined,
             longitude: input.data.longitude?.toString() ?? undefined,
@@ -1871,7 +1880,7 @@ export const appRouter = router({
             whatsappNumber:
               typeof leadData.phone === "string" ? leadData.phone : null,
             type: "buyer",
-            status: "active",
+            status: "new",
             source: lead.source,
             notes: typeof leadData.notes === "string" ? leadData.notes : null,
           });
@@ -2014,7 +2023,7 @@ export const appRouter = router({
             phone: input.phone,
             whatsappNumber: input.phone,
             type: "buyer",
-            status: "active",
+            status: "new",
             source: input.source,
             notes: input.notes ?? null,
           });
@@ -2094,6 +2103,7 @@ export const appRouter = router({
           return {
             ...property,
             agentPhone: agent?.phone ?? null,
+            sellerPhone: property.sellerPhone ?? null,
           };
         }),
     }),
@@ -2114,10 +2124,15 @@ export const appRouter = router({
         .input(brandKitInputSchema)
         .mutation(async ({ ctx, input }) => {
           const scope = getScope(ctx.user);
+          const logos = input.logos ? await Promise.all(input.logos.map(async l => ({ ...l, src: l.src.startsWith('data:') ? await saveBase64Image(l.src) : l.src }))) : undefined;
+          const agentPortrait = input.agentPortrait?.startsWith('data:') ? await saveBase64Image(input.agentPortrait) : input.agentPortrait;
+          
           const id = await createBrandKit({
             userId: ctx.user.id,
             workspaceId: scope.workspaceId,
             ...input,
+            logos,
+            agentPortrait,
           });
           return { success: true, id };
         }),
@@ -2129,10 +2144,13 @@ export const appRouter = router({
           })
         )
         .mutation(async ({ ctx, input }) => {
+          const logos = input.data.logos ? await Promise.all(input.data.logos.map(async l => ({ ...l, src: l.src.startsWith('data:') ? await saveBase64Image(l.src) : l.src }))) : undefined;
+          const agentPortrait = input.data.agentPortrait?.startsWith('data:') ? await saveBase64Image(input.data.agentPortrait) : input.data.agentPortrait;
+
           const updated = await updateBrandKit(
             getScope(ctx.user),
             input.id,
-            input.data
+            { ...input.data, logos, agentPortrait }
           );
           if (!updated)
             throw new TRPCError({

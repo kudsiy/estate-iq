@@ -205,10 +205,12 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
   const LeadCard = ({ lead, autoOpen = false }: { lead: any; autoOpen?: boolean }) => {
     const isNew = lead.status === "new";
     const isBypassed = bypassedLeads.has(lead.id);
+    const leadData = (lead.leadData as any) ?? {};
+    const leadName = lead.name || [leadData.firstName, leadData.lastName].filter(Boolean).join(" ") || "Lead Signal";
+    const leadPhone = leadData.phone || "";
     const propTitle = insights.find((i: any) => i.id === lead.propertyId)?.title || "Unknown Property";
     const msg = lead.rawMessage || (lead.leadData as any)?.text || "";
     const isSuspicious = (lead.leadData as any)?.isSuspicious;
-    const confidence = (lead.leadData as any)?.contactConfidence;
 
     const handleAction = (status: "contacted" | "ignored", note?: string) => {
       updateStatus.mutate({ id: lead.id, status, leadData: { ...((lead.leadData as object) || {}), triageNote: note } });
@@ -219,9 +221,6 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
       if (isNew && !isBypassed) {
         // Patch 3: First click → open triage
         setTriagingId(triagingId === lead.id ? null : lead.id);
-      } else if (isNew && isBypassed) {
-        // Second click → navigate with banner already set
-        setLocation(`/crm/contacts/${lead.contactId || `lead:${lead.id}`}`);
       } else {
         setLocation(`/crm/contacts/${lead.contactId || `lead:${lead.id}`}`);
       }
@@ -234,6 +233,13 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
     };
 
     const isTriageOpen = triagingId === lead.id || autoOpen;
+
+    const toInternational = (phone: string) => {
+      let cleaned = phone.replace(/\D/g, '');
+      if (cleaned.startsWith('0')) cleaned = '251' + cleaned.slice(1);
+      if (!cleaned.startsWith('251')) cleaned = '251' + cleaned;
+      return cleaned;
+    };
 
     return (
       <div
@@ -256,7 +262,7 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <p className="text-sm font-black text-foreground tracking-tight">{lead.name || "Lead Signal"}</p>
+              <p className="text-sm font-black text-foreground tracking-tight">{leadName}</p>
               {isNew && <span className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-accent text-white animate-pulse">⚠️ Not contacted</span>}
               {lead.source && (
                 <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${sourceColor[lead.source] || "bg-gray-100"}`}>
@@ -266,16 +272,29 @@ function LeadsInbox({ t }: { t: (k: string) => string }) {
               {isSuspicious && (
                 <span className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-red-100 text-red-600">⚠ Gaming detected</span>
               )}
-              {confidence && confidence !== "strong" && (
-                <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${
-                  confidence === "medium" ? "bg-yellow-100 text-yellow-700" : "bg-orange-100 text-orange-700"
-                }`}>{confidence} contact</span>
-              )}
             </div>
-            <p className="text-[11px] text-muted-foreground font-medium truncate">
-              Property: <span className="text-foreground/70">{propTitle}</span>
-            </p>
-            {msg && <p className="text-[12px] text-foreground/80 mt-2 font-medium line-clamp-1 italic">"{msg}"</p>}
+            <div className="flex flex-col gap-1.5 mt-2">
+               {leadPhone && (
+                 <div className="flex items-center gap-3">
+                    <a href={`tel:${leadPhone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-[11px] font-bold text-accent hover:underline">
+                       <Phone className="w-3 h-3" /> {leadPhone}
+                    </a>
+                    <a 
+                      href={`https://wa.me/${toInternational(leadPhone)}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 bg-[#25D366]/10 text-[#25D366] px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest hover:bg-[#25D366]/20 transition-colors"
+                    >
+                      <MessageSquare className="w-3 h-3" /> WhatsApp
+                    </a>
+                 </div>
+               )}
+               <p className="text-[11px] text-muted-foreground font-medium">
+                 Property: <span className="text-foreground/70">{propTitle}</span>
+               </p>
+               {msg && <p className="text-[11px] text-foreground/60 font-medium line-clamp-1 italic">"{msg}"</p>}
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
             <span className="text-[9px] font-black text-muted-foreground uppercase opacity-60">
@@ -682,19 +701,22 @@ export default function CRMPage() {
   const { t } = useLanguage();
   const { theme } = useTheme();
 
-  // State for Quick Capture
+  // State for Manual Lead Add
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [quickAddForm, setQuickAddForm] = useState<{ platform: "tiktok" | "facebook" | "instagram" | "telegram", propertyId: string, text: string }>({
-    platform: "tiktok",
-    propertyId: "",
-    text: ""
+  const [quickAddForm, setQuickAddForm] = useState({ 
+    name: "",
+    phone: "",
+    source: "manual" as any,
+    propertyId: ""
   });
+
+  const { data: properties = [] } = trpc.crm.properties.list.useQuery();
 
   const createLeadMutation = trpc.crm.leads.create.useMutation({
     onSuccess: () => {
-      toast.success("Lead captured instantly");
+      toast.success("Lead added successfully");
       setIsQuickAddOpen(false);
-      setQuickAddForm({ platform: "tiktok", propertyId: "", text: "" });
+      setQuickAddForm({ name: "", phone: "", source: "manual", propertyId: "" });
       refetchLeads();
     },
     onError: (e) => toast.error(e.message || "Capture failed"),
@@ -713,15 +735,21 @@ export default function CRMPage() {
 
   const handleQuickAdd = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!quickAddForm.name || !quickAddForm.phone) {
+      toast.error("Name and Phone are required");
+      return;
+    }
+
     createLeadMutation.mutate({
-      source: "manual",
+      source: quickAddForm.source,
       status: "new",
       propertyId: quickAddForm.propertyId ? parseInt(quickAddForm.propertyId) : undefined,
       leadData: {
-        platform: quickAddForm.platform,
-        text: quickAddForm.text,
-        action: "manual_capture",
-        sourceId: "CRM_QuickAdd"
+        firstName: quickAddForm.name.split(" ")[0],
+        lastName: quickAddForm.name.split(" ").slice(1).join(" ") || "Prospect",
+        phone: quickAddForm.phone,
+        action: "manual_entry",
+        sourceId: "CRM_Manual_Add"
       }
     });
   };
@@ -751,36 +779,53 @@ export default function CRMPage() {
             <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-accent text-white hover:bg-accent/90 h-10 px-6 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-accent/20">
-                  <Zap className="w-3.5 h-3.5 mr-2" /> Quick Capture
+                  <Plus className="w-3.5 h-3.5 mr-2" /> Add Lead
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md bg-background border-border">
                 <DialogHeader>
-                  <DialogTitle className="text-xl font-black tracking-tighter italic">Frictionless Capture</DialogTitle>
+                  <DialogTitle className="text-xl font-black tracking-tighter italic text-foreground">Manual Lead Entry</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleQuickAdd} className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Full Name *</Label>
+                       <Input className="h-12 mt-2 rounded-xl bg-background border-border" placeholder="e.g. Abebe Kebede" value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))} required />
+                    </div>
+                    <div className="col-span-2">
+                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Phone Number *</Label>
+                       <Input className="h-12 mt-2 rounded-xl bg-background border-border" placeholder="e.g. 0911223344" value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))} required />
+                    </div>
+                  </div>
                   <div>
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source Platform</Label>
-                    <Select value={quickAddForm.platform} onValueChange={v => setQuickAddForm(f => ({ ...f, platform: v as any }))}>
-                      <SelectTrigger className="h-12 mt-2 rounded-xl text-sm font-medium"><SelectValue /></SelectTrigger>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Property Interest</Label>
+                    <Select value={quickAddForm.propertyId} onValueChange={v => setQuickAddForm(f => ({ ...f, propertyId: v }))}>
+                      <SelectTrigger className="h-12 mt-2 rounded-xl text-sm font-medium bg-background border-border">
+                        <SelectValue placeholder="Select interest" />
+                      </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="telegram">Telegram</SelectItem>
-                        <SelectItem value="tiktok">TikTok</SelectItem>
-                        <SelectItem value="instagram">Instagram</SelectItem>
-                        <SelectItem value="facebook">Facebook</SelectItem>
+                        {properties.map(p => (
+                          <SelectItem key={p.id} value={p.id.toString()} className="text-[11px] font-bold">{p.title}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Reference Property ID (Optional)</Label>
-                    <Input className="h-12 mt-2 rounded-xl" placeholder="e.g. 1" value={quickAddForm.propertyId} onChange={e => setQuickAddForm(f => ({ ...f, propertyId: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Paste Chat/Comment Text</Label>
-                    <Textarea className="mt-2 rounded-xl min-h-[120px] text-sm" placeholder="Paste the message from the user here..." value={quickAddForm.text} onChange={e => setQuickAddForm(f => ({ ...f, text: e.target.value }))} required />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source</Label>
+                    <Select value={quickAddForm.source} onValueChange={v => setQuickAddForm(f => ({ ...f, source: v as any }))}>
+                      <SelectTrigger className="h-12 mt-2 rounded-xl text-sm font-medium bg-background border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                        <SelectItem value="call">Phone Call</SelectItem>
+                        <SelectItem value="manual">Referral/Other</SelectItem>
+                        <SelectItem value="telegram">Telegram</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button type="submit" disabled={createLeadMutation.isPending} className="w-full bg-accent text-white hover:bg-accent/90 h-14 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-accent/20 mt-4">
-                    {createLeadMutation.isPending ? "Capturing..." : "Capture Lead"}
+                    {createLeadMutation.isPending ? "Adding Lead..." : "Create Lead"}
                   </Button>
                 </form>
               </DialogContent>

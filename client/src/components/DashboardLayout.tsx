@@ -255,6 +255,37 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
           </header>
 
           {/* Premium Banners Container */}
+          {current?.workspace?.subscriptionStatus === 'trial' && new Date(current.workspace.trialEndsAt || 0) < new Date() && (
+            <div className="mx-8 mt-6 p-6 rounded-3xl bg-red-500/10 border border-red-500/20 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                  <AlertTriangle className="w-24 h-24 text-red-500" />
+               </div>
+               <div className="flex items-center gap-5 relative z-10">
+                  <div className="w-14 h-14 rounded-2xl bg-red-500 flex items-center justify-center shadow-xl shadow-red-500/20">
+                     <ShieldAlert className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-black tracking-tighter uppercase italic text-red-500 mb-1">Trial Period Expired</h3>
+                     <p className="text-[11px] font-bold text-red-600/70 uppercase tracking-widest max-w-md leading-relaxed">
+                        Your 14-day access has concluded. Data is now read-only. Secure your account to continue maximizing your sales pipeline.
+                     </p>
+                  </div>
+               </div>
+               
+               <div className="flex flex-col sm:flex-row items-center gap-4 relative z-10">
+                  <div className="px-5 py-3 rounded-2xl bg-background/50 border border-red-500/10 text-center">
+                     <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Telebirr / CBE Access</p>
+                     <p className="text-sm font-black text-foreground tabular-nums">0911 22 33 44</p>
+                  </div>
+                  <Button 
+                    onClick={() => setLocation("/billing")}
+                    className="h-12 px-8 bg-red-500 hover:bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-500/20"
+                  >
+                     Activate Pro Membership
+                  </Button>
+               </div>
+            </div>
+          )}
 
           <main className={`flex-1 p-10 bg-transparent min-h-screen ${language === 'am' ? 'font-ethiopic' : 'font-sans'}`}>
              {children}

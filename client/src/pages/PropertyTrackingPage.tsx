@@ -303,9 +303,31 @@ export default function PropertyTrackingPage() {
                        {language === 'am' ? v.am : v.label}
                     </span>
                  ))}
-                 <span className="text-white/40 text-[10px] font-black uppercase tracking-widest pl-4 border-l border-white/10 italic">
-                    REF: {property.uniqueListingId}
-                 </span>
+                 <div className="flex flex-col gap-1 pl-4 border-l border-white/10 italic">
+                    <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+                       REF: {property.uniqueListingId}
+                    </span>
+                    {property.sellerPhone ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase text-accent tracking-widest">Sourcing:</span>
+                        <a href={`tel:${property.sellerPhone}`} className="text-[10px] font-black text-white hover:text-accent transition-colors flex items-center gap-1">
+                          <Phone className="w-2.5 h-2.5" /> {property.sellerPhone}
+                        </a>
+                        <a 
+                          href={`https://wa.me/${toInternational(property.sellerPhone)}`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-[#25D366] hover:scale-110 transition-transform"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-[9px] font-black uppercase text-white/20 tracking-widest">
+                        Contact not available
+                      </span>
+                    )}
+                 </div>
               </div>
               <h1 className="text-6xl md:text-[10rem] font-black tracking-tighter mb-8 max-w-7xl leading-[0.8] uppercase italic mix-blend-difference">
                 {property.title}

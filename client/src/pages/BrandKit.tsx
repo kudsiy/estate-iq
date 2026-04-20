@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit2, Sparkles, Upload, X, Check } from "lucide-react";
+import { compressImage } from "@/lib/image";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -121,15 +122,11 @@ function KitEditor({
     setKit((k) => ({ ...k, colors: k.colors.map((c, j) => j === i ? { ...c, ...patch } : c) }));
 
   // Logos
-  const handleLogoUpload = (files: FileList | null) => {
+  const handleLogoUpload = async (files: FileList | null) => {
     if (!files) return;
-    Array.from(files).forEach((f) => {
-      const r = new FileReader();
-      r.onload = () => setKit((k) => ({
-        ...k, logos: [...k.logos, { src: r.result as string, name: f.name.replace(/\.[^.]+$/, "") }],
-      }));
-      r.readAsDataURL(f);
-    });
+    const promises = Array.from(files).map(f => compressImage(f).then(src => ({ src, name: f.name.replace(/\.[^.]+$/, "") })));
+    const newLogos = await Promise.all(promises);
+    setKit((k) => ({ ...k, logos: [...k.logos, ...newLogos] }));
   };
   const removeLogo = (i: number) =>
     setKit((k) => ({ ...k, logos: k.logos.filter((_, j) => j !== i) }));
@@ -222,7 +219,7 @@ function KitEditor({
                 {kit.logos.map((l, i) => (
                   <div key={i} className="relative group">
                     <div className="w-20 h-20 rounded-xl border border-border bg-muted overflow-hidden flex items-center justify-center p-2">
-                      <img src={l.src} alt={l.name} className="max-w-full max-h-full object-contain" />
+                      <img src={l.src} alt={l.name} loading="lazy" className="max-w-full max-h-full object-contain" />
                     </div>
                     <p className="text-xs text-muted-foreground text-center mt-1 max-w-[80px] truncate">{l.name}</p>
                     <button onClick={() => removeLogo(i)}
@@ -335,7 +332,7 @@ function KitCard({ kit, onEdit, onDelete }: { kit: any; onEdit: () => void; onDe
             <div className="flex gap-2">
               {logos.slice(0, 4).map((l, i) => (
                 <div key={i} className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center p-1 overflow-hidden">
-                  <img src={l.src} alt={l.name} className="max-w-full max-h-full object-contain" />
+                  <img src={l.src} alt={l.name} loading="lazy" className="max-w-full max-h-full object-contain" />
                 </div>
               ))}
             </div>

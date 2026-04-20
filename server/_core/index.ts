@@ -142,6 +142,10 @@ async function startServer() {
     })
   );
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  
+  // Serve static uploads
+  const uploadsPath = (await import("node:path")).join(process.cwd(), "uploads");
+  app.use("/uploads", express.static(uploadsPath));
 
   // ── Dev Subscription Fix ──
   app.get("/api/dev/fix-subscription", async (req, res) => {
@@ -171,7 +175,7 @@ async function startServer() {
 
   // ── Health Check (Railway uses this) ──
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: new Date().toISOString() });
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
   // ── OTP Auth ──

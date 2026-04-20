@@ -27,7 +27,6 @@ export default function ContactsPage() {
     phone: "",
     whatsappNumber: "",
     type: "buyer" as const,
-    status: "active" as const,
     notes: "",
     subcity: "",
     otherSubcity: "",
@@ -43,7 +42,7 @@ export default function ContactsPage() {
       setIsOpen(false);
       setFormData({
         firstName: "", lastName: "", email: "", phone: "", whatsappNumber: "",
-        type: "buyer", status: "active", notes: "",
+        type: "buyer", notes: "",
         subcity: "", otherSubcity: "", woreda: "", houseNumber: "", propertyInterest: "",
       });
       refetch();
@@ -373,8 +372,8 @@ export default function ContactsPage() {
                           {contact.type.charAt(0).toUpperCase() + contact.type.slice(1)}
                         </span>
                         <span className={`text-xs px-2 py-1 rounded ${
-                          contact.status === "active" ? "bg-green-100 text-green-700" :
-                          contact.status === "converted" ? "bg-blue-100 text-blue-700" :
+                          contact.status === "new" ? "bg-green-100 text-green-700" :
+                          contact.status === "closed" ? "bg-blue-100 text-blue-700" :
                           contact.status === "lost" ? "bg-red-100 text-red-700" :
                           "bg-gray-100 text-gray-700"
                         }`}>

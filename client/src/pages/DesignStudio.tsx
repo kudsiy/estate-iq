@@ -15,6 +15,7 @@ import {
   Smartphone, Eye, MessageCircle, Send, Copy, Activity,
   Facebook, Instagram, Globe, Check
 } from "lucide-react";
+import { compressImage } from "@/lib/image";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toPng } from "html-to-image";
@@ -103,6 +104,7 @@ export default function DesignStudio() {
     titleType: "",
     imageUrl: "",
     ctaText: "Book a Viewing",
+    sellerPhone: "",
   });
 
   const setField = (k: string, v: any) => setListing(prev => ({ ...prev, [k]: v }));
@@ -254,15 +256,12 @@ export default function DesignStudio() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "listing" | "rebrand" = "listing") => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "listing" | "rebrand" = "listing") => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (type === "rebrand") setRebrandSourceUrl(reader.result as string);
-      else setListing(prev => ({ ...prev, imageUrl: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    const src = await compressImage(file);
+    if (type === "rebrand") setRebrandSourceUrl(src);
+    else setListing(prev => ({ ...prev, imageUrl: src }));
   };
 
   const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); toast.success("Copied!"); };
@@ -438,8 +437,11 @@ export default function DesignStudio() {
                       Price is {listing.negotiable ? "Negotiable ✓" : "Fixed — click to mark negotiable"}
                     </button>
 
-                    {/* CTA Text */}
-                    <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="CTA Text (e.g. Book a Viewing)" value={listing.ctaText} onChange={e => setField("ctaText", e.target.value)} />
+                    {/* CTA Text + Seller Phone */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input className="h-10 rounded-xl bg-background/50 border-border/50 text-sm font-medium" placeholder="CTA Text (e.g. Book a Viewing)" value={listing.ctaText} onChange={e => setField("ctaText", e.target.value)} />
+                      <Input className="h-10 rounded-xl bg-background/50 border-accent/20 text-sm font-bold text-accent" placeholder="Seller Phone (Internal)" value={listing.sellerPhone} onChange={e => setField("sellerPhone", e.target.value)} />
+                    </div>
                   </div>
                 </div>
 
