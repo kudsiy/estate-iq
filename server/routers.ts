@@ -2083,12 +2083,18 @@ export const appRouter = router({
         .query(async ({ input }) => {
           const db = await import("./db.js");
           const property = await db.getPropertyByUniqueId(input.uniqueId);
-          if (!property)
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Listing not found",
-            });
-          return property;
+          if (!property) throw new TRPCError({ 
+            code: "NOT_FOUND", 
+            message: "Listing not found" 
+          });
+          
+          // Fetch agent phone from users table
+          const agent = await db.getUserById(property.userId);
+          
+          return {
+            ...property,
+            agentPhone: agent?.phone ?? null,
+          };
         }),
     }),
 

@@ -114,26 +114,41 @@ export default function PropertyTrackingPage() {
     }
   };
 
+  // Normalize Ethiopian phone to international format
+  function toInternational(raw: string): string {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("251")) return digits;
+    if (digits.startsWith("0")) return "251" + digits.slice(1);
+    return "251" + digits;
+  }
+
   const handleWhatsApp = () => {
     if (!property) return;
-    
-    // Fire and forget
     handleInteraction("whatsapp");
 
+    const rawPhone = property.agentPhone;
+    if (!rawPhone) return; // no phone = no button shown
+
+    const international = toInternational(rawPhone);
     const searchParams = new URLSearchParams(window.location.search);
-    const sourceLabel = searchParams.get("sourceLabel") || `Direct Link`;
-    const sourceText = sourceLabel !== "Direct Link" ? ` | Source:${sourceLabel}` : "";
-    const message = encodeURIComponent(`I'm interested in Property ID:${property.uniqueListingId}${sourceText}`);
-    
-    // Instant redirect
-    window.open(`https://wa.me/251911223344?text=${message}`, "_blank");
+    const sourceLabel = searchParams.get("sourceLabel") || "Direct Link";
+    const sourceText = sourceLabel !== "Direct Link" 
+      ? ` | Source:${sourceLabel}` : "";
+    const message = encodeURIComponent(
+      `I'm interested in Property ID:${property.uniqueListingId}${sourceText}`
+    );
+    window.open(`https://wa.me/${international}?text=${message}`, "_blank");
   };
 
   const handleCall = () => {
     if (!property) return;
     handleInteraction("call");
-    // Instant redirect
-    window.open(`tel:+251911223344`, "_self");
+
+    const rawPhone = property.agentPhone;
+    if (!rawPhone) return; // no phone = no button shown
+
+    const international = toInternational(rawPhone);
+    window.open(`tel:+${international}`, "_self");
   };
 
   const [showHeartbeat, setShowHeartbeat] = useState(false);
@@ -420,21 +435,25 @@ export default function PropertyTrackingPage() {
                 </div>
                 
                 <div className="space-y-6 mt-8">
-                  <Button 
-                    onClick={handleWhatsApp}
-                    className="w-full bg-[#25D366] hover:bg-[#25D366]/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-[#25D366]/40 border-b-8 border-black/20 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4"
-                  >
-                    <MessageCircle className="w-6 h-6" /> 
-                    Connect on WhatsApp
-                  </Button>
+                  {property.agentPhone && (
+                    <Button 
+                      onClick={handleWhatsApp}
+                      className="w-full bg-[#25D366] hover:bg-[#25D366]/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-[#25D366]/40 border-b-8 border-black/20 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4"
+                    >
+                      <MessageCircle className="w-6 h-6" /> 
+                      Connect on WhatsApp
+                    </Button>
+                  )}
 
-                  <Button 
-                    onClick={handleCall}
-                    className="w-full bg-accent hover:bg-accent/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/40 border-b-8 border-black/20 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4"
-                  >
-                    <Phone className="w-6 h-6" /> 
-                    Call Directly
-                  </Button>
+                  {property.agentPhone && (
+                    <Button 
+                      onClick={handleCall}
+                      className="w-full bg-accent hover:bg-accent/90 text-white h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl shadow-accent/40 border-b-8 border-black/20 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4"
+                    >
+                      <Phone className="w-6 h-6" /> 
+                      Call Directly
+                    </Button>
+                  )}
 
                   <p className="text-center text-[10px] uppercase font-black tracking-widest text-white/30 mt-4 leading-relaxed pt-6 border-t border-white/5">
                     Forms are slow. We prefer direct conversations.<br/>
