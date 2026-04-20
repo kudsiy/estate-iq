@@ -48,7 +48,7 @@
       "idx": 6,
       "version": "5",
       "when": 1774884857707,
-      "tag": "0006_cloudy_catseye",
+      "tag": "0006_safe_migration",
       "breakpoints": true
     },
     {
@@ -70,6 +70,13 @@
       "version": "5",
       "when": 1776371334947,
       "tag": "0009_violet_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1777085400000,
+      "tag": "0010_add_missing_columns",
       "breakpoints": true
     }
   ]
