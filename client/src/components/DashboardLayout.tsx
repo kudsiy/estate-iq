@@ -275,7 +275,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: { children: React
                <div className="flex flex-col sm:flex-row items-center gap-4 relative z-10">
                   <div className="px-5 py-3 rounded-2xl bg-background/50 border border-red-500/10 text-center">
                      <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-1">Telebirr / CBE Access</p>
-                     <p className="text-sm font-black text-foreground tabular-nums">0911 22 33 44</p>
+                     <p className="text-sm font-black text-foreground tabular-nums">0991 95 55 55</p>
                   </div>
                   <Button 
                     onClick={() => setLocation("/billing")}

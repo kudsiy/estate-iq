@@ -49,6 +49,9 @@ export default function PricingPage() {
             Built for Ethiopian real estate agents. All prices in ETB. 
             Start with a 14-day full access period — no payment required.
           </p>
+          <p style={{ color: "#9ca3af", fontSize: 14, textAlign: "center", marginTop: 4 }}>
+            ለኢትዮጵያ ሪል እስቴት ወኪሎች · All prices in ETB
+          </p>
         </div>
 
         {/* ROI box */}
