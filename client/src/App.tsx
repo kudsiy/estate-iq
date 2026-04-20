@@ -10,7 +10,7 @@ import ContactDetail from "./pages/ContactDetail";
 import CRMPage from "./pages/CRMPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import SupplierFeedPage from "./pages/SupplierFeedPage";
-import DesignStudio from "./pages/DesignStudio";
+const DesignStudio = lazy(() => import("./pages/DesignStudio"));
 import DesignGallery from "./pages/DesignGallery";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -22,8 +22,9 @@ import RegisterPage from "./pages/RegisterPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import { useAuth } from "./_core/hooks/useAuth";
 import { getLoginUrl } from "./const";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function RouteRedirect({ to }: { to: string }) {
   const [, setLocation] = useLocation();
@@ -98,7 +99,7 @@ function Router() {
       {/* Core 6 nav areas */}
       <Route path="/dashboard">          {guard(<Dashboard />)}                </Route>
       <Route path="/supplier-feed">      {guard(<SupplierFeedPage />)}         </Route>
-      <Route path="/studio/:contextId?"> {guard(<DesignStudio />)}             </Route>
+      <Route path="/studio/:contextId?"> {guard(<Suspense fallback={<div className="p-6"><Skeleton className="h-[600px] w-full rounded-3xl" /></div>}><DesignStudio /></Suspense>)} </Route>
       <Route path="/studio/gallery">     {guard(<DesignGallery />)}            </Route>
       <Route path="/properties">         {guard(<PropertiesPage />)}           </Route>
       <Route path="/crm">                {guard(<CRMPage />)}                  </Route>

@@ -124,6 +124,20 @@ function KitEditor({
   // Logos
   const handleLogoUpload = async (files: FileList | null) => {
     if (!files) return;
+    
+    // Validate files before processing
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    for (const file of Array.from(files)) {
+      if (!allowed.includes(file.type)) {
+        toast.error(`Only JPG, PNG or WebP accepted (${file.name} rejected)`);
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error(`Logo must be under 2MB (${file.name} rejected)`);
+        return;
+      }
+    }
+
     const promises = Array.from(files).map(f => compressImage(f).then(src => ({ src, name: f.name.replace(/\.[^.]+$/, "") })));
     const newLogos = await Promise.all(promises);
     setKit((k) => ({ ...k, logos: [...k.logos, ...newLogos] }));
