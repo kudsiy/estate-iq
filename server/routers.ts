@@ -2701,13 +2701,19 @@ Use ETB as the default currency for Ethiopia.`;
           })
         )
         .mutation(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          const db = await import("./db.js");
+          await assertPlanCapacity(scope, "aiImages", async () => {
+            const ws = await db.getWorkspaceById(scope.workspaceId);
+            return ws?.aiImagesCount ?? 0;
+          });
+
           const { generatePropertyAd, normalizeBrandKit } =
             await import("./_core/studioEngine.js");
-          const { getBrandKitById } = await import("./db.js");
 
           let brand: any = {};
           if (input.brandKitId) {
-            brand = await getBrandKitById(
+            brand = await db.getBrandKitById(
               { workspaceId: ctx.user.workspaceId!, userId: ctx.user.id },
               input.brandKitId
             );
@@ -2739,6 +2745,7 @@ Use ETB as the default currency for Ethiopia.`;
             brandData,
             input.style
           );
+          await db.incrementWorkspaceAiImagesCount(scope.workspaceId);
           return result;
         }),
       rebrand: mutatingProcedure
@@ -2749,20 +2756,28 @@ Use ETB as the default currency for Ethiopia.`;
           })
         )
         .mutation(async ({ ctx, input }) => {
+          const scope = getScope(ctx.user);
+          const db = await import("./db.js");
+          await assertPlanCapacity(scope, "aiImages", async () => {
+            const ws = await db.getWorkspaceById(scope.workspaceId);
+            return ws?.aiImagesCount ?? 0;
+          });
+
           const { rebrandCompetitorAd, normalizeBrandKit } =
             await import("./_core/studioEngine.js");
-          const { getBrandKitById } = await import("./db.js");
 
           let brand: any = {};
           if (input.brandKitId) {
-            brand = await getBrandKitById(
+            brand = await db.getBrandKitById(
               { workspaceId: ctx.user.workspaceId!, userId: ctx.user.id },
               input.brandKitId
             );
           }
           const brandData = normalizeBrandKit(brand || {});
 
-          return rebrandCompetitorAd(input.competitorImageUrl, brandData);
+          const result = await rebrandCompetitorAd(input.competitorImageUrl, brandData);
+          await db.incrementWorkspaceAiImagesCount(scope.workspaceId);
+          return result;
         }),
       generateCaption: protectedProcedure
         .input(
