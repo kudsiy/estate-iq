@@ -33,6 +33,18 @@ export default function AdminPage() {
     enabled: user?.role === "admin",
   });
   
+  const [upgrading, setUpgrading] = useState<number | null>(null);
+  const [planSelect, setPlanSelect] = useState<Record<number, string>>({});
+
+  const setPlanMutation = trpc.admin.setPlan.useMutation({
+    onSuccess: async () => {
+      await utils.admin.overview.invalidate();
+      setUpgrading(null);
+      toast.success("Plan updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const upsertMutation = trpc.admin.featureFlags.upsert.useMutation({
     onSuccess: async () => {
       await Promise.all([utils.admin.overview.invalidate(), utils.admin.featureFlags.list.invalidate()]);
@@ -177,7 +189,42 @@ export default function AdminPage() {
                             <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground/30 mb-1">Architecture Node</p>
                             <p className="text-[10px] font-black italic tracking-tighter text-foreground">Sovereign Agent #{ws.ownerUserId}</p>
                          </div>
-                         <Button variant="outline" className="h-10 px-6 rounded-xl border-white/5 hover:bg-accent/10 hover:text-accent transition-all text-[9px] font-black uppercase tracking-widest group-hover:border-accent/20">Analyze</Button>
+                          {upgrading === ws.id ? (
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <select
+                                value={planSelect[ws.id] ?? ws.plan}
+                                onChange={(e) => setPlanSelect(p => ({ ...p, [ws.id]: e.target.value }))}
+                                style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)", 
+                                         borderRadius: 8, color: "#fff", padding: "4px 8px", fontSize: 12 }}
+                              >
+                                <option value="starter">Starter</option>
+                                <option value="pro">Pro</option>
+                                <option value="agency">Agency</option>
+                              </select>
+                              <button
+                                onClick={() => setPlanMutation.mutate({
+                                  workspaceId: ws.id,
+                                  plan: (planSelect[ws.id] ?? ws.plan) as any,
+                                  status: "active",
+                                })}
+                                disabled={setPlanMutation.isPending}
+                                style={{ background: "#7C3AED", border: "none", borderRadius: 8,
+                                         color: "#fff", padding: "4px 12px", fontSize: 11,
+                                         fontWeight: 700, cursor: "pointer" }}
+                              >
+                                {setPlanMutation.isPending ? "..." : "Confirm"}
+                              </button>
+                              <button
+                                onClick={() => setUpgrading(null)}
+                                style={{ background: "none", border: "none", color: "#6b7280",
+                                         fontSize: 11, cursor: "pointer" }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <Button variant="outline" className="h-10 px-6 rounded-xl border-white/5 hover:bg-accent/10 hover:text-accent transition-all text-[9px] font-black uppercase tracking-widest group-hover:border-accent/20" onClick={() => setUpgrading(ws.id)}>Upgrade</Button>
+                          )}
                       </div>
                     </div>
                   ))}
