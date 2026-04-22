@@ -1,0 +1,46 @@
+
+> estate-iq@1.0.0 check C:\Users\Hp\OneDrive\Documents\estate-iq-handoff
+> tsc --noEmit
+
+client/src/components/ErrorBoundary.tsx(50,17): error TS2339: Property 'children' does not exist on type 'ErrorBoundary'.
+client/src/pages/BillingPage.tsx(227,22): error TS2552: Cannot find name 'Label'. Did you mean 'babel'?
+client/src/pages/BillingPage.tsx(227,141): error TS2552: Cannot find name 'Label'. Did you mean 'babel'?
+client/src/pages/BillingPage.tsx(232,22): error TS2552: Cannot find name 'Label'. Did you mean 'babel'?
+client/src/pages/BillingPage.tsx(232,146): error TS2552: Cannot find name 'Label'. Did you mean 'babel'?
+client/src/pages/BillingPage.tsx(245,25): error TS2304: Cannot find name 'MessageCircle'.
+client/src/pages/BillingPage.tsx(251,13): error TS2304: Cannot find name 'Dialog'.
+client/src/pages/BillingPage.tsx(252,16): error TS2304: Cannot find name 'DialogContent'.
+client/src/pages/BillingPage.tsx(285,17): error TS2304: Cannot find name 'DialogContent'.
+client/src/pages/BillingPage.tsx(286,14): error TS2304: Cannot find name 'Dialog'.
+client/src/pages/ContactDetail.tsx(181,24): error TS2339: Property 'workspace' does not exist on type '{ id: number; ownerUserId: number; name: string; plan: "starter" | "pro" | "agency"; subscriptionStatus: "trial" | "active" | "past_due" | "canceled"; trialEndsAt: Date | null; ... 10 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(407,84): error TS2339: Property 'type' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'type' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(410,26): error TS2339: Property 'subcity' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'subcity' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(410,44): error TS2339: Property 'woreda' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'woreda' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(413,72): error TS2339: Property 'subcity' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'subcity' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(413,91): error TS2339: Property 'subcity' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'subcity' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(413,107): error TS2339: Property 'woreda' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'woreda' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(416,25): error TS2339: Property 'propertyInterest' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'propertyInterest' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(419,87): error TS2339: Property 'propertyInterest' does not exist on type '{ entityType: string; id: number; userId: number; workspaceId: number; firstName: string; lastName: string; email: string | null; phone: string | null; whatsappNumber: string | null; type: "buyer" | ... 1 more ... | "both"; ... 10 more ...; updatedAt: Date; } | { ...; }'.
+  Property 'propertyInterest' does not exist on type '{ firstName: any; lastName: any; email: any; phone: any; whatsappNumber: any; entityType: string; status: "new" | "contacted" | "lost" | "qualified" | "converted" | "ignored" | null; followUpDate: null; ... 13 more ...; updatedAt: Date; }'.
+client/src/pages/ContactDetail.tsx(447,16): error TS2304: Cannot find name 'Plus'.
+client/src/pages/ContactsPage.tsx(64,27): error TS2345: Argument of type '{ subcity: string; woreda: string; propertyInterest: string; customFields: { houseNumber: string; }; firstName: string; lastName: string; email: string; phone: string; whatsappNumber: string; type: "buyer"; status: "active"; notes: string; }' is not assignable to parameter of type '{ firstName: string; lastName: string; type: "buyer" | "seller" | "both"; email?: string | undefined; phone?: string | undefined; whatsappNumber?: string | undefined; status?: "new" | ... 4 more ... | undefined; ... 7 more ...; propertyInterest?: string | undefined; }'.
+  Types of property 'status' are incompatible.
+    Type '"active"' is not assignable to type '"new" | "contacted" | "interested" | "closed" | "lost" | undefined'.
+client/src/pages/ContactsPage.tsx(376,27): error TS2367: This comparison appears to be unintentional because the types '"new" | "contacted" | "interested" | "closed" | "lost" | null' and '"active"' have no overlap.
+client/src/pages/ContactsPage.tsx(377,27): error TS2367: This comparison appears to be unintentional because the types '"new" | "contacted" | "interested" | "closed" | "lost" | null' and '"converted"' have no overlap.
+client/src/pages/SupplierFeedPage.tsx(303,38): error TS2304: Cannot find name 'Smartphone'.
+client/src/pages/SupplierFeedPage.tsx(312,38): error TS2304: Cannot find name 'MessageCircle'.
+server/_core/leads.ts(108,7): error TS2322: Type '"active"' is not assignable to type '"new" | "contacted" | "interested" | "closed" | "lost" | null | undefined'.
+server/_core/leads.ts(184,7): error TS2322: Type '"active"' is not assignable to type '"new" | "contacted" | "interested" | "closed" | "lost" | null | undefined'.
+server/_core/otp.ts(1,28): error TS7016: Could not find a declaration file for module 'africastalking'. 'C:/Users/Hp/OneDrive/Documents/estate-iq-handoff/node_modules/.pnpm/africastalking@0.8.0/node_modules/africastalking/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/africastalking` if it exists or add a new declaration (.d.ts) file containing `declare module 'africastalking';`
+server/routers.ts(1883,13): error TS2322: Type '"active"' is not assignable to type '"new" | "contacted" | "interested" | "closed" | "lost" | null | undefined'.
+server/routers.ts(2026,13): error TS2322: Type '"active"' is not assignable to type '"new" | "contacted" | "interested" | "closed" | "lost" | null | undefined'.
+ ELIFECYCLE  Command failed with exit code 1.

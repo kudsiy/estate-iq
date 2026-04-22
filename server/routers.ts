@@ -1070,6 +1070,28 @@ export const appRouter = router({
           return { success: true } as const;
         }),
     }),
+    setPlan: adminProcedure
+      .input(
+        z.object({
+          workspaceId: z.number().int().positive(),
+          plan: z.enum(["starter", "pro", "agency"]),
+          status: z.enum(["trial", "active", "canceled"]),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const now = new Date();
+        const thirtyDays = new Date(
+          now.getTime() + 30 * 24 * 60 * 60 * 1000
+        );
+        await updateWorkspace(input.workspaceId, {
+          plan: input.plan,
+          subscriptionStatus: input.status,
+          currentPeriodEndsAt: input.status === "active" 
+            ? thirtyDays 
+            : undefined,
+        });
+        return { success: true } as const;
+      }),
   }),
 
   notifications: router({
@@ -2073,6 +2095,21 @@ export const appRouter = router({
               preferenceKey: "newLead",
             }
           );
+
+          // SMS alert to agent on new lead
+          try {
+            const agentUser = await db.getUserById(userId);
+            if (agentUser?.phone) {
+              const { sendSms } = await import("./_core/otp.js");
+              const hotFlag = score >= 70 ? "🔥 HOT LEAD: " : "";
+              await sendSms(
+                agentUser.phone,
+                `${hotFlag}New lead: ${input.firstName} ${input.lastName} (${input.phone ?? "no phone"}) enquired about your listing. Open Estate IQ to follow up.`
+              );
+            }
+          } catch {
+            // SMS failure must never block lead creation
+          }
 
           return { success: true, leadId, contactId, dealId };
         }),

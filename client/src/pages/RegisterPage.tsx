@@ -277,6 +277,20 @@ export default function RegisterPage() {
                   <button type="button" onClick={handleResend} style={{ background: "none", border: "none", color: "#A78BFA", fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>Resend code</button>
                 )}
               </div>
+
+              <div style={{ textAlign: "center", marginTop: 16 }}>
+                <p style={{ color: "#6b7280", fontSize: 12, margin: 0 }}>
+                  Code not arriving?{" "}
+                  <a
+                    href="https://wa.me/251991955555"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#25D366", fontWeight: 600, fontSize: 12 }}
+                  >
+                    WhatsApp us for help
+                  </a>
+                </p>
+              </div>
             </form>
           )}
 

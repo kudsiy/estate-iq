@@ -39,3 +39,14 @@ export function verifyOtp(phone: string, code: string): boolean {
   otpStore.delete(phone); // single use
   return true;
 }
+
+export async function sendSms(
+  phone: string, 
+  message: string
+): Promise<void> {
+  await sms.send({
+    to: [phone],
+    message,
+    from: process.env.AT_SENDER_ID || undefined,
+  });
+}

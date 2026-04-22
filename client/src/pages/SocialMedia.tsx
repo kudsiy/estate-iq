@@ -34,7 +34,7 @@ type PostStatus = "draft" | "scheduled" | "queued" | "publishing" | "published" 
 const PLATFORMS = [
   { id: "telegram",  label: "Telegram",  Icon: Send,       color: "#229ED9", bg: "bg-blue-500/10",   text: "text-blue-500"  },
   { id: "facebook",  label: "Facebook",  Icon: Facebook,   color: "#1877F2", bg: "bg-blue-600/10",   text: "text-blue-600"  },
-  { id: "instagram", label: "Instagram", Icon: Instagram,  color: "#E1306C", bg: "bg-pink-500/10",   text: "text-pink-500"  },
+  { id: "instagram", label: "Instagram (Soon)", Icon: Instagram, color: "#E1306C", bg: "bg-pink-500/10", text: "text-pink-500", disabled: true },
   { id: "tiktok",    label: "TikTok",    Icon: Video,      color: "#010101", bg: "bg-gray-500/10",   text: "text-gray-500"  },
 ] as const;
 
@@ -235,10 +235,16 @@ function ComposerModal({ open, onClose, initial, theme, glassStyle, t }: any) {
                       {PLATFORMS.map(p => {
                          const has = platforms.includes(p.id);
                          const PIcon = p.Icon;
+                         const isDisabled = (p as any).disabled;
                          return (
-                           <button key={p.id} onClick={() => toggleP(p.id)} className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${has ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-background/20 border-border/40 text-muted-foreground'}`}>
+                           <button 
+                             key={p.id} 
+                             onClick={() => !isDisabled && toggleP(p.id)} 
+                             disabled={isDisabled}
+                             className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${isDisabled ? 'opacity-40 cursor-not-allowed pointer-events-none grayscale' : has ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-background/20 border-border/40 text-muted-foreground'}`}
+                           >
                               <PIcon className="w-5 h-5 mb-2" />
-                              <span className="text-[8px] font-black uppercase tracking-widest">{p.label}</span>
+                              <span className="text-[8px] font-black uppercase tracking-widest text-center">{p.label}</span>
                            </button>
                          )
                       })}
