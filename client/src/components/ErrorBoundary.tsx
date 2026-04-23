@@ -21,7 +21,13 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    // Explicitly notify Sentry of React render/component error
+    const Sentry = (window as any).Sentry || import("@sentry/react");
+    if (typeof Sentry === "object" && (Sentry as any).captureException) {
+      (Sentry as any).captureException(error, { extra: errorInfo as any });
+    }
   }
+
 
   public render() {
     if (this.state.hasError) {

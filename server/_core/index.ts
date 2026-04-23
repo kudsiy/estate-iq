@@ -11,6 +11,23 @@ import { serveStatic, setupVite } from "./vite";
 import { handleExternalLead } from "./leads";
 import { startSocialWorker } from "./social";
 import { runDbMigrations } from "./migrate";
+import * as Sentry from "@sentry/node";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+
+// ── Error Tracking (Sentry) ──
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    integrations: [
+      // Add any specialized integrations here if needed
+    ],
+    tracesSampleRate: 1.0,
+  });
+}
 
 // ── Global Error Catching (Diagnostic for Staging Crashes) ──
 process.on("uncaughtException", error => {
@@ -65,6 +82,43 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // ── Sentry Profiling / Monitoring (Handled by init) ──
+
+
+  // ── Security Headers (Helmet) ──
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          "img-src": ["'self'", "data:", "res.cloudinary.com", "*.railway.app"],
+          "connect-src": ["'self'", "*.railway.app", "https://sentry.io"],
+          "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite/React requirements
+        },
+      },
+    })
+  );
+
+  // ── CORS Configuration ──
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    process.env.FRONTEND_URL,
+  ].filter(Boolean) as string[];
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".railway.app")) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
+      credentials: true,
+    })
+  );
 
   // ── Dev One-Click Auth Dashboard (Always first, Staging/Dev only) ──
   app.get("/auth-dev", (req, res) => {
@@ -142,6 +196,30 @@ async function startServer() {
     })
   );
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(cookieParser());
+
+  // ── Rate Limiters ──
+  const otpSendLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 5,
+    message: { error: "Too many requests. Please try again in 10 minutes." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const otpPhoneLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 3,
+    keyGenerator: (req) => (req.body as any)?.phone || req.ip,
+    message: { error: "Too many OTP requests for this phone number. Try again in 10 minutes." },
+    skip: (req) => !(req.body as any)?.phone,
+  });
+
+  const loginLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 10,
+    message: { error: "Too many login attempts. Try again in a minute." },
+  });
   
   // Serve static uploads
   const uploadsPath = (await import("node:path")).join(process.cwd(), "uploads");
@@ -179,7 +257,7 @@ async function startServer() {
   });
 
   // ── OTP Auth ──
-  app.post("/api/auth/otp/send", async (req, res) => {
+  app.post("/api/auth/otp/send", otpSendLimiter, otpPhoneLimiter, async (req, res) => {
     try {
       const { phone } = req.body as { phone?: string };
       if (!phone) return res.status(400).json({ error: "Phone required" });
@@ -194,7 +272,7 @@ async function startServer() {
   });
 
   // ── Login ──
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", loginLimiter, async (req, res) => {
     try {
       const bcrypt = await import("bcryptjs");
       const { sdk } = await import("./sdk.js");
@@ -325,6 +403,78 @@ async function startServer() {
       return res.json({ ok: true });
     } catch (e) {
       console.error("[Auth] Register error:", e);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // ── Password Reset ──
+  app.post("/api/auth/password-reset/request", otpSendLimiter, async (req, res) => {
+    try {
+      const { phone } = req.body as { phone?: string };
+      if (!phone) return res.status(400).json({ error: "Phone required" });
+      
+      const db = await import("../db.js");
+      const user = await db.getUserByPhone(phone.trim());
+      
+      if (!user) return res.status(404).json({ error: "No account found with this phone number" });
+      
+      const { sendOtp } = await import("./otp.js");
+      await sendOtp(phone.trim());
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[Auth] Reset request error:", e);
+      return res.status(500).json({ error: "Failed to send reset code" });
+    }
+  });
+
+  app.post("/api/auth/password-reset/confirm", loginLimiter, async (req, res) => {
+    try {
+      const { phone, otp, newPassword } = req.body as { phone?: string; otp?: string; newPassword?: string };
+      if (!phone || !otp || !newPassword) return res.status(400).json({ error: "All fields required" });
+      if (newPassword.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      const { verifyOtp } = await import("./otp.js");
+      const valid = verifyOtp(phone.trim(), otp.trim());
+      if (!valid) return res.status(401).json({ error: "Incorrect or expired code" });
+
+      const db = await import("../db.js");
+      const user = await db.getUserByPhone(phone.trim());
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const bcrypt = await import("bcryptjs");
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+      await db.setUserPasswordHash(user.id, passwordHash);
+
+      return res.json({ ok: true, message: "Password reset successful" });
+    } catch (e) {
+      console.error("[Auth] Reset confirm error:", e);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+
+  // ── Account Deletion ──
+  app.delete("/api/account", async (req, res) => {
+    try {
+      const { sdk } = await import("./sdk.js");
+      const { COOKIE_NAME } = await import("@shared/const");
+      const db = await import("../db.js");
+      
+      const sessionToken = req.cookies?.[COOKIE_NAME];
+      if (!sessionToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const session = await sdk.verifySession(sessionToken);
+      if (!session) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = await db.getUserByOpenId(session.openId);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      await db.deleteUser(user.id);
+
+      res.clearCookie(COOKIE_NAME);
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[Auth] Delete error:", e);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -522,6 +672,13 @@ async function startServer() {
       createContext,
     })
   );
+
+  // ── Sentry Error Handler (Must be after all routes) ──
+  if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+  }
+
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     console.log("[Server] Initializing Vite dev server...");
