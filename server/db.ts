@@ -199,6 +199,13 @@ export async function setUserPasswordHash(userId: number, passwordHash: string) 
   await db.update(users).set({ passwordHash } as any).where(eq(users.id, userId));
 }
 
+export async function deleteUser(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(users).where(eq(users.id, userId));
+}
+
+
 export async function getWorkspaceByOwnerUserId(ownerUserId: number) {
   const db = await getDb();
   if (!db) return undefined;

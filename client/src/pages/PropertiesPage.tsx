@@ -16,7 +16,7 @@ import {
   Home, TrendingUp, CheckCircle, Clock, X, Users, Activity,
   Smartphone, MessageCircle
 } from "lucide-react";
-import { compressImage } from "@/lib/image";
+import { compressImage, optimizeCloudinaryUrl } from "@/lib/image";
 
 // ── Shared Styling ────────────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ function PhotoStrip({ photos, onChange, theme }: { photos: string[]; onChange: (
       <div className="flex flex-wrap gap-3">
         {photos.map((src, i) => (
           <div key={i} className="relative w-20 h-20 rounded-2xl overflow-hidden border border-border/50 group">
-            <img src={src} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+            <img src={optimizeCloudinaryUrl(src)} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
             <button
               onClick={() => onChange(photos.filter((_, j) => j !== i))}
               className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-red-500 transition-colors"
@@ -119,7 +119,7 @@ function PropertyCard({ property, onEdit, onDelete, leads, deals, t, glassStyle 
     <div style={glassStyle} className="overflow-hidden group flex flex-col h-full border-0">
       <div className="relative h-48 overflow-hidden bg-muted/20">
         {photos[0] ? (
-          <img src={photos[0]} alt={property.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+          <img src={optimizeCloudinaryUrl(photos[0])} alt={property.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30">
             <Home className="w-10 h-10 mb-2" />

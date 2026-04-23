@@ -6,17 +6,37 @@ const at = AfricasTalking({
 });
 const sms = at.SMS;
 
-// In-memory store: phone -> { code, expiresAt }
-const otpStore = new Map<string, { code: string; expiresAt: number }>();
+// In-memory store: phone -> { code, expiresAt, attempts, lockUntil }
+const otpStore = new Map<string, { 
+  code: string; 
+  expiresAt: number; 
+  attempts: number; 
+  lockUntil?: number; 
+}>();
 
 export function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 export async function sendOtp(phone: string): Promise<void> {
+  const existing = otpStore.get(phone);
+  
+  // Check if locked
+  if (existing && existing.lockUntil && Date.now() < existing.lockUntil) {
+    const remaining = Math.ceil((existing.lockUntil - Date.now()) / 1000 / 60);
+    throw new Error(`Device temporarily locked due to too many failed attempts. Try again in ${remaining} minutes.`);
+  }
+
   const code = generateOtp();
   const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-  otpStore.set(phone, { code, expiresAt });
+  
+  // Reset attempts on new OTP, but keep lock if it exists
+  otpStore.set(phone, { 
+    code, 
+    expiresAt, 
+    attempts: 0, 
+    lockUntil: existing?.lockUntil 
+  });
 
   await sms.send({
     to: [phone],
@@ -29,12 +49,25 @@ export function verifyOtp(phone: string, code: string): boolean {
   const entry = otpStore.get(phone);
   if (!entry) return false;
   
+  // Check if locked
+  if (entry.lockUntil && Date.now() < entry.lockUntil) {
+    return false;
+  }
+
   if (Date.now() > entry.expiresAt) {
     otpStore.delete(phone);
     return false;
   }
   
-  if (entry.code !== code) return false;
+  entry.attempts++;
+  
+  if (entry.code !== code) {
+    if (entry.attempts >= 6) {
+      entry.lockUntil = Date.now() + 10 * 60 * 1000; // 10 minutes lock
+      entry.code = "INVALIDATED";
+    }
+    return false;
+  }
   
   otpStore.delete(phone); // single use
   return true;

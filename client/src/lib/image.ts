@@ -26,3 +26,21 @@ export async function compressImage(file: File): Promise<string> {
     });
   }
 }
+
+export function optimizeCloudinaryUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  if (typeof url !== "string") return "";
+  
+  // Only optimize Cloudinary URLs
+  if (!url.includes("res.cloudinary.com")) return url;
+  
+  // Avoid double optimization if already present
+  if (url.includes("/upload/q_auto")) return url;
+  
+  if (url.includes("/upload/")) {
+    return url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
+  }
+  
+  return url;
+}
+

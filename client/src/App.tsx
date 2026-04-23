@@ -20,6 +20,8 @@ import NotificationsPage from "./pages/NotificationsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import OnboardingPage from "./pages/OnboardingPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import { useAuth } from "./_core/hooks/useAuth";
 import { getLoginUrl } from "./const";
 import { useEffect, lazy, Suspense } from "react";
@@ -77,6 +79,8 @@ function Router() {
       <Route path="/login"><LoginPage /></Route>
       <Route path="/register"><RegisterPage /></Route>
       <Route path="/l/:userId/:listingId"><PropertyTrackingPage /></Route>
+      <Route path="/terms"><TermsPage /></Route>
+      <Route path="/privacy"><PrivacyPage /></Route>
 
       <Route path="/">
         {isAuthenticated ? (

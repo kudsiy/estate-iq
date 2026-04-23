@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { optimizeCloudinaryUrl } from "@/lib/image";
 
 const getGlassStyle = (theme: string): React.CSSProperties => ({
   background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
@@ -107,7 +108,7 @@ export default function DesignGallery() {
                 >
                   <div className="aspect-[4/5] overflow-hidden relative">
                     <img 
-                      src={design.previewUrl || "/placeholder-property.jpg"} 
+                      src={optimizeCloudinaryUrl(design.previewUrl) || "/placeholder-property.jpg"} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
