@@ -42,7 +42,7 @@ export default function Home() {
     { icon: Palette,         title: t("nav.studio"),    desc: t("soon.design") },
     { icon: Rss,             title: t("nav.supplyFeed"), desc: "Real-time market tracking and duplicate asset detection." },
     { icon: BarChart2,       title: t("nav.analytics"),  desc: t("soon.analytics") },
-    { icon: Shield,          title: "Sovereign CRM",     desc: "High-security lead and contact sovereignty with automated follow-ups." },
+    { icon: Shield,          title: "Smart CRM",          desc: "Manage your leads and contacts in one place with automatic follow-up reminders." },
   ];
 
   if (isAuthenticated) {
@@ -201,7 +201,7 @@ export default function Home() {
                <div className="max-w-xl text-center lg:text-left">
                   <h3 className="text-4xl font-black tracking-tighter uppercase italic mb-6 leading-none">{t("home.beta")}</h3>
                   <p className="text-lg text-muted-foreground font-medium uppercase tracking-tight italic leading-relaxed">
-                     Lifetime sovereignty discount available for the first 500 agents. Claim your architectural clearance now.
+                     Special launch price for the first 500 agents. Sign up now before it ends.
                   </p>
                </div>
                

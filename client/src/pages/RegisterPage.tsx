@@ -233,6 +233,13 @@ export default function RegisterPage() {
               >
                 {loading ? "Sending..." : "Send Verification Code →"}
               </button>
+
+              <p style={{ textAlign: "center", color: "#6b7280", fontSize: 11, marginTop: 12 }}>
+                By creating an account you agree to our{" "}
+                <a href="/terms" style={{ color: "#A78BFA" }}>Terms of Service</a>
+                {" "}and{" "}
+                <a href="/privacy" style={{ color: "#A78BFA" }}>Privacy Policy</a>
+              </p>
             </form>
           ) : (
             <form onSubmit={handleVerify}>
