@@ -275,7 +275,7 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Onboarding
     "on.title": "Workspace Initialization",
-    "on.sub": "Set up your intelligence hub to reflect your agency's architectural workflow.",
+    "on.sub": "Set up your Estate IQ account to match how your agency works.",
     "on.cardTitle": "Deployment Configuration",
     "on.cardSub": "Required to calibrate your dashboard and CRM context.",
     "on.agency": "Agency / Workspace Identity",
@@ -336,7 +336,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Landing / Home
     "home.tag": "Ethiopia's Premium Real Estate Intelligence",
     "home.heroTitle": "Market Listings Smarter.",
-    "home.heroSub": "The ultimate high-fidelity toolkit for the region's elite agents. Find properties, automate social dispatch, and close deals with architectural precision.",
+    "home.heroSub": "Find properties, create branded content, and close more deals — built for Ethiopian real estate agents.",
     "home.start": "Start Free Trial",
     "home.pricing": "View Pricing",
     "home.agents": "Participating Elite Agents",
@@ -344,7 +344,7 @@ const translations: Record<Language, Record<string, string>> = {
     "home.featTitle": "Platform Sovereignty",
     "home.featSub": "A unified intelligence suite built exclusively for the modern real estate professional.",
     "home.ctaTitle": "Ready to Dominate the Market?",
-    "home.ctaSub": "Join the high-performance network already using Estate IQ to seize every architectural opportunity.",
+    "home.ctaSub": "Join agents across Addis Ababa already growing their business with Estate IQ.",
     "home.beta": "Beta Access: April 2026",
 
     // Settings

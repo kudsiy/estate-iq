@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import BrandKitPage from "./BrandKitPage";
 
-// ── Shared Styling ────────────────────────────────────────────────────────────
+// â”€â”€ Shared Styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const getGlassStyle = (theme: string): React.CSSProperties => ({
   background: theme === "dark" ? "rgba(15, 23, 42, 0.75)" : "rgba(255, 255, 255, 0.7)",
@@ -56,6 +56,19 @@ export default function SettingsPage() {
   const utils = trpc.useUtils();
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+
+  async function handleDeleteAccount() {
+    if (!confirm("Are you sure? This cannot be undone.")) return;
+    const res = await fetch("/api/account", {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (res.ok) {
+      window.location.href = "/";
+    } else {
+      alert("Failed to delete account. Contact support.");
+    }
+  }
 
   const { data: workspace } = trpc.subscription.get.useQuery();
   const glassStyle = useMemo(() => getGlassStyle(theme), [theme]);
@@ -293,12 +306,15 @@ Content-Type: application/json
                              </div>
                              <Button disabled variant="outline" className="text-[10px] font-black uppercase h-9 px-6 rounded-xl">Pending release</Button>
                           </div>
-                          <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
-                             <div>
-                                <p className="text-sm font-bold text-foreground">Irreversible Erasure</p>
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Delete workspace and all associated assets</p>
-                             </div>
-                             <Button disabled variant="outline" className="text-[10px] font-black uppercase h-9 px-6 rounded-xl border-red-500/20 text-red-500">Destroy Data</Button>
+                          <div style={{ marginTop: 16, padding: 24, border: "1px solid rgba(239,68,68,0.2)", borderRadius: 16, background: "rgba(239,68,68,0.04)" }}>
+                             <h3 style={{ color: "#ef4444", fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Danger Zone</h3>
+                             <p style={{ color: "#6b7280", fontSize: 12, marginBottom: 16 }}>Deleting your account is permanent and cannot be undone.</p>
+                             <button
+                               onClick={handleDeleteAccount}
+                               style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#ef4444", padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                             >
+                               Delete My Account
+                             </button>
                           </div>
                        </div>
                     </div>

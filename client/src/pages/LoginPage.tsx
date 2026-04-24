@@ -5,6 +5,13 @@ import { Building2, Globe, Clock, Zap } from "lucide-react";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"phone" | "email">("phone");
+  const [mode, setMode] = useState<"login" | "reset">("login");
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
+  const [resetPhone, setResetPhone] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
   const [step, setStep] = useState<"credentials" | "otp">("credentials");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -183,7 +190,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {step === "credentials" && (
+        {mode === "login" && step === "credentials" && (
           <div className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl">
             <button 
               type="button"
@@ -202,7 +209,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {step === "credentials" ? (
+        {mode === "login" && (step === "credentials" ? (
           <form onSubmit={handleSendCode} className="space-y-4">
             {tab === "phone" ? (
               <div className="space-y-1.5">
@@ -253,6 +260,16 @@ export default function LoginPage() {
               {loading ? <Clock className="w-5 h-5 animate-spin mx-auto" /> : (tab === "phone" ? t[lang].btnOtp : t[lang].btn)}
             </button>
             
+            <div style={{ textAlign: "center", marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={() => { setMode("reset"); setResetStep(1); setError(null); }}
+                style={{ background: "none", border: "none", color: "#9ca3af", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+              >
+                Forgot password?
+              </button>
+            </div>
+
             <Link href="/register">
               <button type="button" className="w-full h-14 text-white/40 font-black text-[10px] uppercase tracking-widest hover:text-white transition-colors">
                 {t[lang].reg}
@@ -301,6 +318,165 @@ export default function LoginPage() {
               )}
             </div>
           </form>
+        )}
+
+        {/* ── Password Reset Mode ───────────────────────────────────────── */}
+        {mode === "reset" && (
+          <div className="space-y-4">
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={() => { setMode("login"); setResetStep(1); setError(null); setResetSuccess(false); }}
+                style={{ background: "none", border: "none", color: "#9ca3af", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+              >
+                ← Back to login
+              </button>
+              <h2 className="text-2xl font-black tracking-tighter uppercase mt-4">
+                {resetStep === 1 ? "Reset Password" : "Set New Password"}
+              </h2>
+            </div>
+
+            {resetSuccess ? (
+              <div className="p-6 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-bold text-center">
+                Password reset successfully. Please log in.
+                <br />
+                <button
+                  type="button"
+                  onClick={() => { setMode("login"); setTab("phone"); setResetSuccess(false); setError(null); }}
+                  className="mt-4 text-accent underline text-xs"
+                >
+                  Go to login →
+                </button>
+              </div>
+            ) : resetStep === 1 ? (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setError(null);
+                if (!/^(\+251|09|07)\d{8,9}$/.test(resetPhone)) {
+                  setError("Enter a valid Ethiopian number (e.g. 0911 234 567)");
+                  return;
+                }
+                setLoading(true);
+                try {
+                  const res = await fetch("/api/auth/password-reset/request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ phone: resetPhone }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || "Failed to send code");
+                  setResetStep(2);
+                  setCooldown(60);
+                } catch (err: any) {
+                  setError(err.message);
+                } finally {
+                  setLoading(false);
+                }
+              }} className="space-y-4">
+                <input
+                  type="tel"
+                  placeholder="+251 91 234 5678"
+                  required
+                  value={resetPhone}
+                  onChange={(e) => setResetPhone(e.target.value)}
+                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm font-medium focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all placeholder:text-white/20"
+                />
+                {error && (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold text-center">{error}</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-16 bg-accent text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-accent/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? <Clock className="w-5 h-5 animate-spin mx-auto" /> : "Send Reset Code →"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setError(null);
+                if (newPassword.length < 8) { setError("Password must be at least 8 characters"); return; }
+                if (newPassword !== confirmPassword) { setError("Passwords do not match"); return; }
+                setLoading(true);
+                try {
+                  const res = await fetch("/api/auth/password-reset/confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ phone: resetPhone, otp: resetOtp, newPassword }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || "Reset failed. Check your code.");
+                  setResetSuccess(true);
+                } catch (err: any) {
+                  setError(err.message);
+                } finally {
+                  setLoading(false);
+                }
+              }} className="space-y-4">
+                <p className="text-sm text-white/60 text-center">Code sent to <span className="text-white font-bold">{resetPhone}</span></p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoFocus
+                  placeholder="000000"
+                  required
+                  value={resetOtp}
+                  onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, ""))}
+                  className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-5 text-2xl tracking-[0.4em] text-center font-bold focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all placeholder:text-white/10"
+                />
+                <input
+                  type="password"
+                  placeholder="New password (min 8 chars)"
+                  required
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm font-medium focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all placeholder:text-white/20"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm font-medium focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all placeholder:text-white/20"
+                />
+                {error && (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold text-center">{error}</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading || resetOtp.length !== 6}
+                  className="w-full h-16 bg-accent text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-accent/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? <Clock className="w-5 h-5 animate-spin mx-auto" /> : "Reset Password →"}
+                </button>
+                <div className="text-center mt-4">
+                  {cooldown > 0 ? (
+                    <span className="text-white/40 text-xs font-medium">Resend code in {cooldown}s</span>
+                  ) : (
+                    <button type="button" onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const res = await fetch("/api/auth/password-reset/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: resetPhone }) });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || "Failed to resend");
+                        setCooldown(60);
+                      } catch (err: any) { setError(err.message); } finally { setLoading(false); }
+                    }} className="text-accent hover:text-accent/80 text-xs font-bold underline transition-colors">Resend code</button>
+                  )}
+                </div>
+                <div style={{ textAlign: "center", marginTop: 8 }}>
+                  <p style={{ color: "#6b7280", fontSize: 12, margin: 0 }}>
+                    Code not arriving?{" "}
+                    <a href="https://wa.me/251991955555" target="_blank" rel="noopener noreferrer" style={{ color: "#25D366", fontWeight: 600, fontSize: 12 }}>WhatsApp us for help</a>
+                  </p>
+                </div>
+              </form>
+            )}
+          </div>
         )}
       </main>
 
