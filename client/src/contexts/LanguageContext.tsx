@@ -285,7 +285,7 @@ const translations: Record<Language, Record<string, string>> = {
     "on.complete": "Finalize Initialization",
     "on.skip": "Skip for now",
     "on.enableTitle": "Deployment Impact",
-    "on.enable1": "Establishes your high-fidelity personal workspace.",
+    "on.enable1": "Sets up your personal workspace on Estate IQ.",
     "on.enable2": "Calibrates branding across the Design Studio.",
     "on.enable3": "Initializes lead and property intelligence pipelines.",
 
