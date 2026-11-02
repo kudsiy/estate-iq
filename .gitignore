@@ -108,3 +108,18 @@ temp/
 
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
+
+# Private notes that may hold passwords, keys, or tokens
+*[Tt][Oo][Kk][Ee][Nn]*.txt
+*[Tt][Oo][Kk][Ee][Nn]*.docx
+*[Ss][Ee][Cc][Rr][Ee][Tt]*.txt
+*[Ss][Ee][Cc][Rr][Ee][Tt]*.docx
+*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]*.txt
+*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]*.docx
+*[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*.txt
+*[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*.docx
+*[Aa][Pp][Ii]*[Kk][Ee][Yy]*.txt
+*[Aa][Pp][Ii]*[Kk][Ee][Yy]*.docx
+
+# Git backups can contain old history, including removed secrets
+*.bundle
