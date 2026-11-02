@@ -318,7 +318,7 @@ export default function LoginPage() {
               )}
             </div>
           </form>
-        )}
+        ))}
 
         {/* ── Password Reset Mode ───────────────────────────────────────── */}
         {mode === "reset" && (
