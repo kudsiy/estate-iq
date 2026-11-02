@@ -107,8 +107,8 @@ async function seed() {
   }
 
   console.log("\n[Seed] ✅ Done! Test accounts:");
-  console.log("  PRO     → pro@estateiq.test     / [REMOVED]");
-  console.log("  STARTER → starter@estateiq.test / [REMOVED]");
+  console.log("  PRO     → pro@estateiq.test    ");
+  console.log("  STARTER → starter@estateiq.test");
   process.exit(0);
 }
 
