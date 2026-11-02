@@ -1,19 +1,18 @@
 # Estate IQ: project status
 
-Audit date: 3 November 2026. Code checked: branch `railway-deploy`, commit `af7ab09` (24 April 2026).
+Audit date: 3 November 2026. Last updated: 3 November 2026, after the first clean-up and start-up fixes. Current code: branch `audit`.
 
-This repo is public, so this file leaves out secret values and step-by-step attack details.
+This repo is still public until the owner finishes task 3, so this file leaves out secret values and step-by-step attack details.
 
 ## The short version
 
-**Estate IQ is not close to launch.** A lot of real product has been built, but:
+**Estate IQ is not close to launch.** The newest code now builds and starts, and that is the first real step. But:
 
-- The newest code does not build or start. Two small mistakes cause this, and both are quick to fix.
 - Chapa is not connected. The checkout is a fake page, and it can hand out paid plans for free.
 - Anyone with an account can make themselves an administrator.
-- A real database password is in a public file on GitHub.
+- The old database password is gone from the code and from git history, but it may still work until the Railway database is deleted (task 1).
 
-The fix list below has 28 small tasks. Four of them need the owner first.
+**Next:** the owner finishes tasks 1, 2, and 3. Then Claude continues from task 4b.
 
 ## What it is
 
@@ -42,7 +41,7 @@ Agent's phone or laptop
   Website: React, Vite, Tailwind
         |
         v
-Server: Node, Express, tRPC  ------>  Database: MySQL, Drizzle (on Railway)
+Server: Node, Express, tRPC  ------>  Database: MySQL, Drizzle
   |-- Sign-up codes by SMS  -> Africa's Talking (needs keys)
   |-- Payments              -> NOT connected to Chapa; shows a fake page
   |-- AI text               -> Manus "Forge" (needs a Manus key)
@@ -56,17 +55,21 @@ Server: Node, Express, tRPC  ------>  Database: MySQL, Drizzle (on Railway)
 | Telegram bot | No separate bot. The server has code that posts through Telegram, but no screen lets an agent enter a bot token, so it cannot be used. |
 | Graphics | Drawn inside the browser, so they need no paid service. |
 | Database | MySQL. The "Master Project Anchor" document says PostgreSQL and Next.js, which is out of date. |
-| Hosting | Set up for Railway only. |
+| Hosting | The settings are for Railway only, and the owner says that deployment is over. A new host is needed (see below). |
 
 ## All the copies
 
 **The real one is `C:\Users\Hp\OneDrive\Documents\estate-iq-handoff`.** It is the newest and most complete copy, and every commit in it is on GitHub.
 
+**Git history was rewritten on 3 November 2026** to remove old passwords, so every branch has new commit numbers. Older copies and ZIPs still have the old history. Never push from them.
+
 | Copy | Date | Notes |
 |---|---|---|
-| `estate-iq-handoff` (OneDrive) | 24 Apr 2026 | **Real project.** Matches GitHub branch `railway-deploy`. |
-| GitHub `kudsiy/estate-iq`, branch `railway-deploy` | 24 Apr 2026 | Newest code online. |
-| GitHub `kudsiy/estate-iq`, branch `main` | 2 Apr 2026 | 51 commits behind, but it is the branch GitHub shows and downloads by default. |
+| `estate-iq-handoff` (OneDrive) | 3 Nov 2026 | **Real project.** On branch `audit`, which matches GitHub. |
+| GitHub `kudsiy/estate-iq`, branch `audit` | 3 Nov 2026 | Newest code online. The only branch with the start-up fixes. |
+| GitHub `kudsiy/estate-iq`, branch `railway-deploy` | 24 Apr 2026 | Passwords removed, but it still does not build or start. |
+| GitHub `kudsiy/estate-iq`, branch `main` | 2 Apr 2026 | Passwords removed, but far behind `audit`. It is the branch GitHub shows and downloads by default. |
+| `C:\Users\Hp\estate-iq-backups` | 3 Nov 2026 | Backup of all history from before the clean-up. **It still holds the old passwords,** so keep it private and never upload it. |
 | `Downloads\estate-iq-main` | 2 Apr 2026 | Download of old `main`. Nothing unique. |
 | `Documents\estate-iq-updated\audit-main` | 28 Mar 2026 | Old clone. Nothing unique. |
 | `Documents\estate-iq-updated` | 30 Mar 2026 | Older versions of pages, later replaced. |
@@ -81,11 +84,11 @@ Server: Node, Express, tRPC  ------>  Database: MySQL, Drizzle (on Railway)
 - `estate-iq-sticky-saas.zip` (21 Mar) has alternative dashboard designs.
 - The five `estate-iq-complete` ZIPs (25 Mar) could only be listed, not compared. They are older than the first GitHub commit.
 
-Files only in the real folder, and correctly not on GitHub: `.env`, a private note holding a GitHub token, some old logs, and one backup file.
+Files only in the real folder, and correctly not on GitHub: `.env`, some old logs, and one backup file. The private token note was moved to the Recycle Bin on 3 November 2026.
 
 ## How to run it
 
-It does not start today (see below). After task 5 and task 6 are done:
+It builds and starts now, but there is no practice database yet (task 7), so nothing can be saved.
 
 1. Open a terminal in the real project folder.
 2. Run `pnpm install`. Ask the owner first if anything new would be installed.
@@ -93,35 +96,31 @@ It does not start today (see below). After task 5 and task 6 are done:
 4. Set `DATABASE_URL`, `JWT_SECRET` (32 or more random characters), and `FRONTEND_URL` (the site's own address).
 5. Run `pnpm dev`.
 
-`pnpm start` will not work on Windows because of how it is written, but it works on Linux hosting. `.env.example` lists only 5 of the settings the app reads. Missing from it: `CHAPA_SECRET_KEY`, `BASE_URL`, `FRONTEND_URL`, `AT_API_KEY`, `AT_USERNAME`, `AT_SENDER_ID`, `SENTRY_DSN`, `VITE_SENTRY_DSN`, `OWNER_OPEN_ID`, `BUILT_IN_FORGE_API_URL`, `BUILT_IN_FORGE_API_KEY`, `VITE_FRONTEND_FORGE_API_URL`, `VITE_FRONTEND_FORGE_API_KEY`.
+`pnpm start` will not work on Windows because of how it is written, but it works on Linux hosting. `.env.example` lists only 5 of the settings the app reads. Missing from it: `CHAPA_SECRET_KEY`, `BASE_URL`, `FRONTEND_URL`, `AT_API_KEY`, `AT_USERNAME`, `AT_SENDER_ID`, `SENTRY_DSN`, `VITE_SENTRY_DSN`, `OWNER_OPEN_ID`, `SEED_TEST_PASSWORD`, `BUILT_IN_FORGE_API_URL`, `BUILT_IN_FORGE_API_KEY`, `VITE_FRONTEND_FORGE_API_URL`, `VITE_FRONTEND_FORGE_API_KEY`.
 
 ## What the tests showed
 
 All tests ran in a temporary copy with no `.env`, no database, and internet access blocked for the app. No connection to Telegram, Chapa, or the real database was made.
 
-### Fails as the code stands
-
-| Check | Result | Real error |
-|---|---|---|
-| Build the website | **Fails** | `client/src/pages/LoginPage.tsx:321:9: ERROR: Expected ")" but found "}"` (from commit `be08d4a`) |
-| Start the server | **Crashes** | `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'cookie-parser'` (from commit `63be66f`) |
-| Start in developer mode | **Crashes** | Same error |
-| Code check (`pnpm check`) | **Fails** | 1 error, then 4 more once that one is fixed: missing `cookie-parser`, missing types for `cors`, and 2 follow-on errors |
-
-### Works
+### Latest results (3 November 2026, after the two start-up fixes)
 
 | Check | Result |
 |---|---|
+| Build website and server (`pnpm build`) | **Passes** |
+| Start the built server | **Works.** Health check, home page, website script, and plan list all answer. |
+| Start in developer mode | **Works.** The same checks pass. |
+| Login page | **Displays with no browser errors** |
+| Reading cookies | **Works.** A fake session cookie was read and rejected. |
 | Automated tests | 26 of 26 pass, but see the warning below |
-| Build the server | Passes |
+| Code check (`pnpm check`) | **3 errors left,** all from one missing type package: `Could not find a declaration file for module 'cors'`. They do not stop the build or the server (task 6b). |
 
-### After two temporary patches in the throwaway copy
+### Found during the audit, not yet fixed
+
+These came from the audit copy. The start-up fixes did not change them.
 
 | Check | Result |
 |---|---|
-| Build the website | Passes in about 13 seconds |
-| Server starts, health check, plan list | Works |
-| Home, login, and register pages | Display correctly |
+| Home and register pages | Display correctly |
 | Pages that need login | Correctly send visitors to the login page |
 | Developer login pages in production mode | Correctly blocked |
 | `/pricing` and `/billing` | **"Error 404".** The pages exist but are not connected, so every Upgrade and View Pricing button is a dead end. |
@@ -152,11 +151,13 @@ MySQL is not installed on this laptop, and the real database was deliberately le
 - Passwords are stored scrambled (bcrypt).
 - From the samples read, one customer's data is kept separate from another's. This was read in the code, not tested on a live database.
 
-**The repo is public.** Forks: 0. Stars: 0.
+**The repo is still public** until the owner finishes task 3.
+
+**Clean-up on 3 November 2026:** the old database address and password and the test-account passwords were removed from the code and from all 3 branches on GitHub. A fresh download from GitHub contains none of them. This real folder's stored history no longer contains them either.
 
 ### Critical
 
-1. **A real database password is on public GitHub**, committed on 23 April 2026 and still there. It matches the password in the local `.env`. Assume strangers have it. It was not tested.
+1. **The old database password may still work.** It was on public GitHub from 23 April to 3 November 2026, so assume strangers copied it. The local `.env` still holds the same address. GitHub can also still show old commits to anyone with their exact address: after the clean-up, the old file still answered on its old address. Only deleting the database or changing its password (task 1) ends this risk. It was not tested against the database.
 2. **Anyone with an account can make themselves an administrator.** The sign-up and profile forms let the user choose their own role. An administrator can see every customer's details and change any plan.
 3. **Free paid plans.** The fake checkout page runs in production too. Without `CHAPA_SECRET_KEY` the payment receiver accepts any message without proof.
 4. **Logged-in users can write files outside the uploads folder**, because uploaded file names are not cleaned. This could lead to a takeover of the server.
@@ -164,7 +165,7 @@ MySQL is not installed on this laptop, and the real database was deliberately le
 ### High
 
 5. A script can be injected into the fake checkout page through its web address.
-6. Scripts in the repo create test accounts with publicly visible passwords. `nixpacks.toml` would run one on every start, although `railway.json` currently overrides it. The real database must be checked for these accounts.
+6. The test-account passwords were public until 3 November 2026. The seed scripts now create those accounts only if `SEED_TEST_PASSWORD` is set. If the real database is kept, it must be checked for these accounts, because the old passwords may still work on them.
 7. One leftover developer address works without login in production. The social webhook also accepts messages from anyone, which allows fake leads.
 8. The login limit is shared by the whole site (tested above). After deployment, a few people can lock out everyone, and the limit on SMS codes works the same way.
 9. 147 known problems in add-on packages: 1 critical, 45 high, 88 moderate, 13 low. Most high ones are in `axios`. Updating packages should clear most of them.
@@ -178,7 +179,7 @@ MySQL is not installed on this laptop, and the real database was deliberately le
 14. Telegram bot tokens are stored unprotected in the database and sent to the browser.
 15. SMS codes use a weak random number generator and are lost when the server restarts.
 16. The session key in the local `.env` is short, and the server will start without one. Check the production value.
-17. A private note holding a GitHub token sits in the project folder and is not ignored by git. One `git add .` would publish it.
+17. The GitHub token from the private note still works until the owner cancels it (task 2). The note is in the Recycle Bin, and `.gitignore` now blocks files like it. A forced add could still get past that rule, and no automatic secret check exists yet (task 4b).
 18. The whole project, including `.env`, syncs to OneDrive.
 
 ## What stands between this app and paying users
@@ -229,7 +230,7 @@ Yes for testing. For paying customers, plan on about 1,400 ETB a month. Prices w
 | **EthioDeploy Pro** (recommended for launch) | 1,399 ETB/month | Always on, 1 GB, 5 GB database, own domain, **pays by Telebirr** | Server location not stated. Young company. Confirm the MySQL add-on works. |
 | **Render + TiDB Cloud + Cloudinary** | 0 | Good for a demo. TiDB is MySQL-compatible with 5 GB free. Cloudinary needs no card. | Render sleeps after 15 minutes and takes about a minute to wake. Posting stops while asleep. Confirm TiDB needs no card. |
 | **HahuCloud server** | 3,174/month for 1 GB (the page shows no currency; probably ETB) | Full control. Bank payment logos shown. | You maintain it yourself. Its listed server locations are outside Ethiopia. |
-| **Railway** (today) | One $5 trial credit | Already set up | Needs a foreign payment method to continue, very likely. |
+| **Railway** (ended by the owner) | One $5 trial credit | Settings are already in the code | Needs a foreign payment method to continue, very likely. |
 
 **Recommendation:** test on a free option, then move to EthioDeploy Pro when the first customers pay. Three Starter customers would cover it. Add photo storage on Cloudinary's free plan.
 
@@ -250,15 +251,17 @@ Do these in order. Each is sized for one session. Tick each box when done, then 
 
 ### Stage 1: stop the leaks (do these first)
 
-- [ ] **1. [OWNER]** Change the database password in Railway. Then put the new one only in Railway's settings and the local `.env`, without sharing it in chat.
-- [ ] **2. [OWNER]** Cancel the GitHub token in the private note, then delete the note.
-- [ ] **3. [OWNER]** Decide whether to make this repo private. Recommended. Hosting will need GitHub access reconnected if it stops working.
-- [ ] **4. [OWNER approves]** Remove the password from the code and from git history, then add a check that blocks secrets from being committed. Done when a full scan of all history finds none. Rewriting history needs a force-push, so ask first.
+- [ ] **1. [OWNER]** Delete the Railway database, since the owner says the deployment is over. This is permanent. If its data is still wanted, change the password instead. Claude cannot do this.
+- [ ] **2. [OWNER]** Cancel the old GitHub tokens on GitHub, then empty the Recycle Bin. The note itself is already out of the project folder.
+- [ ] **3. [OWNER]** Make this repo private, as the owner has decided. Claude could not do this because the app's browser is not signed in to GitHub.
+- [x] **4.** Remove the old database password and test-account passwords from the code and from git history. Done 3 November 2026: backup made and restored as a test, 62 commits compared with 0 problems, force-pushed, and a fresh download checked.
+- [ ] **4b.** Add a check that blocks secrets from being committed.
 
 ### Stage 2: make it run
 
-- [ ] **5.** Fix the login page mistake (`LoginPage.tsx`, line 321). Done when `pnpm build` passes.
-- [ ] **6. [OWNER approves install]** Add `cookie-parser` and the missing type packages. Done when `pnpm check` passes and the server starts.
+- [x] **5.** Fix the login page mistake (`LoginPage.tsx`, line 321). Done 3 November 2026: `pnpm build` passes.
+- [x] **6.** Add `cookie-parser` and its types. Done 3 November 2026: the server starts in both modes.
+- [ ] **6b. [OWNER approves install]** Add `@types/cors`, a development-only package, and clear the last 3 errors. Done when `pnpm check` passes.
 - [ ] **7. [OWNER approves install]** Set up a practice MySQL database on the laptop, separate from the Ollaa PostgreSQL server. Run all 11 database updates from empty. Complete `.env.example`. Done when a test user can sign up by email and log in.
 - [ ] **8.** Click through every page after login, and add newly found bugs to this list.
 
@@ -270,7 +273,7 @@ Do these in order. Each is sized for one session. Tick each box when done, then 
 - [ ] **12.** Stop sending scrambled passwords and bot tokens to the browser.
 - [ ] **13.** Fix the login limit behind a proxy. Limit sign-ups and request sizes. Trust only the app's own address. Refuse to start without a strong `JWT_SECRET`.
 - [ ] **14.** Update the add-on packages, then re-run all tests.
-- [ ] **15.** Delete test account creation from start-up. **[OWNER approves]** Check the real database for test accounts and remove them.
+- [ ] **15.** Delete test account creation from start-up, including the seed step in `nixpacks.toml`. The scripts now skip it unless `SEED_TEST_PASSWORD` is set. **[OWNER approves]** If the real database is kept, check it for test accounts and remove them.
 
 ### Stage 4: take money safely
 
