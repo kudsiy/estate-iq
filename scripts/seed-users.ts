@@ -13,9 +13,15 @@ async function main() {
 
   const db = drizzle(process.env.DATABASE_URL);
   
+  const testPassword = process.env.SEED_TEST_PASSWORD;
+  if (!testPassword) {
+    console.log("SEED_TEST_PASSWORD is not set, so no test accounts were created.");
+    process.exit(0);
+  }
+
   const accounts = [
-    { email: "starter@estateiq.com", name: "Starter Agent", password: process.env.SEED_TEST_PASSWORD!, plan: "starter" },
-    { email: "pro@estateiq.com", name: "Pro Agent", password: process.env.SEED_TEST_PASSWORD!, plan: "pro" }
+    { email: "starter@estateiq.com", name: "Starter Agent", password: testPassword, plan: "starter" },
+    { email: "pro@estateiq.com", name: "Pro Agent", password: testPassword, plan: "pro" }
   ];
 
   for (const acc of accounts) {

@@ -9,12 +9,18 @@ const db = drizzle(process.env.DATABASE_URL!);
 async function seed() {
   console.log("[Seed] Connecting to Railway DB...");
 
+  const testPassword = process.env.SEED_TEST_PASSWORD;
+  if (!testPassword) {
+    console.log("SEED_TEST_PASSWORD is not set, so no test accounts were created.");
+    process.exit(0);
+  }
+
   const accounts = [
     {
       openId: "email:pro_staging_001",
       name: "Abebe Bekele (PRO)",
       email: "pro@estateiq.test",
-      password: process.env.SEED_TEST_PASSWORD!,
+      password: testPassword,
       plan: "pro" as const,
       loginMethod: "email",
     },
@@ -22,7 +28,7 @@ async function seed() {
       openId: "email:starter_staging_001",
       name: "Tigist Worku (STARTER)",
       email: "starter@estateiq.test",
-      password: process.env.SEED_TEST_PASSWORD!,
+      password: testPassword,
       plan: "starter" as const,
       loginMethod: "email",
     },
